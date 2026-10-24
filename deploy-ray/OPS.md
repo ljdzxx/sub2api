@@ -41,7 +41,7 @@ bash /root/sub2api-ops.sh
 | 13 | 只读备份原数据库 |
 | 14 | 首次接续或重新核验原库 |
 
-第一次选启动即可自动完成接续、获取 `ray` 源码、构建镜像、只读备份和启动。master 使用 8080，salve 使用 8081；新容器名分别为 `sub2api-ray-master`、`sub2api-ray-salve`。旧 `sub2api` 不会被脚本删除或自动启动。
+第一次选启动即可自动完成接续、获取 `ray` 源码、构建镜像，并按本次选择决定是否备份，然后启动。菜单选择启动或更新后会询问「本次启动/更新前备份数据库？[Y/n]」，回车或 Y 表示备份，n 表示不备份。master 使用 8080，salve 使用 8081；新容器名分别为 `sub2api-ray-master`、`sub2api-ray-salve`。旧 `sub2api` 不会被脚本删除或自动启动。
 
 构建时可能下载 PostgreSQL 镜像，这是项目 Dockerfile 提取 `psql/pg_dump` 客户端的构建阶段，不会启动新的数据库容器。
 
@@ -66,9 +66,41 @@ bash /root/sub2api-ops.sh status
 bash /root/sub2api-ops.sh logs salve
 ```
 
-`start` 使用实例已保存的镜像；首次缺少镜像时才自动拉源码构建。`update` 会快进更新受管 `ray` 源码、构建新镜像、备份原库，再只重建所选实例。`restart` 只重启已有实例，不拉取代码。
+`start` 使用实例已保存的镜像；首次缺少镜像时才自动拉源码构建。`update` 会快进更新受管 `ray` 源码、构建新镜像，按本次选择决定是否备份，再只重建所选实例。`restart` 只重启已有实例，不拉取代码。
 
-更新前的拉代码、构建或备份失败，都不会停止或替换正在运行的新版实例。备份文件生成后还会执行 `pg_restore --list` 检查格式；这是只读检查，不会恢复或修改数据库。新版本启动失败时保留日志和旧镜像信息，不自动回退数据库。
+更新前的拉代码、构建失败，或选择备份后的备份失败，都不会停止或替换正在运行的新版实例。新版本启动失败时保留日志和旧镜像信息，不自动回退数据库。
+
+## 备份方式、时机和路径
+
+打开菜单本身不备份，`stop/restart/logs/status/attach` 也不自动备份。只有 `start/update` 按本次选择备份，或执行手动 `backup`。操作 `all` 时只在操作前备份一次共享数据库。
+
+命令行默认保留备份行为，可以明确选择：
+
+```bash
+# 更新前备份（默认，也可显式指定）
+bash /root/sub2api-ops.sh update master --backup
+
+# 本次更新或启动不备份
+bash /root/sub2api-ops.sh update salve --no-backup
+bash /root/sub2api-ops.sh start master --no-backup
+
+# 随时单独备份
+bash /root/sub2api-ops.sh backup
+```
+
+`--backup/--no-backup` 只影响本次 `start/update`，不关闭原库身份、挂载和空库检查。升级或首次启动新版本可能执行迁移，建议备份；普通启停不必反复生成备份，可选择不备份或使用 `restart`。
+
+备份使用现有 PostgreSQL 容器里的 `pg_dump -Fc`，对原业务数据库做一致性逻辑导出。连接启用只读事务设置，不修改业务数据、不创建数据库，也不复制/替换 PostgreSQL 数据目录。导出涵盖该库的表结构和数据等对象，不包含 Redis、集群级角色、应用目录或运维密钥。备份会占用 CPU、磁盘 I/O、空间并持有读锁，大库可能耗时。
+
+输出直接写到**宿主机**的 `状态目录/backups/`。如果入口是 `/root/sub2api-ops.sh` 且没有指定 `RAY_OPS_STATE_DIR`，则是：
+
+```text
+/root/.ray-ops/backups/20261024T120000Z-随机后缀.dump
+```
+
+文件名使用 UTC 时间。写入期间是 `.dump.partial`，完成后用 `pg_restore --list` 检查目录能否读取，再改成 `.dump`；失败的临时文件会删除。这不是完整恢复演练。备份文件权限为 600，历史成功备份不自动删除。
+
+如果设置了 `RAY_OPS_STATE_DIR`，目标位置为该固定目录下的 `backups/`；不要为了移动备份而随意切换状态目录，因为其中还保存着生产连接信息和实例状态。
 
 ## 原数据库保护规则
 

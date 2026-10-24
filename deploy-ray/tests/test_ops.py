@@ -1,4 +1,5 @@
 import copy
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -139,6 +140,56 @@ class OpsTests(unittest.TestCase):
         self.assertTrue(all(item[0] == "salve" for item in events[2:]))
         self.assertIn("--no-deps", events[-1][1])
         self.assertNotIn("master", events[-1][1])
+
+    def test_skip_backup_does_not_skip_original_database_verification(self):
+        with patch.object(ops, "check_old_stopped") as old, patch.object(ops, "verify") as verify, \
+             patch.object(ops, "sync_build", return_value="new:image"), patch.object(ops, "backup") as backup, \
+             patch.object(ops, "render"), patch.object(ops, "save"), patch.object(ops, "compose") as compose:
+            ops.change_apps(state(), "update", ("salve",), backup_before_change=False)
+        backup.assert_not_called()
+        old.assert_called_once()
+        self.assertGreaterEqual(verify.call_count, 2)
+        self.assertIn("up", compose.call_args.args)
+
+    def test_cli_backup_choice_reaches_dispatch(self):
+        with tempfile.TemporaryDirectory(prefix="ray-backup-options-") as directory:
+            root = Path(directory).resolve()
+            self.assertEqual(root.parent, Path(tempfile.gettempdir()).resolve())
+            for flags, expected in (([], True), (["--backup"], True), (["--no-backup"], False)):
+                with patch.object(ops, "STATE_DIR", root), patch.object(ops.sys, "argv", ["ops.sh", "update", "salve", *flags]), \
+                     patch.object(ops, "operation_lock", return_value=contextlib.nullcontext()), patch.object(ops, "dispatch") as dispatch:
+                    ops.main()
+                    dispatch.assert_called_once_with("update", "salve", backup_before_change=expected)
+        with patch.object(ops.sys, "argv", ["ops.sh", "stop", "salve", "--no-backup"]), patch.object(ops, "dispatch") as dispatch:
+            with self.assertRaisesRegex(ops.OpsError, "start"):
+                ops.main()
+            dispatch.assert_not_called()
+
+    def test_backup_file_is_written_to_host_state_directory(self):
+        with tempfile.TemporaryDirectory(prefix="ray-backup-location-") as directory:
+            root = Path(directory).resolve()
+            self.assertEqual(root.parent, Path(tempfile.gettempdir()).resolve())
+            def dump(*args, **kwargs):
+                kwargs["stdout"].write(b"PGDMP test archive")
+            with patch.object(ops, "STATE_DIR", root), patch.object(ops, "verify"), patch.object(ops, "run", side_effect=dump), \
+                 patch.object(ops.subprocess, "run", return_value=types.SimpleNamespace(returncode=0)) as validate:
+                saved = ops.backup(state())
+            self.assertEqual(saved.parent, root / "backups")
+            self.assertEqual(saved.suffix, ".dump")
+            self.assertTrue(saved.read_bytes().startswith(b"PGDMP"))
+            self.assertEqual(list((root / "backups").glob("*.partial")), [])
+            self.assertEqual(validate.call_args.args[0][-2:], ["pg_restore", "--list"])
+
+    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash required")
+    def test_menu_backup_choice_is_passed_without_running_docker(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        helper = text.split("choose_backup_and_run() {", 1)[1].split("\nif [[ $# -gt 0 ]]", 1)[0]
+        shell = 'run_action() { printf "%s\\n" "$*"; }\nchoose_backup_and_run() {' + helper + '\nchoose_backup_and_run update salve\n'
+        for answer, flag in (("\n", "--backup"), ("Y\n", "--backup"), ("n\n", "--no-backup")):
+            # Send Linux terminal newlines unchanged, including when run on Windows.
+            result = subprocess.run([BASH, "-c", shell], input=answer.encode(), capture_output=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8"))
+            self.assertEqual(result.stdout.decode("utf-8").strip(), "update salve " + flag)
 
     def test_start_all_does_not_upgrade_an_existing_role_when_other_image_is_missing(self):
         s = state()

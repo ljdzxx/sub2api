@@ -346,12 +346,15 @@ def selected_roles(target):
     return ROLE_NAMES if target == "all" else (target,)
 
 
-def change_apps(state, action, roles):
+def change_apps(state, action, roles, backup_before_change=True):
     check_old_stopped(state)
     verify(state)
     # Build first. A failed fetch/build/backup never stops an existing managed app.
     built = sync_build(state) if action == "update" or any(not image_present(state["images"].get(r)) for r in roles) else None
-    backup(state)
+    if backup_before_change:
+        backup(state)
+    else:
+        print("本次已选择不备份；原库身份和启动检查仍然生效。", flush=True)
     for role in roles:
         verify(state)
         desired = built if action == "update" or not image_present(state["images"].get(role)) else state["images"][role]
@@ -379,7 +382,7 @@ def operation_lock():
         yield
 
 
-def dispatch(action, target):
+def dispatch(action, target, backup_before_change=True):
     require(shutil.which("docker"), "需要安装 Docker。")
     run(["docker", "compose", "version"], capture=True)
     run(["docker", "info"], capture=True)
@@ -388,7 +391,7 @@ def dispatch(action, target):
         verify(state)
         print("原库核验通过。")
     elif action in ("start", "update"):
-        change_apps(state, action, selected_roles(target))
+        change_apps(state, action, selected_roles(target), backup_before_change=backup_before_change)
     elif action == "stop":
         for role in selected_roles(target):
             if (STATE_DIR / (role + ".compose.json")).exists():
@@ -420,7 +423,12 @@ def main():
     parser = argparse.ArgumentParser(description="接续原数据库的一键运维；不创建 PostgreSQL/Redis，不初始化空库。")
     parser.add_argument("action", choices=("attach", "start", "stop", "restart", "update", "logs", "status", "backup"))
     parser.add_argument("target", nargs="?", default="all")
+    backup_options = parser.add_mutually_exclusive_group()
+    backup_options.add_argument("--backup", dest="backup_mode", action="store_true", help="启动/更新前备份（命令行默认）")
+    backup_options.add_argument("--no-backup", dest="backup_mode", action="store_false", help="本次启动/更新不备份；仍核验原库")
+    parser.set_defaults(backup_mode=None)
     args = parser.parse_args()
+    require(args.backup_mode is None or args.action in ("start", "update"), "--backup/--no-backup 仅用于 start 或 update。")
     require(re.fullmatch(r"[1-9][0-9]*", os.environ.get("RAY_WAIT_TIMEOUT", "600")), "RAY_WAIT_TIMEOUT 必须为正整数秒。")
     if args.action in ("start", "stop", "restart", "update"):
         selected_roles(args.target)
@@ -434,10 +442,10 @@ def main():
             with operation_lock():
                 load_or_attach()
         # Following logs must not block start/stop/update from another terminal.
-        dispatch(args.action, args.target)
+        dispatch(args.action, args.target, backup_before_change=args.backup_mode is not False)
     else:
         with operation_lock():
-            dispatch(args.action, args.target)
+            dispatch(args.action, args.target, backup_before_change=args.backup_mode is not False)
 
 
 if __name__ == "__main__":
@@ -450,6 +458,16 @@ if __name__ == "__main__":
         print("操作终止：" + str(error), file=sys.stderr)
         sys.exit(1)
 RAY_OPS_PYTHON
+}
+
+choose_backup_and_run() {
+  local answer
+  read -r -p '本次启动/更新前备份数据库？[Y/n]：' answer || return 1
+  case "$answer" in
+    ''|y|Y|yes|YES|Yes) run_action "$@" --backup ;;
+    n|N|no|NO|No) run_action "$@" --no-backup ;;
+    *) echo '请输入 Y 或 n，本次操作未执行。' >&2; return 1 ;;
+  esac
 }
 
 if [[ $# -gt 0 ]]; then
@@ -469,15 +487,15 @@ while true; do
 MENU
   read -r -p '请选择：' choice || exit 0
   case "$choice" in
-    1) run_action start master || true ;;
-    2) run_action start salve || true ;;
-    3) run_action start all || true ;;
+    1) choose_backup_and_run start master || true ;;
+    2) choose_backup_and_run start salve || true ;;
+    3) choose_backup_and_run start all || true ;;
     4) run_action stop master || true ;;
     5) run_action stop salve || true ;;
     6) run_action stop all || true ;;
-    7) run_action update master || true ;;
-    8) run_action update salve || true ;;
-    9) run_action update all || true ;;
+    7) choose_backup_and_run update master || true ;;
+    8) choose_backup_and_run update salve || true ;;
+    9) choose_backup_and_run update all || true ;;
     10) run_action logs master || true ;;
     11) run_action logs salve || true ;;
     12) run_action status || true ;;
