@@ -1,7 +1,10 @@
 export default {
     accounts: {
       faultFallbackOnly: 'Fault fallback only',
-      faultFallbackOnlyHint: 'Excluded from initial selection, including sticky sessions. Eligible only after a retryable upstream 429 or 5xx failure in the current request (transport failures usually map to 502). Busy accounts, an empty pool and ordinary request errors do not unlock this account. Each new request starts with regular accounts.',
+      faultFallbackOnlyHint: 'Excluded from initial selection and sticky routing. Eligible only after a replayable upstream failure matching the configured codes. A confirmed content-audit cyber_policy mark always excludes fallback.',
+      faultFallbackStatusCodes: 'Fallback trigger status codes',
+      faultFallbackStatusCodesHint: 'Replaces the defaults. Accepts comma/space-separated codes, ranges and x in any position. Each x matches one digit, e.g. 50x, 5x3, 4xx (within 400–599). Empty disables all status triggers. Existing retry eligibility still applies.',
+      faultFallbackStatusCodesInvalid: 'Enter HTTP error codes, ranges or three-character x patterns within 400–599, e.g. 50x, 5x3, 4xx.',
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
       createAccount: 'Create Account',

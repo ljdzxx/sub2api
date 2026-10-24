@@ -674,7 +674,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// Select account supporting the requested model
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr, service.GetOpsCyberPolicy(c)),
 			apiKey.GroupID,
 			previousResponseID,
 			sessionHash,
@@ -1307,7 +1307,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		}
 		reqLog.Debug("openai_messages.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr, service.GetOpsCyberPolicy(c)),
 			apiKey.GroupID,
 			"", // no previous_response_id
 			sessionHash,
@@ -2713,6 +2713,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
+	var faultFallbackCyberMark atomic.Pointer[service.CyberPolicyMark]
 	wsAttemptMessage := append([]byte(nil), firstMessage...)
 	waitForWSSameAccountRetry := func(account *service.Account, failoverErr *service.UpstreamFailoverError) bool {
 		if account == nil || failoverErr == nil || failoverErr.StatusCode != http.StatusTooManyRequests || failoverErr.SameAccountRetryDeadline.IsZero() {
@@ -2798,7 +2799,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		reqLog.Debug("openai.websocket_account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			service.WithOpenAIFaultFallback(ctx, lastFailoverErr),
+			service.WithOpenAIFaultFallback(ctx, lastFailoverErr, service.GetOpsCyberPolicy(c), faultFallbackCyberMark.Load()),
 			apiKey.GroupID,
 			previousResponseID,
 			sessionHash,
@@ -3040,6 +3041,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return mapping.MappedModel, nil
 			},
 			BeforeTurn: func(turn int) error {
+				if turn > 1 {
+					faultFallbackCyberMark.Store(nil)
+				}
 				// A reserve is authorized for the failed turn only, never the next turn.
 				if turn > 1 && account.IsOpenAIFaultFallbackOnly() {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "fallback turn completed; reconnect for a new request", nil)
@@ -3122,6 +3126,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				}
 				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
 				cyberMarked := service.GetOpsCyberPolicy(c) != nil
+				if cyberMarked {
+					faultFallbackCyberMark.Store(service.GetOpsCyberPolicy(c))
+				}
 				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockBody, turnUsageFields, requestPayloadHash)
 				cyberBlockedThisConn, cyberBlockPendingAfterFailover = advanceOpenAIWSCyberBlockState(
 					cyberBlockedThisConn,

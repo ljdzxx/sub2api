@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -128,13 +129,97 @@ func TestOpenAIFaultFallback_Configuration(t *testing.T) {
 func TestOpenAIFaultFallback_AdminUpdateRequiresExplicitDisable(t *testing.T) {
 	repo := &updateAccountOveragesRepoStub{account: &Account{
 		ID: 8340, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
-		Extra: map[string]any{OpenAIFaultFallbackOnlyExtraKey: true},
+		Extra: map[string]any{OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []int{401, 503}},
 	}}
 	svc := &adminServiceImpl{accountRepo: repo}
 	updated, err := svc.UpdateAccount(context.Background(), 8340, &UpdateAccountInput{Extra: map[string]any{}})
 	require.NoError(t, err)
 	require.True(t, updated.IsOpenAIFaultFallbackOnly(), "old-client extra replacement must preserve reserve admission")
+	require.Equal(t, []int{401, 503}, updated.Extra[OpenAIFaultFallbackStatusCodesExtraKey])
 	updated, err = svc.UpdateAccount(context.Background(), 8340, &UpdateAccountInput{Extra: map[string]any{OpenAIFaultFallbackOnlyExtraKey: false}})
 	require.NoError(t, err)
 	require.False(t, updated.IsOpenAIFaultFallbackOnly())
+}
+
+func TestOpenAIFaultFallback_ConfiguredCodesReplaceDefaults(t *testing.T) {
+	reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{
+		OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []any{float64(401), float64(413)},
+	}}
+	for _, status := range []int{401, 403, 413, 429, 500, 503} {
+		ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: status})
+		require.Equal(t, status == 401 || status == 413, openAIFaultFallbackAccountAllowed(ctx, reserve))
+	}
+	ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: 401, Stage: GatewayFailureStageAccountAuth, Reason: OpenAIUpstreamAccessStateReason})
+	require.True(t, openAIFaultFallbackAccountAllowed(ctx, reserve), "actual upstream access errors can match a configured code")
+	reserve.Extra[OpenAIFaultFallbackStatusCodesExtraKey] = []any{}
+	require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve))
+	reserve.Extra[OpenAIFaultFallbackStatusCodesExtraKey] = "401"
+	require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve), "malformed stored configuration fails closed")
+}
+
+func TestOpenAIFaultFallback_ContentAuditCyberMarkAlwaysExcludes(t *testing.T) {
+	reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{
+		OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []int{400, 403, 429, 503},
+	}}
+	for _, status := range []int{400, 403, 429, 503} {
+		failure := &UpstreamFailoverError{StatusCode: status, ResponseBody: []byte(`{"error":{"code":"upstream_error"}}`)}
+		ctx := WithOpenAIFaultFallback(context.Background(), failure, &CyberPolicyMark{Code: "cyber_policy"})
+		require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve), "audit evidence wins even if forwarding replaced the error body")
+	}
+	for _, tc := range []struct {
+		body    string
+		allowed bool
+	}{
+		{`{"error":{"code":"cyber_policy"}}`, false},
+		{`{"response":{"error":{"code":" Cyber_Policy "}}}`, false},
+		{`{"error":{"code":"server_error","message":"cyber_policy is mentioned here"}}`, true},
+		{`{"error":{"code":"server_error"},"input":{"error":{"code":"cyber_policy"}}}`, true},
+		{`{"error":{"code":"content_policy"}}`, true},
+	} {
+		ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: 503, ResponseBody: []byte(tc.body)})
+		require.Equal(t, tc.allowed, openAIFaultFallbackAccountAllowed(ctx, reserve), tc.body)
+	}
+}
+
+func TestOpenAIFaultFallback_StatusCodeValidation(t *testing.T) {
+	for _, raw := range []any{nil, "503", []any{"50"}, []any{"503.5"}, []any{"3xx"}, []any{"50*"}, []any{true}, []any{503.5}, []int{200}, []int{600}} {
+		require.Error(t, validateOpenAIFaultFallbackExtra(PlatformOpenAI, AccountTypeAPIKey, map[string]any{OpenAIFaultFallbackStatusCodesExtraKey: raw}))
+	}
+	for _, raw := range []any{[]int{}, []int{401, 429}, []any{json.Number("503"), float64(502)}} {
+		require.NoError(t, validateOpenAIFaultFallbackExtra(PlatformOpenAI, AccountTypeAPIKey, map[string]any{OpenAIFaultFallbackStatusCodesExtraKey: raw}))
+	}
+}
+
+func TestOpenAIFaultFallback_SingleDigitWildcards(t *testing.T) {
+	for _, tc := range []struct {
+		pattern         string
+		size            int
+		matches, misses []int
+	}{
+		{"50x", 10, []int{500, 503, 509}, []int{499, 510, 599}},
+		{"5x3", 10, []int{503, 513, 593}, []int{502, 594}},
+		{"4xx", 100, []int{400, 429, 499}, []int{500}},
+		{"x03", 2, []int{403, 503}, []int{404, 504}},
+		{"xxx", 200, []int{400, 503, 599}, []int{200, 600}},
+		{"50X", 10, []int{500, 509}, []int{510}},
+	} {
+		t.Run(tc.pattern, func(t *testing.T) {
+			codes, err := parseOpenAIFaultFallbackStatusCodes([]any{tc.pattern})
+			require.NoError(t, err)
+			require.Len(t, codes, tc.size)
+			reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{
+				OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []any{tc.pattern},
+			}}
+			for _, code := range tc.matches {
+				ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: code})
+				require.True(t, openAIFaultFallbackAccountAllowed(ctx, reserve))
+				blocked := WithOpenAIFaultFallback(ctx, &UpstreamFailoverError{StatusCode: code}, &CyberPolicyMark{Code: "cyber_policy"})
+				require.False(t, openAIFaultFallbackAccountAllowed(blocked, reserve))
+			}
+			for _, code := range tc.misses {
+				ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: code})
+				require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve))
+			}
+		})
+	}
 }

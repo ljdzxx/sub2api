@@ -3234,6 +3234,7 @@
 
       <FaultFallbackOnlyField
         v-model="faultFallbackOnly"
+        v-model:status-codes="faultFallbackStatusCodes"
         :platform="form.platform"
         :type="form.type"
       />
@@ -4161,7 +4162,7 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
-import { withAccountFaultFallback } from '@/utils/accountFaultFallback'
+import { DEFAULT_FAULT_FALLBACK_STATUS_CODES, parseFaultFallbackStatusCodes, withAccountFaultFallback } from '@/utils/accountFaultFallback'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -4643,6 +4644,7 @@ const upstreamModelsPreviewed = ref(false)
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
+const faultFallbackStatusCodes = ref(DEFAULT_FAULT_FALLBACK_STATUS_CODES)
 const faultFallbackOnly = ref(false)
 const poolModeEnabled = ref(false)
 const explicitCacheUpstreamEnabled = ref(false)
@@ -5661,6 +5663,7 @@ const resetForm = () => {
   fetchAntigravityDefaultMappings().then(mappings => {
     antigravityModelMappings.value = [...mappings]
   })
+  faultFallbackStatusCodes.value = DEFAULT_FAULT_FALLBACK_STATUS_CODES
   faultFallbackOnly.value = false
   poolModeEnabled.value = false
   poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
@@ -5860,7 +5863,12 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
 // Helper function to create account with mixed channel warning handling
 const doCreateAccount = async (payload: CreateAccountRequest) => {
   if (payload.platform === 'openai' && payload.type === 'apikey') {
-    payload = { ...payload, extra: withAccountFaultFallback(payload.extra, faultFallbackOnly.value) }
+    const statusCodes = parseFaultFallbackStatusCodes(faultFallbackStatusCodes.value)
+    if (statusCodes === null) {
+      appStore.showError(t('admin.accounts.faultFallbackStatusCodesInvalid'))
+      return
+    }
+    payload = { ...payload, extra: withAccountFaultFallback(payload.extra, faultFallbackOnly.value, statusCodes) }
   }
   const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {
     await submitCreateAccount(payload)

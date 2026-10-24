@@ -1,7 +1,10 @@
 export default {
     accounts: {
       faultFallbackOnly: '仅故障兜底账号',
-      faultFallbackOnlyHint: '不参与普通首选，包括已有会话绑定。仅当本次请求遇到可重试的上游 429 或 5xx 故障后参与重选（网络故障通常归为 502）；并发满、无可用账号和普通参数错误不会触发。每个新请求重新从普通账号开始。',
+      faultFallbackOnlyHint: '不参与普通首选或粘性命中。仅本次上游故障命中下方触发码且允许重试时参与重选；内容审计已明确标记 cyber_policy 时始终排除。',
+      faultFallbackStatusCodes: '兜底触发状态码',
+      faultFallbackStatusCodesHint: '配置完整替换默认值。支持逗号或空格分隔、范围和任意位置的 x；每个 x 匹配一位数字，例如 50x、5x3、4xx（仅匹配 400–599）。清空表示不按任何状态码触发；仍受原有可重试判定限制。',
+      faultFallbackStatusCodesInvalid: '请输入 400–599 的状态码、范围或三位 x 通配表达式，例如 50x、5x3、4xx。',
       title: '账号管理',
       description: '管理 AI 平台账号和 Cookie',
       createAccount: '添加账号',

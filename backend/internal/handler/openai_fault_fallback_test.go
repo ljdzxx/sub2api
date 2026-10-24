@@ -27,22 +27,31 @@ func (r *faultFallbackTestRepo) ListModelAvailabilityCandidates(context.Context,
 
 type faultFallbackTestUpstream struct {
 	service.HTTPUpstream
-	mu     sync.Mutex
-	status int
-	hits   []int64
+	mu             sync.Mutex
+	status         int
+	hits           []int64
+	beforeResponse func()
+	body           string
 }
 
 func (u *faultFallbackTestUpstream) Do(_ *http.Request, _ string, id int64, _ int) (*http.Response, error) {
 	u.mu.Lock()
 	u.hits = append(u.hits, id)
 	u.mu.Unlock()
+	if u.beforeResponse != nil {
+		u.beforeResponse()
+	}
 	if u.status == 0 {
 		return nil, errors.New("dial tcp: network unreachable")
+	}
+	body := u.body
+	if body == "" {
+		body = `{"error":{"type":"server_error","message":"upstream unavailable"}}`
 	}
 	return &http.Response{
 		StatusCode: u.status,
 		Header:     http.Header{"Content-Type": {"application/json"}},
-		Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"type":"server_error","message":"upstream unavailable"}}`)),
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
 	}, nil
 }
 
@@ -70,6 +79,10 @@ func TestOpenAIFaultFallback_HTTPHandlers(t *testing.T) {
 			{"request_error", 400, false, []int64{1}},
 			{"body_limit", 413, false, []int64{1}},
 			{"no_primary", 503, true, nil},
+			{"configured_exclusion", 503, false, []int64{1}},
+			{"configured_auth", 401, false, []int64{1, 2}},
+			{"audit_cyber_mark", 503, false, []int64{1}},
+			{"cyber_keyword_only", 503, false, []int64{1, 2}},
 		} {
 			t.Run(endpoint.name+"/"+scenario.name, func(t *testing.T) {
 				groupID := int64(8330)
@@ -81,6 +94,12 @@ func TestOpenAIFaultFallback_HTTPHandlers(t *testing.T) {
 						Status: service.StatusActive, Schedulable: true, Priority: 0, GroupIDs: []int64{groupID},
 						Credentials: map[string]any{"api_key": "reserve-key", "base_url": "https://example.com"},
 						Extra:       map[string]any{service.OpenAIFaultFallbackOnlyExtraKey: true}},
+				}
+				if scenario.name == "configured_exclusion" {
+					accounts[1].Extra[service.OpenAIFaultFallbackStatusCodesExtraKey] = []int{429}
+				}
+				if scenario.name == "configured_auth" {
+					accounts[1].Extra[service.OpenAIFaultFallbackStatusCodesExtraKey] = []int{401}
 				}
 				if scenario.onlyReserve {
 					accounts = accounts[1:]
@@ -102,6 +121,17 @@ func TestOpenAIFaultFallback_HTTPHandlers(t *testing.T) {
 				c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{ID: 99, GroupID: &groupID,
 					Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, AllowImageGeneration: true, AllowMessagesDispatch: true}, User: &service.User{ID: 100}})
 				c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 100})
+				if scenario.name == "audit_cyber_mark" {
+					upstream.beforeResponse = func() {
+						service.MarkOpsCyberPolicy(c, service.CyberPolicyMark{Code: "cyber_policy", UpstreamStatus: 503})
+						// Simulate an already recorded audit event. This fixture tests
+						// routing and deliberately has no asynchronous billing writer.
+						c.Set(cyberPolicyRecordedKey, true)
+					}
+				}
+				if scenario.name == "cyber_keyword_only" {
+					upstream.body = `{"error":{"type":"server_error","message":"cyber_policy mentioned, upstream unavailable"}}`
+				}
 				endpoint.handle(h, c)
 				upstream.mu.Lock()
 				hits := append([]int64(nil), upstream.hits...)

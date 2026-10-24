@@ -138,7 +138,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 
 	for {
 		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr, service.GetOpsCyberPolicy(c)),
 			apiKey.GroupID,
 			"",
 			sessionHash,
