@@ -66,6 +66,53 @@ curl -fsS http://127.0.0.1:8081/health
 
 两边使用同一个管理员账号。`ADMIN_EMAIL/ADMIN_PASSWORD` 用于空数据库初始化；修改环境变量不会重置已有管理员密码。
 
+## 接入已有生产容器，只增加 8081
+
+如果当前已经有 `sub2api`（8080）、`sub2api-postgres`、`sub2api-redis`，使用以下流程。
+此时不用前面的 `init / infra-up / up all`，也不用普通 `deploy.sh` 管理这个接入实例。
+
+在 Linux 服务器的完整 `ray` 源码目录中：
+
+```bash
+cd deploy-ray
+python3 prepare-existing.py
+
+# 后续命令始终带这个项目名和配置文件
+docker compose -p sub2api-ray-salve -f compose.existing.local.json config --quiet
+docker compose -p sub2api-ray-salve -f compose.existing.local.json build salve
+
+# 备份旧部署初始化的生产数据库；命令失败时不要继续启动
+umask 077
+mkdir -p backups
+docker exec sub2api-postgres sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > "backups/before-ray-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+# 确认 ray 的数据库迁移与当前 8080 版本兼容后，才执行启动
+docker compose -p sub2api-ray-salve -f compose.existing.local.json \
+  up -d --no-deps --no-build --pull never --wait --wait-timeout 600 salve
+
+curl -fsS http://127.0.0.1:8081/health
+docker compose -p sub2api-ray-salve -f compose.existing.local.json logs --tail 100 salve
+```
+
+准备脚本只读三个运行中容器的元数据，自动选取它们已有的共同网络，复制当前应用的数据库/Redis/JWT/TOTP 等运行环境。
+旧 Redis 没有密码也可复用，不会生成新密码；新实例数据库池默认 20/5，为原实例保留连接余量。
+如果存在多个共同网络，使用 `python3 prepare-existing.py --network 实际网络名` 指定一个。
+如果运行环境中没有固定 JWT/TOTP 密钥，脚本会停止，要求先核实原实例配置，不会擅自生成替代密钥。
+
+生成的 `compose.existing.local.json` 含生产密钥，权限 600，已被 Git 和 Docker 构建上下文排除；不要上传或粘贴其完整内容。
+它只定义 salve、独立应用数据卷和外部生产网络，不定义 master、PostgreSQL 或 Redis，也不会修改原部署目录。
+重复执行准备脚本不会覆盖已有文件；需要重新读取生产设置时，先把旧文件移到安全备份位置。
+
+单独停掉新增实例：
+
+```bash
+docker compose -p sub2api-ray-salve -f compose.existing.local.json stop salve
+```
+
+已有的 8080 容器不会被以上 Compose 命令重建或停止，但新版应用启动可能自动迁移共享数据库，公共设置/配额状态也会共享。
+先确认新旧版本兼容；数据库迁移不兼容时，需要维护窗口或先使用独立数据库副本验证。
+
 `up all` 先等待 PostgreSQL/Redis 健康，然后启动 master，待 master 初始化完成并健康后再启动 salve。首次空数据库安装不要从两个终端同时启动两个应用：数据库迁移有锁，但初始化管理员仍应按顺序完成。
 
 也可以让 salve 首先启动，完全不启动 master：

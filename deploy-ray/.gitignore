@@ -2,6 +2,9 @@
 .env.tmp.*
 backups/
 *.log
+*.local.json
+__pycache__/
 !tests/
 tests/*
 !tests/test_deploy.py
+!tests/test_prepare_existing.py
