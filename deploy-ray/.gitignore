@@ -4,7 +4,9 @@ backups/
 *.log
 *.local.json
 __pycache__/
+.ray-ops/
 !tests/
 tests/*
 !tests/test_deploy.py
 !tests/test_prepare_existing.py
+!tests/test_ops.py

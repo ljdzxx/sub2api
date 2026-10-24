@@ -52,6 +52,7 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.ray-ops/
 *.env
 !.env.example
 docker-compose.override.yml

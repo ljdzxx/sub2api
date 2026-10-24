@@ -73,6 +73,7 @@ deploy/data/
 deploy/postgres_data/
 deploy/redis_data/
 /deploy-ray/
+.ray-ops/
 
 # GoReleaser
 .goreleaser.yaml
