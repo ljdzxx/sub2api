@@ -411,6 +411,9 @@ func normalizeOpenAILongContextBillingUpdateExtra(account *Account, input *Updat
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
+	if err := validateOpenAIFaultFallbackExtra(input.Platform, input.Type, accountExtra); err != nil {
+		return nil, err
+	}
 	if input.Platform == PlatformTypeSafe && input.Type != AccountTypeAPIKey {
 		return nil, errors.New("typesafe accounts only support apikey credentials")
 	}
@@ -595,6 +598,10 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		effectiveType := account.Type
 		if input.Type != "" {
 			effectiveType = input.Type
+		}
+		normalizedExtra = preserveOpenAIFaultFallbackExtra(account, normalizedExtra)
+		if err := validateOpenAIFaultFallbackExtra(account.Platform, effectiveType, normalizedExtra); err != nil {
+			return nil, err
 		}
 		normalizedExtra, err = normalizeOpenAIAutoResetCreditExtra(account.Platform, effectiveType, account.IsShadow(), normalizedExtra)
 		if err != nil {

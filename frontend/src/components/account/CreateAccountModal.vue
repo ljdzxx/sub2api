@@ -3232,6 +3232,12 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
+      <FaultFallbackOnlyField
+        v-model="faultFallbackOnly"
+        :platform="form.platform"
+        :type="form.type"
+      />
+
       <UpstreamRequestIdHeaderField
         v-model="upstreamRequestIdHeader"
         :platform="form.platform"
@@ -4154,6 +4160,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
+import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
+import { withAccountFaultFallback } from '@/utils/accountFaultFallback'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -4635,6 +4643,7 @@ const upstreamModelsPreviewed = ref(false)
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
+const faultFallbackOnly = ref(false)
 const poolModeEnabled = ref(false)
 const explicitCacheUpstreamEnabled = ref(false)
 const explicitCacheUpstreamMaxTTL = ref<string | number>('')
@@ -5652,6 +5661,7 @@ const resetForm = () => {
   fetchAntigravityDefaultMappings().then(mappings => {
     antigravityModelMappings.value = [...mappings]
   })
+  faultFallbackOnly.value = false
   poolModeEnabled.value = false
   poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
   poolModeRetryStatusCodesInput.value = ''
@@ -5849,6 +5859,9 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
 
 // Helper function to create account with mixed channel warning handling
 const doCreateAccount = async (payload: CreateAccountRequest) => {
+  if (payload.platform === 'openai' && payload.type === 'apikey') {
+    payload = { ...payload, extra: withAccountFaultFallback(payload.extra, faultFallbackOnly.value) }
+  }
   const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {
     await submitCreateAccount(payload)
   })

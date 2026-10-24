@@ -1,5 +1,7 @@
 export default {
     accounts: {
+      faultFallbackOnly: 'Fault fallback only',
+      faultFallbackOnlyHint: 'Excluded from initial selection, including sticky sessions. Eligible only after a retryable upstream 429 or 5xx failure in the current request (transport failures usually map to 502). Busy accounts, an empty pool and ordinary request errors do not unlock this account. Each new request starts with regular accounts.',
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
       createAccount: 'Create Account',

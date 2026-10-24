@@ -674,7 +674,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// Select account supporting the requested model
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
 			apiKey.GroupID,
 			previousResponseID,
 			sessionHash,
@@ -1307,7 +1307,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		}
 		reqLog.Debug("openai_messages.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
 			apiKey.GroupID,
 			"", // no previous_response_id
 			sessionHash,
@@ -2798,7 +2798,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		reqLog.Debug("openai.websocket_account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			ctx,
+			service.WithOpenAIFaultFallback(ctx, lastFailoverErr),
 			apiKey.GroupID,
 			previousResponseID,
 			sessionHash,
@@ -3040,6 +3040,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return mapping.MappedModel, nil
 			},
 			BeforeTurn: func(turn int) error {
+				// A reserve is authorized for the failed turn only, never the next turn.
+				if turn > 1 && account.IsOpenAIFaultFallbackOnly() {
+					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "fallback turn completed; reconnect for a new request", nil)
+				}
 				// turn==1 的会话屏蔽已由握手层检查覆盖；连接内 flag 只拦截后续 turn。
 				if cyberBlockedThisConn && !h.cyberPolicyLogOnly(c, apiKey) {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)

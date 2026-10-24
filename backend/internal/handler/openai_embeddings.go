@@ -136,7 +136,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 
 	for {
 		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
+			service.WithOpenAIFaultFallback(c.Request.Context(), lastFailoverErr),
 			apiKey.GroupID,
 			"",
 			"",

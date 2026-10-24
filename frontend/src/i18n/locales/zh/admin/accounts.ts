@@ -1,5 +1,7 @@
 export default {
     accounts: {
+      faultFallbackOnly: '仅故障兜底账号',
+      faultFallbackOnlyHint: '不参与普通首选，包括已有会话绑定。仅当本次请求遇到可重试的上游 429 或 5xx 故障后参与重选（网络故障通常归为 502）；并发满、无可用账号和普通参数错误不会触发。每个新请求重新从普通账号开始。',
       title: '账号管理',
       description: '管理 AI 平台账号和 Cookie',
       createAccount: '添加账号',
