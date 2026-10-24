@@ -72,6 +72,7 @@ deploy/sub2api-sudoers
 deploy/data/
 deploy/postgres_data/
 deploy/redis_data/
+/deploy-ray/
 
 # GoReleaser
 .goreleaser.yaml

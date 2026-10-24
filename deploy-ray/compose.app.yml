@@ -1,0 +1,99 @@
+x-app: &app
+  restart: unless-stopped
+  pull_policy: never
+  build:
+    context: ..
+    dockerfile: Dockerfile
+    args:
+      COMMIT: ${RAY_GIT_COMMIT:-ray-local}
+      DATE: ${RAY_BUILD_DATE:-}
+      NODE_IMAGE: ${NODE_IMAGE:-node:24-alpine}
+      GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.27.3-alpine}
+      ALPINE_IMAGE: ${ALPINE_IMAGE:-alpine:3.21}
+      POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:18-alpine}
+      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+      GOSUMDB: ${GOSUMDB:-sum.golang.google.cn}
+      NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org}
+  security_opt:
+    - no-new-privileges:true
+  stop_grace_period: 60s
+  ulimits:
+    nofile:
+      soft: 100000
+      hard: 100000
+  environment:
+    AUTO_SETUP: "true"
+    SERVER_HOST: 0.0.0.0
+    SERVER_PORT: "8080"
+    SERVER_MODE: release
+    RUN_MODE: ${RUN_MODE:-standard}
+    DATA_DIR: /app/data
+    DATABASE_HOST: ray-postgres
+    DATABASE_PORT: "5432"
+    DATABASE_USER: ${POSTGRES_USER:-sub2api}
+    DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Run bash deploy.sh init first}
+    DATABASE_DBNAME: ${POSTGRES_DB:-sub2api}
+    DATABASE_SSLMODE: disable
+    DATABASE_MAX_OPEN_CONNS: ${DATABASE_MAX_OPEN_CONNS:-50}
+    DATABASE_MAX_IDLE_CONNS: ${DATABASE_MAX_IDLE_CONNS:-10}
+    REDIS_HOST: ray-redis
+    REDIS_PORT: "6379"
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?Run bash deploy.sh init first}
+    REDIS_DB: ${REDIS_DB:-0}
+    REDIS_POOL_SIZE: ${REDIS_POOL_SIZE:-256}
+    REDIS_MIN_IDLE_CONNS: ${REDIS_MIN_IDLE_CONNS:-10}
+    REDIS_ENABLE_TLS: "false"
+    JWT_SECRET: ${JWT_SECRET:?Run bash deploy.sh init first}
+    JWT_EXPIRE_HOUR: ${JWT_EXPIRE_HOUR:-24}
+    TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Run bash deploy.sh init first}
+    ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Run bash deploy.sh init first}
+    SETUP_MIGRATION_TIMEOUT_SECONDS: ${SETUP_MIGRATION_TIMEOUT_SECONDS:-600}
+    TZ: ${TZ:-Asia/Shanghai}
+    GEMINI_OAUTH_CLIENT_ID: ${GEMINI_OAUTH_CLIENT_ID:-}
+    GEMINI_OAUTH_CLIENT_SECRET: ${GEMINI_OAUTH_CLIENT_SECRET:-}
+    GEMINI_CLI_OAUTH_CLIENT_SECRET: ${GEMINI_CLI_OAUTH_CLIENT_SECRET:-}
+    ANTIGRAVITY_OAUTH_CLIENT_SECRET: ${ANTIGRAVITY_OAUTH_CLIENT_SECRET:-}
+  networks:
+    - shared
+  healthcheck:
+    test: [CMD, wget, -q, -T, "5", -O, /dev/null, "http://127.0.0.1:8080/health"]
+    interval: 10s
+    timeout: 6s
+    retries: 18
+    start_period: 90s
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+# deploy.sh selects ONE service in a separate Compose project for each role.
+# No depends_on: app lifecycle commands never recreate shared infrastructure.
+services:
+  master:
+    <<: *app
+    image: ${MASTER_IMAGE:-sub2api-ray:master}
+    hostname: sub2api-ray-master
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${MASTER_PORT:-8080}:8080"
+    volumes:
+      - master_data:/app/data
+
+  salve:
+    <<: *app
+    image: ${SALVE_IMAGE:-sub2api-ray:salve}
+    hostname: sub2api-ray-salve
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${SALVE_PORT:-8081}:8080"
+    volumes:
+      - salve_data:/app/data
+
+networks:
+  shared:
+    name: sub2api-ray-shared
+    external: true
+
+volumes:
+  master_data:
+  salve_data:

@@ -1,0 +1,7 @@
+.env
+.env.tmp.*
+backups/
+*.log
+!tests/
+tests/*
+!tests/test_deploy.py

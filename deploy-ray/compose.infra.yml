@@ -1,0 +1,59 @@
+services:
+  ray-postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sub2api}
+      POSTGRES_DB: ${POSTGRES_DB:-sub2api}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run bash deploy.sh init first}
+      PGDATA: /var/lib/postgresql/data
+      TZ: ${TZ:-Asia/Shanghai}
+    command: [postgres, -c, "max_connections=${POSTGRES_MAX_CONNECTIONS:-200}"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" && psql -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -Atqc "SELECT 1" >/dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  ray-redis:
+    image: ${REDIS_IMAGE:-redis:8-alpine}
+    restart: unless-stopped
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Run bash deploy.sh init first}
+      TZ: ${TZ:-Asia/Shanghai}
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --requirepass, "${REDIS_PASSWORD:?Run bash deploy.sh init first}"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - shared
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+# No host ports: only containers on this Docker network can access the services.
+networks:
+  shared:
+    name: sub2api-ray-shared
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
