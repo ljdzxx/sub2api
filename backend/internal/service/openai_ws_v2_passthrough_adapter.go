@@ -29,6 +29,7 @@ type openAIWSClientFrameConn struct {
 	// model identifier they supplied for the current turn.
 	restoreResponseModel func([]byte) []byte
 	restoreToolNames     func([]byte) []byte
+	cacheReadTransformer *CacheReadWireTransformer
 }
 
 // openAIWSPolicyEnforcingFrameConn wraps a client-side FrameConn and runs
@@ -651,7 +652,7 @@ func (c *openAIWSClientFrameConn) WriteFrame(ctx context.Context, msgType coderw
 			payload = c.restoreToolNames(payload)
 		}
 	}
-	return c.conn.Write(ctx, msgType, payload)
+	return c.conn.Write(ctx, msgType, c.cacheReadTransformer.Transform(payload))
 }
 
 func (c *openAIWSClientFrameConn) Close() error {
@@ -954,6 +955,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	turnLifecycle := newOpenAIWSPassthroughTurnLifecycle(true)
 	var acceptedTurnStartedAt atomic.Pointer[time.Time]
 	clientFrameConn := &openAIWSClientFrameConn{
+		cacheReadTransformer: newContextCacheReadTransformer(ctx),
 		conn:                 clientConn,
 		controlCtx:           ctx,
 		interTurnIdleTimeout: s.openAIWSIngressInterTurnIdleTimeout(),
@@ -1208,6 +1210,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					Usage: OpenAIUsage{
 						InputTokens:              turn.Usage.InputTokens,
 						ImageInputTokens:         turn.Usage.ImageInputTokens,
+						ImageCacheReadTokens:     turn.Usage.ImageCacheReadTokens,
 						OutputTokens:             turn.Usage.OutputTokens,
 						CacheCreationInputTokens: turn.Usage.CacheCreationInputTokens,
 						CacheReadInputTokens:     turn.Usage.CacheReadInputTokens,
@@ -1350,6 +1353,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		Usage: OpenAIUsage{
 			InputTokens:              relayResult.Usage.InputTokens,
 			ImageInputTokens:         relayResult.Usage.ImageInputTokens,
+			ImageCacheReadTokens:     relayResult.Usage.ImageCacheReadTokens,
 			OutputTokens:             relayResult.Usage.OutputTokens,
 			CacheCreationInputTokens: relayResult.Usage.CacheCreationInputTokens,
 			CacheReadInputTokens:     relayResult.Usage.CacheReadInputTokens,

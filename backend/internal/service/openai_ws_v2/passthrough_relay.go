@@ -27,6 +27,7 @@ type FrameConn interface {
 type Usage struct {
 	InputTokens              int
 	ImageInputTokens         int
+	ImageCacheReadTokens     int
 	OutputTokens             int
 	CacheCreationInputTokens int
 	CacheReadInputTokens     int
@@ -1114,6 +1115,14 @@ func parseUsageAndAccumulate(
 	if !cachedResult.Exists() {
 		cachedResult = usageResult.Get("prompt_tokens_details.cached_tokens")
 	}
+	if !cachedResult.Exists() {
+		for _, key := range []string{"cache_read_input_tokens", "cache_read_tokens", "cached_tokens"} {
+			if value := usageResult.Get(key); value.Exists() {
+				cachedResult = value
+				break
+			}
+		}
+	}
 	imageTokens := usageResult.Get("output_tokens_details.image_tokens").Int()
 	if imageTokens == 0 {
 		imageTokens = usageResult.Get("completion_tokens_details.image_tokens").Int()
@@ -1138,6 +1147,22 @@ func parseUsageAndAccumulate(
 	inputTokens, inputOK := parseUsageIntField(inputResult, requireTotals)
 	outputTokens, outputOK := parseUsageIntField(outputResult, requireTotals)
 	cachedTokens, cachedOK := parseUsageIntField(cachedResult, false)
+	imageCached := 0
+	for _, prefix := range []string{"input_tokens_details", "prompt_tokens_details"} {
+		details := usageResult.Get(prefix + ".cached_tokens_details")
+		if !details.IsObject() {
+			continue
+		}
+		imagePart, imageOK := parseUsageIntField(details.Get("image_tokens"), false)
+		textPart, textOK := parseUsageIntField(details.Get("text_tokens"), false)
+		imageCached = max(imagePart, 0)
+		if !cachedResult.Exists() {
+			cachedOK = imageOK && textOK
+			cachedTokens = min(imageCached, max(inputTokens, 0))
+			cachedTokens += min(max(textPart, 0), max(inputTokens-cachedTokens, 0))
+		}
+		break
+	}
 	if !inputOK || !outputOK || !cachedOK {
 		recordUsageParseFailure()
 		if onParseFailure != nil {
@@ -1158,6 +1183,7 @@ func parseUsageAndAccumulate(
 	parsedUsage := Usage{
 		InputTokens:              inputTokens,
 		ImageInputTokens:         int(imageInputTokens),
+		ImageCacheReadTokens:     min(imageCached, max(int(imageInputTokens), 0), cachedTokens),
 		OutputTokens:             outputTokens,
 		CacheCreationInputTokens: openAICacheCreationTokensFromUsage(usageResult),
 		CacheReadInputTokens:     cachedTokens,
@@ -1194,6 +1220,9 @@ func mergeRelayUsageNonZero(dst *Usage, src Usage) {
 	if src.CacheCreationInputTokens > 0 {
 		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
 	}
+	if src.ImageCacheReadTokens > 0 {
+		dst.ImageCacheReadTokens = src.ImageCacheReadTokens
+	}
 	if src.CacheReadInputTokens > 0 {
 		dst.CacheReadInputTokens = src.CacheReadInputTokens
 	}
@@ -1215,6 +1244,7 @@ func finalizeRelayTurnUsage(state *relayState) Usage {
 	state.usage.OutputTokens += turnUsage.OutputTokens
 	state.usage.CacheCreationInputTokens += turnUsage.CacheCreationInputTokens
 	state.usage.CacheReadInputTokens += turnUsage.CacheReadInputTokens
+	state.usage.ImageCacheReadTokens += turnUsage.ImageCacheReadTokens
 	state.usage.ImageOutputTokens += turnUsage.ImageOutputTokens
 	state.turnUsage = Usage{}
 	return turnUsage

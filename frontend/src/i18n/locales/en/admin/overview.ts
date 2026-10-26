@@ -1268,6 +1268,7 @@ export default {
         unsupportedMessage: 'This Sub2API server cannot generate the required Live attestation. Live will not work even if enabled. Continue anyway?',
         enableAnyway: 'Enable anyway'
       },
+      cacheReadDeduction: { audit: 'Cache deduction details', raw: 'Upstream cache read tokens', effective: 'Billed cache read tokens', totalInput: 'Upstream total input tokens', upstreamCost: 'Upstream usage cost', title: 'Cache read deduction (percentage points)', hint: 'Default 0. Range 0–100, up to two decimals. A 96.3% cache rate minus 20 becomes 76.3%. Removed cache tokens are billed as ordinary input.' },
       openaiFast: {
         title: 'OpenAI Fast mode',
         force: 'Force Fast (priority)',

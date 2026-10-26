@@ -295,6 +295,11 @@ func ForceOpenaiFast(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldForceOpenaiFast, v))
 }
 
+// CacheReadDeductionPercent applies equality check predicate on the "cache_read_deduction_percent" field. It's identical to CacheReadDeductionPercentEQ.
+func CacheReadDeductionPercent(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
+}
+
 // FreeOpenaiFast applies equality check predicate on the "free_openai_fast" field. It's identical to FreeOpenaiFastEQ.
 func FreeOpenaiFast(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldFreeOpenaiFast, v))
@@ -2293,6 +2298,46 @@ func ForceOpenaiFastEQ(v bool) predicate.Group {
 // ForceOpenaiFastNEQ applies the NEQ predicate on the "force_openai_fast" field.
 func ForceOpenaiFastNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldForceOpenaiFast, v))
+}
+
+// CacheReadDeductionPercentEQ applies the EQ predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadDeductionPercentNEQ applies the NEQ predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadDeductionPercentIn applies the In predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldCacheReadDeductionPercent, vs...))
+}
+
+// CacheReadDeductionPercentNotIn applies the NotIn predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldCacheReadDeductionPercent, vs...))
+}
+
+// CacheReadDeductionPercentGT applies the GT predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadDeductionPercentGTE applies the GTE predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadDeductionPercentLT applies the LT predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadDeductionPercentLTE applies the LTE predicate on the "cache_read_deduction_percent" field.
+func CacheReadDeductionPercentLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldCacheReadDeductionPercent, v))
 }
 
 // FreeOpenaiFastEQ applies the EQ predicate on the "free_openai_fast" field.

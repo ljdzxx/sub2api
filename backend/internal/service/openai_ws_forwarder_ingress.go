@@ -483,11 +483,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}, nil
 	}
 
+	cacheReadTransformer := newContextCacheReadTransformer(ctx)
 	writeClientMessage := func(message []byte) error {
 		writeCtx, cancel := newOpenAIWSDownstreamWriteContext(ctx, hooks, s.openAIWSWriteTimeout())
 		defer cancel()
 		message = restoreCodexToolNamesFromContext(c, message)
-		return clientConn.Write(writeCtx, coderws.MessageText, message)
+		return clientConn.Write(writeCtx, coderws.MessageText, cacheReadTransformer.Transform(message))
 	}
 
 	readClientMessage := func() ([]byte, error) {

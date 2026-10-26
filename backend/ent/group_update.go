@@ -1009,6 +1009,27 @@ func (_u *GroupUpdate) SetNillableForceOpenaiFast(v *bool) *GroupUpdate {
 	return _u
 }
 
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (_u *GroupUpdate) SetCacheReadDeductionPercent(v float64) *GroupUpdate {
+	_u.mutation.ResetCacheReadDeductionPercent()
+	_u.mutation.SetCacheReadDeductionPercent(v)
+	return _u
+}
+
+// SetNillableCacheReadDeductionPercent sets the "cache_read_deduction_percent" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableCacheReadDeductionPercent(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetCacheReadDeductionPercent(*v)
+	}
+	return _u
+}
+
+// AddCacheReadDeductionPercent adds value to the "cache_read_deduction_percent" field.
+func (_u *GroupUpdate) AddCacheReadDeductionPercent(v float64) *GroupUpdate {
+	_u.mutation.AddCacheReadDeductionPercent(v)
+	return _u
+}
+
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
 func (_u *GroupUpdate) SetFreeOpenaiFast(v bool) *GroupUpdate {
 	_u.mutation.SetFreeOpenaiFast(v)
@@ -1539,6 +1560,11 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "audio_stt_price_per_hour", err: fmt.Errorf(`ent: validator failed for field "Group.audio_stt_price_per_hour": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CacheReadDeductionPercent(); ok {
+		if err := group.CacheReadDeductionPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
 			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
@@ -1869,6 +1895,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
+		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadDeductionPercent(); ok {
+		_spec.AddField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -3212,6 +3244,27 @@ func (_u *GroupUpdateOne) SetNillableForceOpenaiFast(v *bool) *GroupUpdateOne {
 	return _u
 }
 
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (_u *GroupUpdateOne) SetCacheReadDeductionPercent(v float64) *GroupUpdateOne {
+	_u.mutation.ResetCacheReadDeductionPercent()
+	_u.mutation.SetCacheReadDeductionPercent(v)
+	return _u
+}
+
+// SetNillableCacheReadDeductionPercent sets the "cache_read_deduction_percent" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableCacheReadDeductionPercent(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetCacheReadDeductionPercent(*v)
+	}
+	return _u
+}
+
+// AddCacheReadDeductionPercent adds value to the "cache_read_deduction_percent" field.
+func (_u *GroupUpdateOne) AddCacheReadDeductionPercent(v float64) *GroupUpdateOne {
+	_u.mutation.AddCacheReadDeductionPercent(v)
+	return _u
+}
+
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
 func (_u *GroupUpdateOne) SetFreeOpenaiFast(v bool) *GroupUpdateOne {
 	_u.mutation.SetFreeOpenaiFast(v)
@@ -3755,6 +3808,11 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "audio_stt_price_per_hour", err: fmt.Errorf(`ent: validator failed for field "Group.audio_stt_price_per_hour": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CacheReadDeductionPercent(); ok {
+		if err := group.CacheReadDeductionPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
 			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
@@ -4102,6 +4160,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
+		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadDeductionPercent(); ok {
+		_spec.AddField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)

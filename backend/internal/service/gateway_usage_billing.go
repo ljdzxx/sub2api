@@ -74,6 +74,7 @@ type usageLogBestEffortWriter interface {
 // postUsageBillingParams 统一扣费所需的参数
 type postUsageBillingParams struct {
 	Cost                  *CostBreakdown
+	UpstreamTotalCost     *float64 // nil preserves legacy accounting for other platforms
 	User                  *User
 	APIKey                *APIKey
 	Account               *Account
@@ -136,8 +137,15 @@ func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
 	return p.Cost.ActualCost > 0 && p.APIKey.HasRateLimits() && p.APIKeyService != nil
 }
 
+func (p *postUsageBillingParams) upstreamTotalCost() float64 {
+	if p.UpstreamTotalCost != nil {
+		return *p.UpstreamTotalCost
+	}
+	return p.Cost.TotalCost
+}
+
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
-	return p.Cost.TotalCost > 0 && p.Account.SupportsAccountQuota() && p.Account.HasAnyQuotaLimit()
+	return p.upstreamTotalCost() > 0 && p.Account.SupportsAccountQuota() && p.Account.HasAnyQuotaLimit()
 }
 
 // postUsageBilling is the legacy fallback billing path used when the unified
@@ -182,7 +190,7 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 	}
 
 	if p.shouldUpdateAccountQuota() {
-		accountCost := cost.TotalCost * p.AccountRateMultiplier
+		accountCost := p.upstreamTotalCost() * p.AccountRateMultiplier
 		if err := deps.accountRepo.IncrementQuotaUsed(billingCtx, p.Account.ID, accountCost); err != nil {
 			slog.Error("increment account quota used failed", "account_id", p.Account.ID, "cost", accountCost, "error", err)
 		}
@@ -344,7 +352,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.APIKeyRateLimitCost = p.Cost.ActualCost
 	}
 	if p.shouldUpdateAccountQuota() {
-		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
+		cmd.AccountQuotaCost = p.upstreamTotalCost() * p.AccountRateMultiplier
 		cmd.AccountQuotaHasDailyLimit = p.Account.GetQuotaDailyLimit() > 0
 		cmd.AccountQuotaHasWeeklyLimit = p.Account.GetQuotaWeeklyLimit() > 0
 	}
@@ -543,7 +551,7 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 			slog.Error("panic in notifyAccountQuota", "recover", r)
 		}
 	}()
-	if p.Cost.TotalCost <= 0 || p.Account == nil || !p.Account.SupportsAccountQuota() || !p.Account.HasAnyQuotaLimit() || deps.balanceNotifyService == nil {
+	if p.upstreamTotalCost() <= 0 || p.Account == nil || !p.Account.SupportsAccountQuota() || !p.Account.HasAnyQuotaLimit() || deps.balanceNotifyService == nil {
 		slog.Debug("notifyAccountQuota: skipped",
 			"total_cost", p.Cost.TotalCost,
 			"account_nil", p.Account == nil,
@@ -553,7 +561,7 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 		)
 		return
 	}
-	accountCost := p.Cost.TotalCost * p.AccountRateMultiplier
+	accountCost := p.upstreamTotalCost() * p.AccountRateMultiplier
 	var quotaState *AccountQuotaState
 	if result != nil {
 		quotaState = result.QuotaState

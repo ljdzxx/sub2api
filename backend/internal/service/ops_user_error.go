@@ -110,7 +110,7 @@ func ToUserErrorRequest(e *OpsErrorLog) *UserErrorRequest {
 		StatusCode:      e.StatusCode,
 		Category:        MapUserErrorCategory(e.Phase, e.Type),
 		Platform:        e.Platform,
-		Message:         e.Message,
+		Message:         publicUsageErrorBody(e.Message),
 		KeyName:         e.APIKeyName,
 		KeyDeleted:      e.APIKeyDeleted,
 		ClientIP:        clientIP,
@@ -138,7 +138,7 @@ func ToUserErrorRequestDetail(e *OpsErrorLogDetail) *UserErrorRequestDetail {
 	base := ToUserErrorRequest(&e.OpsErrorLog)
 	return &UserErrorRequestDetail{
 		UserErrorRequest:   *base,
-		ErrorBody:          e.ErrorBody,
+		ErrorBody:          publicUsageErrorBody(e.ErrorBody),
 		UpstreamStatusCode: e.UpstreamStatusCode,
 	}
 }

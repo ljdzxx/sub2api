@@ -416,11 +416,13 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	stats.TotalAccountCost = nil
-	stats.UpstreamEndpoints = nil
-	stats.EndpointPaths = nil
+	publicStats := *stats
+	publicStats.TotalAccountCost = nil
+	publicStats.CacheReadAudit = nil
+	publicStats.UpstreamEndpoints = nil
+	publicStats.EndpointPaths = nil
 
-	response.Success(c, stats)
+	response.Success(c, &publicStats)
 }
 
 const (

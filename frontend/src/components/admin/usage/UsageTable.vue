@@ -146,6 +146,14 @@
         </template>
 
         <template #cell-tokens="{ row }">
+          <details v-if="props.showCacheReadAudit && row.cache_read_adjustment" class="mb-1 text-xs text-gray-500" data-testid="cache-read-adjustment">
+            <summary class="cursor-pointer">{{ t('admin.groups.cacheReadDeduction.audit') }}</summary>
+            <div>{{ t('admin.groups.cacheReadDeduction.raw') }}: {{ row.cache_read_adjustment.raw.cache_read_input_tokens ?? 0 }}</div>
+            <div>{{ t('admin.groups.cacheReadDeduction.effective') }}: {{ row.cache_read_tokens }}</div>
+            <div>{{ t('admin.groups.cacheReadDeduction.totalInput') }}: {{ row.cache_read_adjustment.raw.input_tokens }}</div>
+            <div>{{ t('admin.groups.cacheReadDeduction.title') }}: {{ row.cache_read_adjustment.percent }}</div>
+            <div>{{ t('admin.groups.cacheReadDeduction.upstreamCost') }}: ${{ row.cache_read_adjustment.upstream_cost.toFixed(8) }}</div>
+          </details>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
           <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
             <svg class="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -599,6 +607,7 @@ interface Props {
   defaultSortOrder?: 'asc' | 'desc'
   showAccountBilling?: boolean
   showUpstreamEndpoint?: boolean
+  showCacheReadAudit?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -610,6 +619,7 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   showAccountBilling: true,
   showUpstreamEndpoint: true,
+  showCacheReadAudit: false,
   flat: false
 })
 const emit = defineEmits<{

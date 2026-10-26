@@ -22160,6 +22160,8 @@ type GroupMutation struct {
 	allow_messages_dispatch                 *bool
 	allow_live                              *bool
 	force_openai_fast                       *bool
+	cache_read_deduction_percent            *float64
+	addcache_read_deduction_percent         *float64
 	free_openai_fast                        *bool
 	require_oauth_only                      *bool
 	require_privacy_set                     *bool
@@ -25021,6 +25023,62 @@ func (m *GroupMutation) ResetForceOpenaiFast() {
 	m.force_openai_fast = nil
 }
 
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (m *GroupMutation) SetCacheReadDeductionPercent(f float64) {
+	m.cache_read_deduction_percent = &f
+	m.addcache_read_deduction_percent = nil
+}
+
+// CacheReadDeductionPercent returns the value of the "cache_read_deduction_percent" field in the mutation.
+func (m *GroupMutation) CacheReadDeductionPercent() (r float64, exists bool) {
+	v := m.cache_read_deduction_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheReadDeductionPercent returns the old "cache_read_deduction_percent" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldCacheReadDeductionPercent(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheReadDeductionPercent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheReadDeductionPercent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheReadDeductionPercent: %w", err)
+	}
+	return oldValue.CacheReadDeductionPercent, nil
+}
+
+// AddCacheReadDeductionPercent adds f to the "cache_read_deduction_percent" field.
+func (m *GroupMutation) AddCacheReadDeductionPercent(f float64) {
+	if m.addcache_read_deduction_percent != nil {
+		*m.addcache_read_deduction_percent += f
+	} else {
+		m.addcache_read_deduction_percent = &f
+	}
+}
+
+// AddedCacheReadDeductionPercent returns the value that was added to the "cache_read_deduction_percent" field in this mutation.
+func (m *GroupMutation) AddedCacheReadDeductionPercent() (r float64, exists bool) {
+	v := m.addcache_read_deduction_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheReadDeductionPercent resets all changes to the "cache_read_deduction_percent" field.
+func (m *GroupMutation) ResetCacheReadDeductionPercent() {
+	m.cache_read_deduction_percent = nil
+	m.addcache_read_deduction_percent = nil
+}
+
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
 func (m *GroupMutation) SetFreeOpenaiFast(b bool) {
 	m.free_openai_fast = &b
@@ -25958,7 +26016,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 67)
+	fields := make([]string, 0, 68)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26118,6 +26176,9 @@ func (m *GroupMutation) Fields() []string {
 	if m.force_openai_fast != nil {
 		fields = append(fields, group.FieldForceOpenaiFast)
 	}
+	if m.cache_read_deduction_percent != nil {
+		fields = append(fields, group.FieldCacheReadDeductionPercent)
+	}
 	if m.free_openai_fast != nil {
 		fields = append(fields, group.FieldFreeOpenaiFast)
 	}
@@ -26274,6 +26335,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.AllowLive()
 	case group.FieldForceOpenaiFast:
 		return m.ForceOpenaiFast()
+	case group.FieldCacheReadDeductionPercent:
+		return m.CacheReadDeductionPercent()
 	case group.FieldFreeOpenaiFast:
 		return m.FreeOpenaiFast()
 	case group.FieldRequireOauthOnly:
@@ -26417,6 +26480,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAllowLive(ctx)
 	case group.FieldForceOpenaiFast:
 		return m.OldForceOpenaiFast(ctx)
+	case group.FieldCacheReadDeductionPercent:
+		return m.OldCacheReadDeductionPercent(ctx)
 	case group.FieldFreeOpenaiFast:
 		return m.OldFreeOpenaiFast(ctx)
 	case group.FieldRequireOauthOnly:
@@ -26825,6 +26890,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetForceOpenaiFast(v)
 		return nil
+	case group.FieldCacheReadDeductionPercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadDeductionPercent(v)
+		return nil
 	case group.FieldFreeOpenaiFast:
 		v, ok := value.(bool)
 		if !ok {
@@ -27003,6 +27075,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addsort_order != nil {
 		fields = append(fields, group.FieldSortOrder)
 	}
+	if m.addcache_read_deduction_percent != nil {
+		fields = append(fields, group.FieldCacheReadDeductionPercent)
+	}
 	if m.addrpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
@@ -27068,6 +27143,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFallbackGroupIDOnInvalidRequest()
 	case group.FieldSortOrder:
 		return m.AddedSortOrder()
+	case group.FieldCacheReadDeductionPercent:
+		return m.AddedCacheReadDeductionPercent()
 	case group.FieldRpmLimit:
 		return m.AddedRpmLimit()
 	case group.FieldProfitMinMargin:
@@ -27250,6 +27327,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddSortOrder(v)
+		return nil
+	case group.FieldCacheReadDeductionPercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheReadDeductionPercent(v)
 		return nil
 	case group.FieldRpmLimit:
 		v, ok := value.(int)
@@ -27592,6 +27676,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldForceOpenaiFast:
 		m.ResetForceOpenaiFast()
+		return nil
+	case group.FieldCacheReadDeductionPercent:
+		m.ResetCacheReadDeductionPercent()
 		return nil
 	case group.FieldFreeOpenaiFast:
 		m.ResetFreeOpenaiFast()
@@ -44694,6 +44781,7 @@ type UsageLogMutation struct {
 	addcache_creation_5m_tokens  *int
 	cache_creation_1h_tokens     *int
 	addcache_creation_1h_tokens  *int
+	cache_read_adjustment        *map[string]interface{}
 	input_cost                   *float64
 	addinput_cost                *float64
 	output_cost                  *float64
@@ -45873,6 +45961,55 @@ func (m *UsageLogMutation) AddedCacheCreation1hTokens() (r int, exists bool) {
 func (m *UsageLogMutation) ResetCacheCreation1hTokens() {
 	m.cache_creation_1h_tokens = nil
 	m.addcache_creation_1h_tokens = nil
+}
+
+// SetCacheReadAdjustment sets the "cache_read_adjustment" field.
+func (m *UsageLogMutation) SetCacheReadAdjustment(value map[string]interface{}) {
+	m.cache_read_adjustment = &value
+}
+
+// CacheReadAdjustment returns the value of the "cache_read_adjustment" field in the mutation.
+func (m *UsageLogMutation) CacheReadAdjustment() (r map[string]interface{}, exists bool) {
+	v := m.cache_read_adjustment
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheReadAdjustment returns the old "cache_read_adjustment" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldCacheReadAdjustment(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheReadAdjustment is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheReadAdjustment requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheReadAdjustment: %w", err)
+	}
+	return oldValue.CacheReadAdjustment, nil
+}
+
+// ClearCacheReadAdjustment clears the value of the "cache_read_adjustment" field.
+func (m *UsageLogMutation) ClearCacheReadAdjustment() {
+	m.cache_read_adjustment = nil
+	m.clearedFields[usagelog.FieldCacheReadAdjustment] = struct{}{}
+}
+
+// CacheReadAdjustmentCleared returns if the "cache_read_adjustment" field was cleared in this mutation.
+func (m *UsageLogMutation) CacheReadAdjustmentCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldCacheReadAdjustment]
+	return ok
+}
+
+// ResetCacheReadAdjustment resets all changes to the "cache_read_adjustment" field.
+func (m *UsageLogMutation) ResetCacheReadAdjustment() {
+	m.cache_read_adjustment = nil
+	delete(m.clearedFields, usagelog.FieldCacheReadAdjustment)
 }
 
 // SetInputCost sets the "input_cost" field.
@@ -47420,7 +47557,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 48)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -47483,6 +47620,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.cache_creation_1h_tokens != nil {
 		fields = append(fields, usagelog.FieldCacheCreation1hTokens)
+	}
+	if m.cache_read_adjustment != nil {
+		fields = append(fields, usagelog.FieldCacheReadAdjustment)
 	}
 	if m.input_cost != nil {
 		fields = append(fields, usagelog.FieldInputCost)
@@ -47612,6 +47752,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheCreation5mTokens()
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.CacheCreation1hTokens()
+	case usagelog.FieldCacheReadAdjustment:
+		return m.CacheReadAdjustment()
 	case usagelog.FieldInputCost:
 		return m.InputCost()
 	case usagelog.FieldOutputCost:
@@ -47715,6 +47857,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldCacheCreation5mTokens(ctx)
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.OldCacheCreation1hTokens(ctx)
+	case usagelog.FieldCacheReadAdjustment:
+		return m.OldCacheReadAdjustment(ctx)
 	case usagelog.FieldInputCost:
 		return m.OldInputCost(ctx)
 	case usagelog.FieldOutputCost:
@@ -47922,6 +48066,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheCreation1hTokens(v)
+		return nil
+	case usagelog.FieldCacheReadAdjustment:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadAdjustment(v)
 		return nil
 	case usagelog.FieldInputCost:
 		v, ok := value.(float64)
@@ -48420,6 +48571,9 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
+	if m.FieldCleared(usagelog.FieldCacheReadAdjustment) {
+		fields = append(fields, usagelog.FieldCacheReadAdjustment)
+	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -48499,6 +48653,9 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldCacheReadAdjustment:
+		m.ClearCacheReadAdjustment()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -48606,6 +48763,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldCacheCreation1hTokens:
 		m.ResetCacheCreation1hTokens()
+		return nil
+	case usagelog.FieldCacheReadAdjustment:
+		m.ResetCacheReadAdjustment()
 		return nil
 	case usagelog.FieldInputCost:
 		m.ResetInputCost()

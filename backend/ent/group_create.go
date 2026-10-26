@@ -724,6 +724,20 @@ func (_c *GroupCreate) SetNillableForceOpenaiFast(v *bool) *GroupCreate {
 	return _c
 }
 
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (_c *GroupCreate) SetCacheReadDeductionPercent(v float64) *GroupCreate {
+	_c.mutation.SetCacheReadDeductionPercent(v)
+	return _c
+}
+
+// SetNillableCacheReadDeductionPercent sets the "cache_read_deduction_percent" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableCacheReadDeductionPercent(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetCacheReadDeductionPercent(*v)
+	}
+	return _c
+}
+
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
 func (_c *GroupCreate) SetFreeOpenaiFast(v bool) *GroupCreate {
 	_c.mutation.SetFreeOpenaiFast(v)
@@ -1165,6 +1179,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultForceOpenaiFast
 		_c.mutation.SetForceOpenaiFast(v)
 	}
+	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
+		v := group.DefaultCacheReadDeductionPercent
+		_c.mutation.SetCacheReadDeductionPercent(v)
+	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
 		v := group.DefaultFreeOpenaiFast
 		_c.mutation.SetFreeOpenaiFast(v)
@@ -1373,6 +1391,14 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.ForceOpenaiFast(); !ok {
 		return &ValidationError{Name: "force_openai_fast", err: errors.New(`ent: missing required field "Group.force_openai_fast"`)}
+	}
+	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
+		return &ValidationError{Name: "cache_read_deduction_percent", err: errors.New(`ent: missing required field "Group.cache_read_deduction_percent"`)}
+	}
+	if v, ok := _c.mutation.CacheReadDeductionPercent(); ok {
+		if err := group.CacheReadDeductionPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
 		return &ValidationError{Name: "free_openai_fast", err: errors.New(`ent: missing required field "Group.free_openai_fast"`)}
@@ -1669,6 +1695,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
 		_node.ForceOpenaiFast = value
+	}
+	if value, ok := _c.mutation.CacheReadDeductionPercent(); ok {
+		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
+		_node.CacheReadDeductionPercent = value
 	}
 	if value, ok := _c.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -2761,6 +2791,24 @@ func (u *GroupUpsert) SetForceOpenaiFast(v bool) *GroupUpsert {
 // UpdateForceOpenaiFast sets the "force_openai_fast" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateForceOpenaiFast() *GroupUpsert {
 	u.SetExcluded(group.FieldForceOpenaiFast)
+	return u
+}
+
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (u *GroupUpsert) SetCacheReadDeductionPercent(v float64) *GroupUpsert {
+	u.Set(group.FieldCacheReadDeductionPercent, v)
+	return u
+}
+
+// UpdateCacheReadDeductionPercent sets the "cache_read_deduction_percent" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateCacheReadDeductionPercent() *GroupUpsert {
+	u.SetExcluded(group.FieldCacheReadDeductionPercent)
+	return u
+}
+
+// AddCacheReadDeductionPercent adds v to the "cache_read_deduction_percent" field.
+func (u *GroupUpsert) AddCacheReadDeductionPercent(v float64) *GroupUpsert {
+	u.Add(group.FieldCacheReadDeductionPercent, v)
 	return u
 }
 
@@ -4024,6 +4072,27 @@ func (u *GroupUpsertOne) SetForceOpenaiFast(v bool) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateForceOpenaiFast() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateForceOpenaiFast()
+	})
+}
+
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (u *GroupUpsertOne) SetCacheReadDeductionPercent(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadDeductionPercent(v)
+	})
+}
+
+// AddCacheReadDeductionPercent adds v to the "cache_read_deduction_percent" field.
+func (u *GroupUpsertOne) AddCacheReadDeductionPercent(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadDeductionPercent(v)
+	})
+}
+
+// UpdateCacheReadDeductionPercent sets the "cache_read_deduction_percent" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateCacheReadDeductionPercent() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadDeductionPercent()
 	})
 }
 
@@ -5484,6 +5553,27 @@ func (u *GroupUpsertBulk) SetForceOpenaiFast(v bool) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateForceOpenaiFast() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateForceOpenaiFast()
+	})
+}
+
+// SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
+func (u *GroupUpsertBulk) SetCacheReadDeductionPercent(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadDeductionPercent(v)
+	})
+}
+
+// AddCacheReadDeductionPercent adds v to the "cache_read_deduction_percent" field.
+func (u *GroupUpsertBulk) AddCacheReadDeductionPercent(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadDeductionPercent(v)
+	})
+}
+
+// UpdateCacheReadDeductionPercent sets the "cache_read_deduction_percent" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateCacheReadDeductionPercent() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadDeductionPercent()
 	})
 }
 

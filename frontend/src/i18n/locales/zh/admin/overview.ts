@@ -1266,6 +1266,7 @@ export default {
         unsupportedMessage: '当前 Sub2API 服务端无法生成 Live 所需的设备证明，即使开启也不能使用。是否仍然开启？',
         enableAnyway: '仍然开启'
       },
+      cacheReadDeduction: { audit: '缓存扣除明细', raw: '原始读缓存 Tokens', effective: '应计读缓存 Tokens', totalInput: '原始总输入 Tokens', upstreamCost: '原始用量费用', title: '读缓存扣除（百分点）', hint: '默认 0 不扣除，支持 0–100，最多两位小数。例如原始命中率 96.3，扣除 20 后按 76.3 计算；减少的缓存转为普通输入计费。' },
       openaiFast: {
         title: 'OpenAI Fast 模式',
         force: '强制使用 Fast（priority）',

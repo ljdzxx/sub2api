@@ -150,6 +150,7 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 		Group:                       groupFromServiceBase(g),
 		ForceOpenAIFast:             g.ForceOpenAIFast,
 		FreeOpenAIFast:              g.FreeOpenAIFast,
+		CacheReadDeductionPercent:   g.CacheReadDeductionPercent,
 		ProfitControlEnabled:        g.ProfitControlEnabled,
 		ProfitMinMargin:             g.ProfitMinMargin,
 		ProfitSafetyBuffer:          g.ProfitSafetyBuffer,
@@ -777,6 +778,7 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		BillingTier:             l.BillingTier,
 		AccountRateMultiplier:   l.AccountRateMultiplier,
 		AccountStatsCost:        l.AccountStatsCost,
+		CacheReadAdjustment:     l.CacheReadAdjustment,
 		IPAddress:               l.IPAddress,
 		Account:                 AccountSummaryFromService(l.Account),
 	}

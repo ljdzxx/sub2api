@@ -1558,6 +1558,7 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 	return OpenAIUsage{
 		InputTokens:              int(inputTokens),
 		ImageInputTokens:         imageInputTokens,
+		ImageCacheReadTokens:     min(max(firstPositiveGJSONInt(value.Get("input_tokens_details.cached_tokens_details.image_tokens"), value.Get("prompt_tokens_details.cached_tokens_details.image_tokens")), 0), imageInputTokens, cacheReadTokens),
 		OutputTokens:             int(outputTokens),
 		CacheCreationInputTokens: cacheCreationTokens,
 		CacheReadInputTokens:     cacheReadTokens,
@@ -1575,11 +1576,21 @@ func openAICacheReadTokensFromUsage(value gjson.Result) int {
 		}
 	}
 
-	return firstPositiveGJSONInt(
+	if count := firstPositiveGJSONInt(
 		value.Get("cache_read_input_tokens"),
 		value.Get("cache_read_tokens"),
 		value.Get("cached_tokens"),
-	)
+	); count > 0 {
+		return count
+	}
+	for _, prefix := range []string{"input_tokens_details", "prompt_tokens_details"} {
+		if details := value.Get(prefix + ".cached_tokens_details"); details.IsObject() {
+			total := max(max(int(value.Get("input_tokens").Int()), int(value.Get("prompt_tokens").Int())), 0)
+			image := min(max(int(details.Get("image_tokens").Int()), 0), total)
+			return image + min(max(int(details.Get("text_tokens").Int()), 0), total-image)
+		}
+	}
+	return 0
 }
 
 func openAICacheCreationTokensFromUsage(value gjson.Result) int {

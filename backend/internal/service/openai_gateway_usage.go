@@ -164,6 +164,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		s.rateLimitService.ResetOpenAI403Counter(ctx, input.Account.ID)
 	}
 
+	// Work on a value copy. Retries and deferred tasks may share the raw result.
+	resultCopy := *result
+	result = &resultCopy
 	apiKey := input.APIKey
 	user := input.User
 	account := input.Account
@@ -176,6 +179,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ApplyOpenAIImageBillingResolution(result)
 	}
 	logServiceTierBillingDowngrade("service.openai_gateway", account, result.RequestID, ApplyOpenAIServiceTierBillingResolution(billingAccount, result))
+
+	rawResult := *result
+	rawTokens := openAIUsageTokens(rawResult.Usage)
+	deductionPercent := OpenAICacheReadDeductionPercent(apiKey)
+	result.Usage = DeductOpenAICacheRead(rawResult.Usage, deductionPercent)
 
 	// OpenAI input_tokens 是总输入，包含缓存读取和缓存写入明细。
 	// 将三类 token 拆成互斥桶，避免缓存写入同时按普通输入和 cache_write 重复计费。
@@ -299,6 +307,22 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 	}
 
+	// Resolve upstream accounting independently from the customer cache policy.
+	upstreamCost := cost.TotalCost
+	if deductionPercent > 0 {
+		rawCost, rawErr := s.calculateOpenAIRecordUsageCost(ctx, &rawResult, apiKey, billingModels,
+			multiplier, imageMultiplier, videoMultiplier, baseMultiplier, rawTokens, serviceTier,
+			longContextBillingGate, modelLongContextExempt, pricingAt)
+		if rawErr != nil && !isUsagePricingUnavailableError(rawErr) {
+			return rawErr
+		}
+		if rawCost != nil {
+			upstreamCost = rawCost.TotalCost
+		} else {
+			upstreamCost = 0
+		}
+	}
+
 	// Free Fast changes only the customer charge. Keep priority TotalCost and
 	// service_tier for upstream accounting, but evaluate ActualCost once more at
 	// the Standard tier using the same channel, peak, and long-context policy.
@@ -374,7 +398,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	imageSizeBreakdown := cloneImageSizeBreakdown(result.ImageSizeBreakdown)
-	if result.Usage.ImageCacheReadTokens > 0 {
+	if result.Usage.ImageCacheReadTokens > 0 || (deductionPercent > 0 && rawResult.Usage.ImageCacheReadTokens > 0) {
 		if imageSizeBreakdown == nil {
 			imageSizeBreakdown = make(map[string]int)
 		}
@@ -483,13 +507,26 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.SubscriptionID = &subscription.ID
 	}
 
+	if deductionPercent > 0 {
+		usageLog.CacheReadAdjustment = &CacheReadAdjustment{Version: 1, Percent: deductionPercent,
+			Raw: rawResult.Usage, Effective: result.Usage, UpstreamCost: upstreamCost}
+		logger.L().Info("openai.cache_read_deduction", zap.String("component", "audit.cache_read_deduction"), zap.String("request_id", requestID),
+			zap.Int64("api_key_id", apiKey.ID), zap.Any("group_id", apiKey.GroupID),
+			zap.Any("adjustment", usageLog.CacheReadAdjustment))
+	}
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			tokens, cost.TotalCost, pricingAt,
+			rawTokens, upstreamCost, pricingAt,
 			accountStatsLongContextPricingEnabled(longContextBillingGate) && !modelLongContextExempt,
 		)
+	}
+
+	// Persist the raw fallback explicitly: SQL aggregates otherwise fall back to
+	// total_cost, which now represents customer effective usage.
+	if deductionPercent > 0 && usageLog.AccountStatsCost == nil {
+		usageLog.AccountStatsCost = &upstreamCost
 	}
 
 	simpleModeKeyRateLimitOnly := simpleModeKeyRateLimitBillingEnabled(s.cfg, apiKey)
@@ -509,6 +546,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                       cost,
+		UpstreamTotalCost:          &upstreamCost,
 		User:                       user,
 		APIKey:                     apiKey,
 		Account:                    account,

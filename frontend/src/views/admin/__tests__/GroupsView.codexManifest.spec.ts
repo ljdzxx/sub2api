@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AdminGroup, CodexModelsManifestConfig } from "@/types";
 import GroupsView from "@/views/admin/GroupsView.vue";
+import { adminAPI } from "@/api/admin";
 
 const {
   listGroups,
@@ -80,6 +81,7 @@ const sourceGroup = {
   long_context_pricing_enabled: true,
   force_openai_fast: false,
   free_openai_fast: false,
+  cache_read_deduction_percent: 0,
   model_pricing: [],
   profit_control_enabled: false,
   profit_min_margin: 0,
@@ -220,7 +222,12 @@ const mountView = () =>
         GroupCapacityBadge: true,
         GroupRateMultipliersModal: true,
         GroupRPMOverridesModal: true,
-        ReasoningEffortPolicyFields: true,
+        ReasoningEffortPolicyFields: defineComponent({
+          setup(_, { expose }) {
+            expose({ validate: () => true, resetValidation: () => undefined });
+            return () => null;
+          },
+        }),
         CodexManifestAccountsField: CodexManifestAccountsFieldStub,
         PricingEntryCard: true,
         VueDraggable: true,
@@ -283,6 +290,23 @@ describe("GroupsView Codex manifest binding", () => {
       }),
     );
 
+    wrapper.unmount();
+  });
+
+  it("loads and saves fractional cache deduction in the OpenAI edit form", async () => {
+    listGroups.mockResolvedValue({ items: [{ ...sourceGroup, cache_read_deduction_percent: 20.25 }], total: 1, page: 1, page_size: 20, pages: 1 });
+    vi.mocked(adminAPI.groups.update).mockResolvedValue(sourceGroup);
+    const wrapper = mountView();
+    await flushPromises();
+    const edit = wrapper.findAll('button').find(button => button.text().includes('common.edit'));
+    await edit!.trigger('click');
+    await flushPromises();
+    const input = wrapper.get('#editForm-cache-read-deduction');
+    expect((input.element as HTMLInputElement).value).toBe('20.25');
+    await input.setValue('15.75');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(adminAPI.groups.update).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ cache_read_deduction_percent: 15.75 }));
     wrapper.unmount();
   });
 });

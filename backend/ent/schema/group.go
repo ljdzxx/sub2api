@@ -250,6 +250,8 @@ func (Group) Fields() []ent.Field {
 		field.Bool("force_openai_fast").
 			Default(false).
 			Comment("是否强制此 OpenAI/Composite 分组请求使用 service_tier=priority"),
+		field.Float("cache_read_deduction_percent").Default(0).Min(0).Max(100).
+			SchemaType(map[string]string{dialect.Postgres: "numeric(5,2)"}),
 		field.Bool("free_openai_fast").
 			Default(false).
 			Comment("是否让此 OpenAI/Composite 分组的 Fast 请求按 Standard 价格计费"),

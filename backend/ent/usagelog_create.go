@@ -281,6 +281,12 @@ func (_c *UsageLogCreate) SetNillableCacheCreation1hTokens(v *int) *UsageLogCrea
 	return _c
 }
 
+// SetCacheReadAdjustment sets the "cache_read_adjustment" field.
+func (_c *UsageLogCreate) SetCacheReadAdjustment(v map[string]interface{}) *UsageLogCreate {
+	_c.mutation.SetCacheReadAdjustment(v)
+	return _c
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_c *UsageLogCreate) SetInputCost(v float64) *UsageLogCreate {
 	_c.mutation.SetInputCost(v)
@@ -1031,6 +1037,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_spec.SetField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 		_node.CacheCreation1hTokens = value
 	}
+	if value, ok := _c.mutation.CacheReadAdjustment(); ok {
+		_spec.SetField(usagelog.FieldCacheReadAdjustment, field.TypeJSON, value)
+		_node.CacheReadAdjustment = value
+	}
 	if value, ok := _c.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
 		_node.InputCost = value
@@ -1623,6 +1633,24 @@ func (u *UsageLogUpsert) UpdateCacheCreation1hTokens() *UsageLogUpsert {
 // AddCacheCreation1hTokens adds v to the "cache_creation_1h_tokens" field.
 func (u *UsageLogUpsert) AddCacheCreation1hTokens(v int) *UsageLogUpsert {
 	u.Add(usagelog.FieldCacheCreation1hTokens, v)
+	return u
+}
+
+// SetCacheReadAdjustment sets the "cache_read_adjustment" field.
+func (u *UsageLogUpsert) SetCacheReadAdjustment(v map[string]interface{}) *UsageLogUpsert {
+	u.Set(usagelog.FieldCacheReadAdjustment, v)
+	return u
+}
+
+// UpdateCacheReadAdjustment sets the "cache_read_adjustment" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCacheReadAdjustment() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCacheReadAdjustment)
+	return u
+}
+
+// ClearCacheReadAdjustment clears the value of the "cache_read_adjustment" field.
+func (u *UsageLogUpsert) ClearCacheReadAdjustment() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldCacheReadAdjustment)
 	return u
 }
 
@@ -2537,6 +2565,27 @@ func (u *UsageLogUpsertOne) AddCacheCreation1hTokens(v int) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateCacheCreation1hTokens() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheCreation1hTokens()
+	})
+}
+
+// SetCacheReadAdjustment sets the "cache_read_adjustment" field.
+func (u *UsageLogUpsertOne) SetCacheReadAdjustment(v map[string]interface{}) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheReadAdjustment(v)
+	})
+}
+
+// UpdateCacheReadAdjustment sets the "cache_read_adjustment" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCacheReadAdjustment() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheReadAdjustment()
+	})
+}
+
+// ClearCacheReadAdjustment clears the value of the "cache_read_adjustment" field.
+func (u *UsageLogUpsertOne) ClearCacheReadAdjustment() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCacheReadAdjustment()
 	})
 }
 
@@ -3693,6 +3742,27 @@ func (u *UsageLogUpsertBulk) AddCacheCreation1hTokens(v int) *UsageLogUpsertBulk
 func (u *UsageLogUpsertBulk) UpdateCacheCreation1hTokens() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheCreation1hTokens()
+	})
+}
+
+// SetCacheReadAdjustment sets the "cache_read_adjustment" field.
+func (u *UsageLogUpsertBulk) SetCacheReadAdjustment(v map[string]interface{}) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheReadAdjustment(v)
+	})
+}
+
+// UpdateCacheReadAdjustment sets the "cache_read_adjustment" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCacheReadAdjustment() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheReadAdjustment()
+	})
+}
+
+// ClearCacheReadAdjustment clears the value of the "cache_read_adjustment" field.
+func (u *UsageLogUpsertBulk) ClearCacheReadAdjustment() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCacheReadAdjustment()
 	})
 }
 

@@ -695,6 +695,10 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 		args = append(args, *filters.EndTime)
 	}
 
+	auditSelect := ""
+	if filters.IncludeCacheReadAudit {
+		auditSelect = ", COALESCE(SUM(COALESCE((cache_read_adjustment->'raw'->>'cache_read_input_tokens')::bigint, cache_read_tokens)), 0), COALESCE(SUM(COALESCE((cache_read_adjustment->>'upstream_cost')::numeric, total_cost)), 0)"
+	}
 	query := fmt.Sprintf(`
 		WITH scoped AS (
 			SELECT
@@ -707,7 +711,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 				total_cost,
 				actual_cost,
 				COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1) AS account_cost,
-				duration_ms
+				duration_ms, cache_read_adjustment
 			FROM usage_logs
 			%s
 		)
@@ -724,7 +728,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 			COALESCE(SUM(total_cost), 0) AS cost,
 			COALESCE(SUM(actual_cost), 0) AS actual_cost,
 			COALESCE(SUM(account_cost), 0) AS account_cost,
-			COALESCE(AVG(duration_ms), 0) AS avg_duration_ms
+			COALESCE(AVG(duration_ms), 0) AS avg_duration_ms %s
 		FROM scoped
 		GROUP BY GROUPING SETS (
 			(),
@@ -732,7 +736,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 			(upstream_endpoint),
 			(inbound_endpoint, upstream_endpoint)
 		)
-	`, buildWhere(conditions))
+	`, buildWhere(conditions), auditSelect)
 
 	stats := &UsageStats{}
 	var totalAccountCost float64
@@ -750,7 +754,8 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 			requests, inputTokens, outputTokens, cacheCreationTokens, cacheReads int64
 			cost, actualCost, accountCost, averageDurationMs                     float64
 		)
-		if err := rows.Scan(
+		var audit usagestats.CacheReadAuditStats
+		dest := []any{
 			&inboundGrouped,
 			&upstreamGrouped,
 			&inboundEndpoint,
@@ -764,7 +769,11 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 			&actualCost,
 			&accountCost,
 			&averageDurationMs,
-		); err != nil {
+		}
+		if filters.IncludeCacheReadAudit {
+			dest = append(dest, &audit.UpstreamCacheReadTokens, &audit.UpstreamCost)
+		}
+		if err := rows.Scan(dest...); err != nil {
 			return nil, err
 		}
 
@@ -776,6 +785,9 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 
 		switch {
 		case inboundGrouped == 1 && upstreamGrouped == 1:
+			if filters.IncludeCacheReadAudit {
+				stats.CacheReadAudit = &audit
+			}
 			stats.TotalRequests = requests
 			stats.TotalInputTokens = inputTokens
 			stats.TotalOutputTokens = outputTokens

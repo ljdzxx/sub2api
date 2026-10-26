@@ -90,6 +90,7 @@ func (UsageLog) Fields() []ent.Field {
 			Default(0),
 
 		// 成本字段
+		field.JSON("cache_read_adjustment", map[string]any{}).Optional(),
 		field.Float("input_cost").
 			Default(0).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),

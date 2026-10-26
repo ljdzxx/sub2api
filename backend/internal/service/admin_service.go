@@ -290,6 +290,7 @@ type CreateGroupInput struct {
 	AllowLive                   bool
 	ForceOpenAIFast             bool
 	FreeOpenAIFast              bool
+	CacheReadDeductionPercent   float64
 	DefaultMappedModel          string
 	RequireOAuthOnly            bool
 	RequirePrivacySet           bool
@@ -372,6 +373,7 @@ type UpdateGroupInput struct {
 	AllowLive                   *bool
 	ForceOpenAIFast             *bool
 	FreeOpenAIFast              *bool
+	CacheReadDeductionPercent   *float64
 	DefaultMappedModel          *string
 	RequireOAuthOnly            *bool
 	RequirePrivacySet           *bool
