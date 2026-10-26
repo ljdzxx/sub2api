@@ -31,4 +31,11 @@ assert_line deploy/Dockerfile 'COPY --from=backend-builder --chown=sub2api:sub2a
 assert_count .goreleaser.yaml '      - backend/resources' 4
 assert_count .goreleaser.simple.yaml '      - backend/resources' 1
 
+# Verify the actual non-root user can read the entrypoint during image build.
+# chmod +x is insufficient when the source checkout was created with umask 077.
+for dockerfile in Dockerfile Dockerfile.goreleaser deploy/Dockerfile; do
+  assert_line "$dockerfile" 'RUN chmod 0755 /app/docker-entrypoint.sh && \'
+  assert_line "$dockerfile" '    su-exec sub2api /bin/sh -n /app/docker-entrypoint.sh'
+done
+
 printf 'docker runtime resources test passed\n'

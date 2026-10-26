@@ -147,6 +147,30 @@ RAY_OLD_APP=旧应用名 RAY_POSTGRES=原Postgres容器名 RAY_REDIS=原Redis容
 
 ## 开发验证
 
+如果旧镜像启动报 `/bin/sh: can't open '/app/docker-entrypoint.sh': Permission denied`，原因可能是受管源码在 `umask 077` 下生成，旧 Dockerfile 的 `chmod +x` 没有给应用用户读取权限。修复后的 Dockerfile 显式设为 0755，并在构建阶段用应用用户解析脚本。
+
+已有镜像可只补权限层，无需重新编译前后端（以下使用默认 master 名称和状态目录）：
+
+```bash
+(
+set -e
+IMAGE=$(docker inspect --format '{{.Config.Image}}' sub2api-ray-master)
+docker stop sub2api-ray-master
+docker build --network none --build-arg BASE_IMAGE="$IMAGE" -t "$IMAGE" - <<'DOCKERFILE'
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+RUN chmod 0755 /app/docker-entrypoint.sh && \
+    su-exec sub2api /bin/sh -n /app/docker-entrypoint.sh
+DOCKERFILE
+docker compose -p sub2api-ray-master -f /root/.ray-ops/master.compose.json \
+  up -d --no-deps --no-build --pull never --force-recreate \
+  --wait --wait-timeout 600 master
+)
+```
+
+权限修复不会挂载或修改数据库目录；应用重建后仍先执行原库检查，再进入正常启动和迁移流程。记得推送永久修复后的 `ray` 分支，供后续更新构建使用。
+
 ```bash
 bash -n deploy-ray/ops.sh
 python3 -m unittest discover -s deploy-ray/tests -p 'test_ops.py' -v
