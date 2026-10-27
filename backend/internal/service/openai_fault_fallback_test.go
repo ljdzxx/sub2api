@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,13 +130,25 @@ func TestOpenAIFaultFallback_Configuration(t *testing.T) {
 func TestOpenAIFaultFallback_AdminUpdateRequiresExplicitDisable(t *testing.T) {
 	repo := &updateAccountOveragesRepoStub{account: &Account{
 		ID: 8340, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
-		Extra: map[string]any{OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []int{401, 503}},
+		Extra: map[string]any{
+			OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []int{401, 503},
+			OpenAIFaultFallbackKeywordsExtraKey: []string{"insufficient balance"}, OpenAIFaultFallbackMatchModeExtraKey: "all",
+		},
 	}}
 	svc := &adminServiceImpl{accountRepo: repo}
 	updated, err := svc.UpdateAccount(context.Background(), 8340, &UpdateAccountInput{Extra: map[string]any{}})
 	require.NoError(t, err)
 	require.True(t, updated.IsOpenAIFaultFallbackOnly(), "old-client extra replacement must preserve reserve admission")
 	require.Equal(t, []int{401, 503}, updated.Extra[OpenAIFaultFallbackStatusCodesExtraKey])
+	require.Equal(t, []string{"insufficient balance"}, updated.Extra[OpenAIFaultFallbackKeywordsExtraKey])
+	require.Equal(t, "all", updated.Extra[OpenAIFaultFallbackMatchModeExtraKey])
+	updated, err = svc.UpdateAccount(context.Background(), 8340, &UpdateAccountInput{Extra: map[string]any{
+		OpenAIFaultFallbackKeywordsExtraKey: []string{}, OpenAIFaultFallbackMatchModeExtraKey: "any",
+	}})
+	require.NoError(t, err)
+	require.Empty(t, updated.Extra[OpenAIFaultFallbackKeywordsExtraKey])
+	require.Equal(t, "any", updated.Extra[OpenAIFaultFallbackMatchModeExtraKey])
+	require.True(t, updated.IsOpenAIFaultFallbackOnly())
 	updated, err = svc.UpdateAccount(context.Background(), 8340, &UpdateAccountInput{Extra: map[string]any{OpenAIFaultFallbackOnlyExtraKey: false}})
 	require.NoError(t, err)
 	require.False(t, updated.IsOpenAIFaultFallbackOnly())
@@ -221,5 +234,112 @@ func TestOpenAIFaultFallback_SingleDigitWildcards(t *testing.T) {
 				require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve))
 			}
 		})
+	}
+}
+
+func TestOpenAIFaultFallback_MessageConditions(t *testing.T) {
+	const billingBody = `{"error":{"message":"insufficient balance","type":"billing_error"}}`
+	for _, tc := range []struct {
+		name     string
+		mode     string
+		codes    []int
+		keywords []string
+		status   int
+		body     string
+		want     bool
+	}{
+		{"all_matches_example", "all", []int{403}, []string{"insufficient balance"}, 403, billingBody, true},
+		{"all_wrong_status", "all", []int{401}, []string{"insufficient balance"}, 403, billingBody, false},
+		{"all_wrong_message", "all", []int{403}, []string{"quota exceeded"}, 403, billingBody, false},
+		{"all_no_keywords", "all", []int{403}, []string{}, 403, billingBody, false},
+		{"all_no_codes", "all", []int{}, []string{"insufficient balance"}, 403, billingBody, false},
+		{"all_no_message", "all", []int{403}, []string{"insufficient balance"}, 403, "", false},
+		{"any_status_only", "any", []int{403}, []string{"quota exceeded"}, 403, billingBody, true},
+		{"any_keyword_only", "any", []int{401}, []string{"insufficient balance"}, 403, billingBody, true},
+		{"any_neither", "any", []int{401}, []string{"quota exceeded"}, 403, billingBody, false},
+		{"any_empty_codes", "any", []int{}, []string{"insufficient balance"}, 403, billingBody, true},
+		{"any_both_empty", "any", []int{}, []string{}, 403, billingBody, false},
+		{"default_mode_is_any", "", []int{401}, []string{"insufficient balance"}, 403, billingBody, true},
+		{"case_insensitive_any_keyword", "all", []int{403}, []string{"other", " INSUFFICIENT BALANCE "}, 403, billingBody, true},
+		{"substring", "all", []int{403}, []string{"balance"}, 403, billingBody, true},
+		{"blank_keyword_not_wildcard", "any", []int{401}, []string{"  "}, 403, billingBody, false},
+		{"sse_message", "all", []int{403}, []string{"insufficient balance"}, 403, `{"type":"response.failed","response":{"error":{"message":"Insufficient Balance"}}}`, true},
+		{"escaped_message", "all", []int{403}, []string{"insufficient balance"}, 403, `{"error":{"message":"insufficient\u0020balance"}}`, true},
+		{"top_level_message", "all", []int{403}, []string{"insufficient balance"}, 403, `{"message":"insufficient balance"}`, true},
+		{"no_body_wide_match", "any", []int{401}, []string{"insufficient balance"}, 403, `{"error":{"message":"forbidden","code":"insufficient balance"},"input":"insufficient balance"}`, false},
+		{"no_synthetic_client_message_match", "any", []int{401}, []string{"insufficient balance"}, 403, `{"error":{"message":"forbidden"}}`, false},
+		{"no_non_error_status", "any", []int{}, []string{"insufficient balance"}, 200, billingBody, false},
+		{"no_zero_status", "any", []int{}, []string{"insufficient balance"}, 0, billingBody, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{
+				OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: tc.codes,
+				OpenAIFaultFallbackKeywordsExtraKey: tc.keywords,
+			}}
+			if tc.mode != "" {
+				reserve.Extra[OpenAIFaultFallbackMatchModeExtraKey] = tc.mode
+			}
+			ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{
+				StatusCode: tc.status, ResponseBody: []byte(tc.body), ClientMessage: "insufficient balance",
+			})
+			require.Equal(t, tc.want, openAIFaultFallbackAccountAllowed(ctx, reserve))
+		})
+	}
+}
+
+func TestOpenAIFaultFallback_KeywordsRespectReplayBoundary(t *testing.T) {
+	reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{
+		OpenAIFaultFallbackOnlyExtraKey: true, OpenAIFaultFallbackStatusCodesExtraKey: []int{},
+		OpenAIFaultFallbackKeywordsExtraKey: []string{"insufficient balance"}, OpenAIFaultFallbackMatchModeExtraKey: "any",
+	}}
+	failure := &UpstreamFailoverError{StatusCode: 403, ResponseBody: []byte(`{"error":{"message":"insufficient balance"}}`)}
+	ctx := WithOpenAIFaultFallback(context.Background(), failure)
+	require.True(t, openAIFaultFallbackAccountAllowed(ctx, reserve))
+	require.False(t, openAIFaultFallbackAccountAllowed(WithOpenAIFaultFallback(ctx, nil), reserve))
+	require.False(t, openAIFaultFallbackAccountAllowed(WithOpenAIFaultFallback(ctx, failure, &CyberPolicyMark{}), reserve))
+	require.False(t, openAIFaultFallbackAccountAllowed(context.Background(), reserve))
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	require.False(t, openAIFaultFallbackAccountAllowed(canceled, reserve))
+	for _, blocked := range []*UpstreamFailoverError{
+		{StatusCode: 403, ResponseBody: failure.ResponseBody, NextAccountAction: NextAccountStop},
+		{StatusCode: 403, ResponseBody: failure.ResponseBody, Stage: GatewayFailureStageAccountAuth},
+		{StatusCode: 403, ResponseBody: []byte(`{"error":{"code":"cyber_policy","message":"insufficient balance"}}`)},
+	} {
+		require.False(t, openAIFaultFallbackAccountAllowed(WithOpenAIFaultFallback(ctx, blocked), reserve))
+	}
+}
+
+func TestOpenAIFaultFallback_MatchingConfigurationValidation(t *testing.T) {
+	for _, tc := range []struct {
+		key string
+		raw any
+	}{
+		{OpenAIFaultFallbackMatchModeExtraKey, "and"},
+		{OpenAIFaultFallbackMatchModeExtraKey, ""},
+		{OpenAIFaultFallbackMatchModeExtraKey, nil},
+		{OpenAIFaultFallbackMatchModeExtraKey, true},
+		{OpenAIFaultFallbackKeywordsExtraKey, "insufficient balance"},
+		{OpenAIFaultFallbackKeywordsExtraKey, nil},
+		{OpenAIFaultFallbackKeywordsExtraKey, []any{403}},
+		{OpenAIFaultFallbackKeywordsExtraKey, make([]string, 101)},
+		{OpenAIFaultFallbackKeywordsExtraKey, []string{strings.Repeat("字", 501)}},
+	} {
+		extra := map[string]any{OpenAIFaultFallbackOnlyExtraKey: true, tc.key: tc.raw}
+		require.Error(t, validateOpenAIFaultFallbackExtra(PlatformOpenAI, AccountTypeAPIKey, extra))
+		reserve := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: extra}
+		ctx := WithOpenAIFaultFallback(context.Background(), &UpstreamFailoverError{StatusCode: 503})
+		require.False(t, openAIFaultFallbackAccountAllowed(ctx, reserve), "invalid configuration must not fall back to defaults")
+	}
+	for _, extra := range []map[string]any{
+		{OpenAIFaultFallbackMatchModeExtraKey: "any"},
+		{OpenAIFaultFallbackMatchModeExtraKey: "all"},
+		{OpenAIFaultFallbackKeywordsExtraKey: []any{"insufficient balance", "  "}},
+		{OpenAIFaultFallbackKeywordsExtraKey: []string{}},
+		{OpenAIFaultFallbackKeywordsExtraKey: []string{strings.Repeat("字", 500)}},
+	} {
+		require.NoError(t, validateOpenAIFaultFallbackExtra(PlatformOpenAI, AccountTypeAPIKey, extra))
+		require.Error(t, validateOpenAIFaultFallbackExtra(PlatformOpenAI, AccountTypeOAuth, extra))
+		require.Error(t, validateOpenAIFaultFallbackExtra(PlatformAnthropic, AccountTypeAPIKey, extra))
 	}
 }

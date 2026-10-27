@@ -104,6 +104,7 @@
           <span class="text-sm text-gray-900 dark:text-white">
             {{ t('usage.errors.categories.' + mapErrorCategory(row.phase, row.type)) }}
           </span>
+          <code v-if="isSafetyPolicyErrorCode(row.type)" class="block break-all text-xs text-gray-500 dark:text-dark-400">{{ row.type }}</code>
         </template>
 
         <template #cell-status="{ row }">
@@ -189,7 +190,7 @@ import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
 import type { OpsErrorLog } from '@/api/admin/ops'
 import type { Column } from '@/components/common/types'
 import { getSeverityClass, formatDateTime } from '../utils/opsFormatters'
-import { mapErrorCategory } from '@/utils/errorCategory'
+import { isSafetyPolicyErrorCode, mapErrorCategory } from '@/utils/errorCategory'
 import { mapErrorSortKey, statusCodeBadgeClass } from '@/utils/errorBadges'
 
 const { t } = useI18n()

@@ -227,6 +227,21 @@ func normalizeOpenAIWSTerminalEvent(eventType string) string {
 // failover/recovery decision and a successful downstream write.
 func markOpenAIWSClientVisibleFailure(c *gin.Context, eventType string, payload []byte) {
 	eventType = strings.TrimSpace(eventType)
+	if eventType != "error" && eventType != "response.failed" && eventType != "response.incomplete" {
+		return
+	}
+	if code, message := ParseSafetyPolicyPayload(payload); code != "" {
+		// Dedicated cyber logging already records that event. All other safety
+		// signals use the existing per-turn stream log, after client delivery.
+		if strings.EqualFold(code, "cyber_policy") && GetOpsCyberPolicy(c) != nil {
+			return
+		}
+		MarkOpsStreamErrorValue(c, OpsStreamError{
+			ErrType: "invalid_request_error", Code: code, Message: message, Body: string(payload),
+			IntendedStatus: http.StatusForbidden, RequestScoped: true,
+		})
+		return
+	}
 	if eventType != "error" && eventType != "response.failed" {
 		return
 	}

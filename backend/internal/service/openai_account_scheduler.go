@@ -2312,7 +2312,18 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	platform string,
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
-) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+) (selection *AccountSelectionResult, decision OpenAIAccountScheduleDecision, err error) {
+	defer func() {
+		// A continuation without replayable context must keep its owning account.
+		if err != nil || (strings.TrimSpace(previousResponseID) != "" && !previousResponseCanMove) {
+			return
+		}
+		selection, decision = s.preferOpenAIFaultFallbackWithMessage(ctx, groupID, sessionHash, selection, decision,
+			func(preferredCtx context.Context) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+				return s.selectAccountWithSchedulerOnce(preferredCtx, groupID, "", "", requestedModel, excludedIDs,
+					requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+			})
+	}()
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	ctx = s.withOpenAIGroupPrivacyRequirement(ctx, groupID)
 	// 分组利润控制：唯一文本调度入口的防御性装门。handler 文本
@@ -2325,7 +2336,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 		ctx = s.withOpenAIProfitControlGate(ctx, groupID)
 	}
 	platform = NormalizeOpenAICompatiblePlatform(platform)
-	decision := OpenAIAccountScheduleDecision{}
+	decision = OpenAIAccountScheduleDecision{}
 	preserveGuardianParentBinding := preserveOpenAIGuardianParentBinding(ctx, sessionHash)
 	guardianParentAccountID := int64(0)
 	if strings.TrimSpace(previousResponseID) == "" {

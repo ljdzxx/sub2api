@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -17,6 +18,13 @@ import (
 const OpenAIFaultFallbackOnlyExtraKey = "openai_fault_fallback_only"
 
 const OpenAIFaultFallbackStatusCodesExtraKey = "openai_fault_fallback_status_codes"
+const OpenAIFaultFallbackKeywordsExtraKey = "openai_fault_fallback_keywords"
+const OpenAIFaultFallbackMatchModeExtraKey = "openai_fault_fallback_match_mode"
+
+const (
+	openAIFaultFallbackMatchAny = "any"
+	openAIFaultFallbackMatchAll = "all"
+)
 
 // Defaults preserve existing installations; an explicit list replaces them,
 // including an empty list, which disables every status-code trigger.
@@ -29,6 +37,12 @@ var defaultOpenAIFaultFallbackStatusCodes = func() []int {
 }()
 
 type openAIFaultFallbackContextKey struct{}
+type openAIFaultFallbackPreferredOnlyContextKey struct{}
+
+type openAIFaultFallbackTrigger struct {
+	status  int
+	message string
+}
 
 // IsOpenAIFaultFallbackOnly applies only to OpenAI API-key accounts. Other
 // platforms and credential types keep their upstream scheduling behavior.
@@ -45,13 +59,13 @@ func (a *Account) IsOpenAIFaultFallbackOnly() bool {
 // credential acquisition failures and priority alone never unlock a reserve.
 // Always overwrite the value: authorization must not leak into a new request.
 func WithOpenAIFaultFallback(ctx context.Context, failure *UpstreamFailoverError, auditMarks ...*CyberPolicyMark) context.Context {
-	status := 0
+	trigger := openAIFaultFallbackTrigger{}
 	// This is the same mark consumed by recordCyberPolicyIfMarked to write the
 	// Security Audit / Content Audit record. Audit storage is asynchronous, so
 	// consult the in-flight evidence rather than querying the audit database.
 	for _, mark := range auditMarks {
 		if mark != nil {
-			return context.WithValue(ctx, openAIFaultFallbackContextKey{}, status)
+			return context.WithValue(ctx, openAIFaultFallbackContextKey{}, trigger)
 		}
 	}
 	if ctx.Err() == nil && failure != nil && failure.ShouldRetryNextAccount() &&
@@ -59,20 +73,34 @@ func WithOpenAIFaultFallback(ctx context.Context, failure *UpstreamFailoverError
 		// Use the same structured error.code / response.error.code detector as
 		// forwarding. Never infer cyber_policy from message text or echoed input.
 		if hit, _, _ := detectOpenAICyberPolicy(failure.ResponseBody); !hit {
-			status = failure.StatusCode
+			trigger.status = failure.StatusCode
+			// Reuse the HTTP/SSE error-message extractor, not the entire response
+			// body or the rewritten client-facing message. Normalize once per selection.
+			trigger.message = strings.ToLower(extractOpenAISSEErrorMessage(failure.ResponseBody))
 		}
 	}
-	return context.WithValue(ctx, openAIFaultFallbackContextKey{}, status)
+	return context.WithValue(ctx, openAIFaultFallbackContextKey{}, trigger)
 }
 
 func openAIFaultFallbackAccountAllowed(ctx context.Context, account *Account) bool {
+	// Only the preference probe uses this restriction. The original selection
+	// still sees ordinary accounts and keeps all of its existing ranking rules.
+	if openAIFaultFallbackPreferredOnly(ctx) {
+		usesStatus, usesMessage := openAIFaultFallbackConditionsConfigured(account)
+		if !usesStatus || !usesMessage {
+			return false
+		}
+	}
 	if !account.IsOpenAIFaultFallbackOnly() {
 		return true
 	}
 	if ctx == nil || ctx.Err() != nil {
 		return false
 	}
-	status, _ := ctx.Value(openAIFaultFallbackContextKey{}).(int)
+	trigger, ok := ctx.Value(openAIFaultFallbackContextKey{}).(openAIFaultFallbackTrigger)
+	if !ok || trigger.status < 400 || trigger.status > 599 {
+		return false
+	}
 	codes := defaultOpenAIFaultFallbackStatusCodes
 	if raw, configured := account.Extra[OpenAIFaultFallbackStatusCodesExtraKey]; configured {
 		var err error
@@ -81,7 +109,147 @@ func openAIFaultFallbackAccountAllowed(ctx context.Context, account *Account) bo
 			return false // Malformed persisted configuration must fail closed.
 		}
 	}
-	return slices.Contains(codes, status)
+	mode := openAIFaultFallbackMatchAny
+	if raw, configured := account.Extra[OpenAIFaultFallbackMatchModeExtraKey]; configured {
+		var err error
+		mode, err = parseOpenAIFaultFallbackMatchMode(raw)
+		if err != nil {
+			return false
+		}
+	}
+	var keywords []string
+	if raw, configured := account.Extra[OpenAIFaultFallbackKeywordsExtraKey]; configured {
+		var err error
+		keywords, err = parseOpenAIFaultFallbackKeywords(raw)
+		if err != nil {
+			return false
+		}
+	}
+	statusMatched := slices.Contains(codes, trigger.status)
+	keywordMatched := slices.ContainsFunc(keywords, func(keyword string) bool {
+		return strings.Contains(trigger.message, strings.ToLower(keyword))
+	})
+	if mode == openAIFaultFallbackMatchAll {
+		return statusMatched && keywordMatched
+	}
+	return statusMatched || keywordMatched
+}
+
+func openAIFaultFallbackPreferredOnly(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	preferredOnly, _ := ctx.Value(openAIFaultFallbackPreferredOnlyContextKey{}).(bool)
+	return preferredOnly
+}
+
+// Rank configured conditions, not which branch of an OR happened to match.
+// Keywords-only accounts and ordinary accounts retain their original behavior.
+func openAIFaultFallbackConditionsConfigured(account *Account) (usesStatus, usesMessage bool) {
+	if !account.IsOpenAIFaultFallbackOnly() {
+		return false, false
+	}
+	codes := defaultOpenAIFaultFallbackStatusCodes
+	if raw, configured := account.Extra[OpenAIFaultFallbackStatusCodesExtraKey]; configured {
+		var err error
+		codes, err = parseOpenAIFaultFallbackStatusCodes(raw)
+		if err != nil {
+			return false, false
+		}
+	}
+	var keywords []string
+	if raw, configured := account.Extra[OpenAIFaultFallbackKeywordsExtraKey]; configured {
+		var err error
+		keywords, err = parseOpenAIFaultFallbackKeywords(raw)
+		if err != nil {
+			return false, false
+		}
+	}
+	return len(codes) > 0, len(keywords) > 0
+}
+
+// Keep the original result if it is ordinary, keywords-only, already specific,
+// or no more specific reserve can serve the request. This avoids changing
+// ordinary-account scores/priority or introducing a non-transitive comparator
+// into a mixed pool of ordinary and fallback accounts.
+func (s *OpenAIGatewayService) preferOpenAIFaultFallbackWithMessage(
+	ctx context.Context,
+	groupID *int64,
+	sessionHash string,
+	selection *AccountSelectionResult,
+	decision OpenAIAccountScheduleDecision,
+	selectPreferred func(context.Context) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error),
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision) {
+	if selection == nil || selection.Account == nil || ctx.Err() != nil || openAIFaultFallbackPreferredOnly(ctx) {
+		return selection, decision
+	}
+	usesStatus, usesMessage := openAIFaultFallbackConditionsConfigured(selection.Account)
+	if !usesStatus || usesMessage {
+		return selection, decision
+	}
+	preferred, preferredDecision, err := selectPreferred(context.WithValue(ctx, openAIFaultFallbackPreferredOnlyContextKey{}, true))
+	if err != nil || preferred == nil || preferred.Account == nil || (selection.Acquired && !preferred.Acquired) {
+		if preferred != nil && preferred.ReleaseFunc != nil {
+			preferred.ReleaseFunc()
+		}
+		return selection, decision
+	}
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+	// The probe has no session/previous-response affinity, so a failed probe
+	// cannot overwrite a usable binding. Bind only the replacement we will use.
+	if preferred.Acquired && sessionHash != "" {
+		_ = s.bindOpenAIStickySessionDuringSelection(ContextWithSelectionProfitGate(ctx, preferred), groupID, sessionHash, preferred.Account.ID)
+	}
+	return preferred, preferredDecision
+}
+
+func parseOpenAIFaultFallbackMatchMode(raw any) (string, error) {
+	mode, ok := raw.(string)
+	if !ok || (mode != openAIFaultFallbackMatchAny && mode != openAIFaultFallbackMatchAll) {
+		return "", infraerrors.BadRequest("INVALID_FAULT_FALLBACK_MATCH_MODE", "openai_fault_fallback_match_mode must be any or all")
+	}
+	return mode, nil
+}
+
+func parseOpenAIFaultFallbackKeywords(raw any) ([]string, error) {
+	invalid := func() ([]string, error) {
+		return nil, infraerrors.BadRequest("INVALID_FAULT_FALLBACK_KEYWORDS", "openai_fault_fallback_keywords must be an array of at most 100 strings, each at most 500 characters")
+	}
+	var values []string
+	switch typed := raw.(type) {
+	case []string:
+		values = typed
+	case []any:
+		if len(typed) > 100 {
+			return invalid()
+		}
+		values = make([]string, len(typed))
+		for i, value := range typed {
+			keyword, ok := value.(string)
+			if !ok {
+				return invalid()
+			}
+			values[i] = keyword
+		}
+	default:
+		return invalid()
+	}
+	if len(values) > 100 {
+		return invalid()
+	}
+	keywords := make([]string, 0, len(values))
+	for _, value := range values {
+		keyword := strings.TrimSpace(value)
+		if utf8.RuneCountInString(keyword) > 500 {
+			return invalid()
+		}
+		if keyword != "" {
+			keywords = append(keywords, keyword)
+		}
+	}
+	return keywords, nil
 }
 
 func parseOpenAIFaultFallbackStatusCodes(raw any) ([]int, error) {
@@ -168,6 +336,22 @@ func parseOpenAIFaultFallbackStatusCodes(raw any) ([]int, error) {
 }
 
 func validateOpenAIFaultFallbackExtra(platform, accountType string, extra map[string]any) error {
+	if raw, present := extra[OpenAIFaultFallbackKeywordsExtraKey]; present {
+		if _, err := parseOpenAIFaultFallbackKeywords(raw); err != nil {
+			return err
+		}
+		if platform != PlatformOpenAI || accountType != AccountTypeAPIKey {
+			return infraerrors.BadRequest("INVALID_FAULT_FALLBACK_KEYWORDS", fmt.Sprintf("%s is only supported for OpenAI API-key accounts", OpenAIFaultFallbackKeywordsExtraKey))
+		}
+	}
+	if raw, present := extra[OpenAIFaultFallbackMatchModeExtraKey]; present {
+		if _, err := parseOpenAIFaultFallbackMatchMode(raw); err != nil {
+			return err
+		}
+		if platform != PlatformOpenAI || accountType != AccountTypeAPIKey {
+			return infraerrors.BadRequest("INVALID_FAULT_FALLBACK_MATCH_MODE", fmt.Sprintf("%s is only supported for OpenAI API-key accounts", OpenAIFaultFallbackMatchModeExtraKey))
+		}
+	}
 	if raw, present := extra[OpenAIFaultFallbackStatusCodesExtraKey]; present {
 		if _, err := parseOpenAIFaultFallbackStatusCodes(raw); err != nil {
 			return err
@@ -196,7 +380,7 @@ func preserveOpenAIFaultFallbackExtra(account *Account, extra map[string]any) ma
 	if account == nil {
 		return extra
 	}
-	for _, key := range []string{OpenAIFaultFallbackOnlyExtraKey, OpenAIFaultFallbackStatusCodesExtraKey} {
+	for _, key := range []string{OpenAIFaultFallbackOnlyExtraKey, OpenAIFaultFallbackStatusCodesExtraKey, OpenAIFaultFallbackKeywordsExtraKey, OpenAIFaultFallbackMatchModeExtraKey} {
 		if _, supplied := extra[key]; supplied {
 			continue
 		}

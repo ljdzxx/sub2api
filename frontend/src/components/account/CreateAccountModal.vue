@@ -3235,6 +3235,8 @@
       <FaultFallbackOnlyField
         v-model="faultFallbackOnly"
         v-model:status-codes="faultFallbackStatusCodes"
+        v-model:keywords="faultFallbackKeywords"
+        v-model:match-mode="faultFallbackMatchMode"
         :platform="form.platform"
         :type="form.type"
       />
@@ -4162,7 +4164,7 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
-import { DEFAULT_FAULT_FALLBACK_STATUS_CODES, parseFaultFallbackStatusCodes, withAccountFaultFallback } from '@/utils/accountFaultFallback'
+import { DEFAULT_FAULT_FALLBACK_STATUS_CODES, parseFaultFallbackStatusCodes, parseFaultFallbackKeywords, withAccountFaultFallback, type FaultFallbackMatchMode } from '@/utils/accountFaultFallback'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -4645,6 +4647,8 @@ const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
 const faultFallbackStatusCodes = ref(DEFAULT_FAULT_FALLBACK_STATUS_CODES)
+const faultFallbackKeywords = ref('')
+const faultFallbackMatchMode = ref<FaultFallbackMatchMode>('any')
 const faultFallbackOnly = ref(false)
 const poolModeEnabled = ref(false)
 const explicitCacheUpstreamEnabled = ref(false)
@@ -5664,6 +5668,8 @@ const resetForm = () => {
     antigravityModelMappings.value = [...mappings]
   })
   faultFallbackStatusCodes.value = DEFAULT_FAULT_FALLBACK_STATUS_CODES
+  faultFallbackKeywords.value = ''
+  faultFallbackMatchMode.value = 'any'
   faultFallbackOnly.value = false
   poolModeEnabled.value = false
   poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
@@ -5868,7 +5874,17 @@ const doCreateAccount = async (payload: CreateAccountRequest) => {
       appStore.showError(t('admin.accounts.faultFallbackStatusCodesInvalid'))
       return
     }
-    payload = { ...payload, extra: withAccountFaultFallback(payload.extra, faultFallbackOnly.value, statusCodes) }
+    const keywords = parseFaultFallbackKeywords(faultFallbackKeywords.value)
+    if (keywords === null) {
+      appStore.showError(t('admin.accounts.faultFallbackKeywordsInvalid'))
+      return
+    }
+    payload = {
+      ...payload,
+      extra: withAccountFaultFallback(payload.extra, faultFallbackOnly.value, statusCodes, {
+        keywords, matchMode: faultFallbackMatchMode.value
+      })
+    }
   }
   const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {
     await submitCreateAccount(payload)

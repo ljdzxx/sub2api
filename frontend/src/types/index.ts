@@ -2205,6 +2205,7 @@ export interface UserErrorRequest {
   inbound_endpoint: string
   status_code: number
   category: string
+  error_code?: string
   platform: string
   message: string
   key_name: string

@@ -910,12 +910,12 @@ func buildOpsErrorLogsWhere(filter *service.OpsErrorLogFilter) (string, []any) {
 	// Keep list endpoints scoped to client errors unless the caller explicitly opts
 	// into recovered provider-health rows (upstream/account_auth). Request-error
 	// endpoints never set the opt-in and retain this guard.
-	// cyber_policy is exempt from the status >= 400 guard: streaming cyber hits arrive with
-	// status 200 (the SSE stream opened successfully before upstream returned response.failed),
-	// but they are always client-visible blocked requests that belong in admin + user error
-	// lists.  Without the exemption the entire streaming-path cyber sink would be invisible.
+	// Policy failures remain visible even when the HTTP stream already opened
+	// with status 200. Use the same taxonomy as classification and filtering.
 	if !opsFilterIncludesRecoveredProviderRows(filter, phaseFilter) {
-		clauses = append(clauses, "(COALESCE(e.status_code, 0) >= 400 OR e.error_type = 'cyber_policy')")
+		// Values come exclusively from the constant taxonomy, never user input.
+		policyTypes := "'" + strings.Join(service.SafetyPolicyErrorCodes(), "','") + "'"
+		clauses = append(clauses, "(COALESCE(e.status_code, 0) >= 400 OR e.error_type IN ("+policyTypes+"))")
 	}
 
 	if filter.StartTime != nil && !filter.StartTime.IsZero() {

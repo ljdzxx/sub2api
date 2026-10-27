@@ -1777,6 +1777,8 @@
       <FaultFallbackOnlyField
         v-model="faultFallbackOnly"
         v-model:status-codes="faultFallbackStatusCodes"
+        v-model:keywords="faultFallbackKeywords"
+        v-model:match-mode="faultFallbackMatchMode"
         :platform="account.platform"
         :type="account.type"
       />
@@ -3262,7 +3264,7 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
-import { OPENAI_FAULT_FALLBACK_ONLY, DEFAULT_FAULT_FALLBACK_STATUS_CODES, formatFaultFallbackStatusCodes, parseFaultFallbackStatusCodes, withAccountFaultFallback } from '@/utils/accountFaultFallback'
+import { OPENAI_FAULT_FALLBACK_ONLY, DEFAULT_FAULT_FALLBACK_STATUS_CODES, formatFaultFallbackStatusCodes, parseFaultFallbackStatusCodes, formatFaultFallbackKeywords, parseFaultFallbackKeywords, getFaultFallbackMatchMode, withAccountFaultFallback, type FaultFallbackMatchMode } from '@/utils/accountFaultFallback'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -3687,6 +3689,8 @@ const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
 const GROK_CLIENT_TOOL_CACHE_EXTRA_KEY = 'grok_client_tool_cache_enabled'
 const faultFallbackStatusCodes = ref(DEFAULT_FAULT_FALLBACK_STATUS_CODES)
+const faultFallbackKeywords = ref('')
+const faultFallbackMatchMode = ref<FaultFallbackMatchMode>('any')
 const faultFallbackOnly = ref(false)
 const poolModeEnabled = ref(false)
 const explicitCacheUpstreamEnabled = ref(false)
@@ -4312,6 +4316,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.load_factor = newAccount.load_factor ?? null
   faultFallbackOnly.value = newAccount.extra?.[OPENAI_FAULT_FALLBACK_ONLY] === true
   faultFallbackStatusCodes.value = formatFaultFallbackStatusCodes(newAccount.extra)
+  faultFallbackKeywords.value = formatFaultFallbackKeywords(newAccount.extra)
+  faultFallbackMatchMode.value = getFaultFallbackMatchMode(newAccount.extra)
   form.priority = newAccount.priority
   form.rate_multiplier = newAccount.rate_multiplier ?? 1
   form.status = (newAccount.status === 'active' || newAccount.status === 'inactive' || newAccount.status === 'error')
@@ -5319,12 +5325,18 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
       appStore.showError(t('admin.accounts.faultFallbackStatusCodesInvalid'))
       return
     }
+    const keywords = parseFaultFallbackKeywords(faultFallbackKeywords.value)
+    if (keywords === null) {
+      appStore.showError(t('admin.accounts.faultFallbackKeywordsInvalid'))
+      return
+    }
     updatePayload = {
       ...updatePayload,
       extra: withAccountFaultFallback(
         (updatePayload.extra ?? props.account.extra) as Record<string, unknown> | undefined,
         faultFallbackOnly.value,
-        statusCodes
+        statusCodes,
+        { keywords, matchMode: faultFallbackMatchMode.value }
       )
     }
   }

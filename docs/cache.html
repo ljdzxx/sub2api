@@ -1,0 +1,1804 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>读缓存计价实验台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f3f5f7;
+      --surface: #ffffff;
+      --surface-soft: #f8fafb;
+      --ink: #172127;
+      --muted: #647078;
+      --line: #d9e0e4;
+      --line-strong: #b9c5ca;
+      --teal: #0f766e;
+      --teal-soft: #e4f3f1;
+      --blue: #2869a8;
+      --blue-soft: #e8f1fa;
+      --amber: #b7680c;
+      --amber-soft: #fff2d8;
+      --red: #b33b32;
+      --red-soft: #fdebea;
+      --green: #287a47;
+      --shadow: 0 8px 24px rgba(26, 42, 50, 0.07);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--page);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--page);
+      font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+      padding: 10px clamp(16px, 3vw, 36px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 11px;
+    }
+
+    .brand-mark {
+      display: grid;
+      flex: 0 0 34px;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid #0b615b;
+      border-radius: 7px;
+      color: #ffffff;
+      background: var(--teal);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-title {
+      overflow: hidden;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .brand-subtitle {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .reset-button {
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      cursor: pointer;
+    }
+
+    .reset-button:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .shell {
+      display: grid;
+      width: min(1540px, 100%);
+      margin: 0 auto;
+      padding: 18px clamp(14px, 2.5vw, 32px) 42px;
+      grid-template-columns: minmax(278px, 326px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .controls {
+      position: sticky;
+      top: 76px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-heading {
+      padding: 15px 16px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-heading h2,
+    .section-heading h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .panel-heading p,
+    .section-heading p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .control-section {
+      padding: 14px 16px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .control-section:last-child {
+      border-bottom: 0;
+    }
+
+    .control-section h3 {
+      margin: 0 0 11px;
+      color: #34434a;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 11px 9px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field-wide {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 5px;
+      color: #4f5c63;
+      font-size: 12px;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrap input,
+    .input-wrap select {
+      width: 100%;
+      min-width: 0;
+      height: 36px;
+      padding: 7px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      outline: none;
+      color: var(--ink);
+      background: #ffffff;
+    }
+
+    .input-wrap.has-suffix input {
+      padding-right: 38px;
+    }
+
+    .input-wrap.has-wide-suffix input {
+      padding-right: 58px;
+    }
+
+    .input-wrap input:focus,
+    .input-wrap select:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+    }
+
+    .suffix {
+      position: absolute;
+      right: 9px;
+      color: var(--muted);
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    .ratio-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .ratio-strip strong {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .error-banner {
+      display: none;
+      margin: 12px 16px 15px;
+      padding: 9px 10px;
+      border: 1px solid #e8aaa5;
+      border-radius: 6px;
+      color: #872b25;
+      background: var(--red-soft);
+      font-size: 12px;
+    }
+
+    .error-banner.visible {
+      display: block;
+    }
+
+    .workspace {
+      display: grid;
+      min-width: 0;
+      gap: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-width: 0;
+      min-height: 108px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 4px 16px rgba(26, 42, 50, 0.045);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric-value {
+      overflow-wrap: anywhere;
+      margin-top: 7px;
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      font-size: 27px;
+      font-weight: 720;
+      line-height: 1.15;
+    }
+
+    .metric-note {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .metric.accent-teal {
+      border-top: 3px solid var(--teal);
+    }
+
+    .metric.accent-blue {
+      border-top: 3px solid var(--blue);
+    }
+
+    .metric.accent-amber {
+      border-top: 3px solid var(--amber);
+    }
+
+    .metric.accent-red {
+      border-top: 3px solid var(--red);
+    }
+
+    .metric-value.positive {
+      color: var(--red);
+    }
+
+    .metric-value.negative {
+      color: var(--green);
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 15px 17px 13px;
+      border-bottom: 1px solid var(--line);
+      gap: 16px;
+    }
+
+    .heading-copy {
+      min-width: 0;
+    }
+
+    .segment {
+      display: inline-flex;
+      flex-wrap: wrap;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface-soft);
+      gap: 2px;
+    }
+
+    .segment button {
+      min-height: 30px;
+      padding: 5px 9px;
+      border: 0;
+      border-radius: 5px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .segment button[aria-pressed="true"] {
+      color: #ffffff;
+      background: #324a55;
+      box-shadow: 0 1px 3px rgba(20, 33, 40, 0.18);
+    }
+
+    .chart-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 17px 0;
+      gap: 9px;
+    }
+
+    .chart-toolbar .segment button[aria-pressed="true"] {
+      background: var(--teal);
+    }
+
+    .chart-context {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chart-stage {
+      position: relative;
+      min-height: 390px;
+      padding: 0 12px 8px;
+    }
+
+    #curveChart {
+      display: block;
+      width: 100%;
+      height: 390px;
+      overflow: visible;
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      z-index: 5;
+      display: none;
+      min-width: 154px;
+      padding: 8px 10px;
+      border: 1px solid #aebcc2;
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 8px 24px rgba(21, 38, 46, 0.16);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .chart-tooltip.visible {
+      display: block;
+    }
+
+    .chart-tooltip strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--teal);
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 0 17px 14px;
+      color: var(--muted);
+      font-size: 11px;
+      gap: 14px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-line,
+    .legend-dot,
+    .legend-knee {
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .legend-line {
+      width: 20px;
+      height: 3px;
+      background: var(--teal);
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 0 1px var(--amber);
+    }
+
+    .legend-knee {
+      width: 20px;
+      border-top: 1px dashed var(--red);
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(290px, 0.8fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th,
+    td {
+      padding: 10px 13px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    th {
+      color: var(--muted);
+      background: var(--surface-soft);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    td {
+      font-size: 12px;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .total-row td {
+      border-top: 2px solid var(--line-strong);
+      font-weight: 700;
+    }
+
+    .delta-positive {
+      color: var(--red);
+    }
+
+    .delta-negative {
+      color: var(--green);
+    }
+
+    .formula-body {
+      display: grid;
+      padding: 16px 17px 18px;
+      gap: 14px;
+    }
+
+    .formula {
+      overflow-x: auto;
+      padding: 11px 12px;
+      border-left: 3px solid var(--teal);
+      color: #26383f;
+      background: var(--teal-soft);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: nowrap;
+    }
+
+    .insight {
+      padding: 11px 12px;
+      border: 1px solid #efcf94;
+      border-radius: 6px;
+      color: #65400b;
+      background: var(--amber-soft);
+      font-size: 12px;
+    }
+
+    .definition-list {
+      display: grid;
+      margin: 0;
+      grid-template-columns: 32px 1fr;
+      gap: 7px 9px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .definition-list dt {
+      color: var(--blue);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-weight: 700;
+    }
+
+    .definition-list dd {
+      margin: 0;
+    }
+
+    .footnote {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .page-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 0 2px;
+      color: var(--muted);
+      font-size: 11px;
+      gap: 8px 18px;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 1040px) {
+      .shell {
+        grid-template-columns: 288px minmax(0, 1fr);
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        position: static;
+      }
+
+      .section-heading {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .brand-subtitle {
+        display: none;
+      }
+
+      .reset-button {
+        padding: 6px 9px;
+      }
+
+      .shell {
+        padding-right: 10px;
+        padding-left: 10px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metric {
+        min-height: 94px;
+      }
+
+      .metric-value {
+        font-size: 24px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-wide {
+        grid-column: auto;
+      }
+
+      .chart-stage {
+        min-height: 330px;
+        padding-right: 4px;
+        padding-left: 4px;
+      }
+
+      #curveChart {
+        height: 330px;
+      }
+
+      .chart-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .segment {
+        width: 100%;
+      }
+
+      .segment button {
+        flex: 1 1 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">f(x)</div>
+      <div class="brand-copy">
+        <h1 class="brand-title">读缓存计价实验台</h1>
+        <div class="brand-subtitle">OpenAI 分组读缓存扣除 · 与后端整数口径一致</div>
+      </div>
+    </div>
+    <button class="reset-button" id="resetButton" type="button">重置实例</button>
+  </header>
+
+  <main class="shell">
+    <aside class="controls" aria-label="计价参数">
+      <div class="panel-heading">
+        <h2>计价参数</h2>
+        <p>金额单价均为美元 / 百万 Tokens</p>
+      </div>
+
+      <section class="control-section">
+        <h3>用量</h3>
+        <div class="field-grid">
+          <div class="field field-wide">
+            <label for="totalInput">总输入 Tokens</label>
+            <div class="input-wrap">
+              <input id="totalInput" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field">
+            <label for="cacheRead">原始读缓存</label>
+            <div class="input-wrap">
+              <input id="cacheRead" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field">
+            <label for="cacheRatio">读缓存 / 总输入</label>
+            <div class="input-wrap has-suffix">
+              <input id="cacheRatio" type="number" min="0" max="100" step="0.0001" inputmode="decimal">
+              <span class="suffix">%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="cacheWrite">写缓存 Tokens</label>
+            <div class="input-wrap">
+              <input id="cacheWrite" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field">
+            <label for="outputTokens">输出 Tokens</label>
+            <div class="input-wrap">
+              <input id="outputTokens" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-section">
+        <h3>扣除</h3>
+        <div class="field-grid">
+          <div class="field field-wide">
+            <label for="deduction">读缓存扣除百分点</label>
+            <div class="input-wrap has-wide-suffix">
+              <input id="deduction" type="number" min="0" max="100" step="0.01" inputmode="decimal">
+              <span class="suffix">百分点</span>
+            </div>
+            <div class="ratio-strip">
+              <span>当前命中率</span>
+              <strong id="hitRateLabel">0%</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-section">
+        <h3>单价</h3>
+        <div class="field-grid">
+          <div class="field">
+            <label for="inputPrice">普通输入</label>
+            <div class="input-wrap has-suffix">
+              <input id="inputPrice" type="number" min="0" step="0.0001" inputmode="decimal">
+              <span class="suffix">$/M</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="readPrice">读缓存</label>
+            <div class="input-wrap has-suffix">
+              <input id="readPrice" type="number" min="0" step="0.0001" inputmode="decimal">
+              <span class="suffix">$/M</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="writePrice">写缓存</label>
+            <div class="input-wrap has-suffix">
+              <input id="writePrice" type="number" min="0" step="0.0001" inputmode="decimal">
+              <span class="suffix">$/M</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="outputPrice">输出</label>
+            <div class="input-wrap has-suffix">
+              <input id="outputPrice" type="number" min="0" step="0.0001" inputmode="decimal">
+              <span class="suffix">$/M</span>
+            </div>
+          </div>
+          <div class="field field-wide">
+            <label for="userMultiplier">用户计费倍率</label>
+            <div class="input-wrap has-suffix">
+              <input id="userMultiplier" type="number" min="0" step="0.0001" inputmode="decimal">
+              <span class="suffix">×</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="error-banner" id="errorBanner" role="alert"></div>
+    </aside>
+
+    <div class="workspace">
+      <section class="summary-grid" aria-label="计算结果">
+        <article class="metric accent-teal">
+          <div class="metric-label">应计读缓存 Tokens</div>
+          <div class="metric-value" id="effectiveCacheValue">0</div>
+          <div class="metric-note" id="effectiveCacheNote">原始 0</div>
+        </article>
+        <article class="metric accent-blue">
+          <div class="metric-label">转为普通输入 Tokens</div>
+          <div class="metric-value" id="shiftedTokensValue">0</div>
+          <div class="metric-note" id="normalInputNote">普通输入 0 → 0</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">原始标准费用</div>
+          <div class="metric-value" id="originalCostValue">$0.00000000</div>
+          <div class="metric-note">未扣缓存，未乘用户倍率</div>
+        </article>
+        <article class="metric accent-amber">
+          <div class="metric-label">应计标准费用</div>
+          <div class="metric-value" id="adjustedCostValue">$0.00000000</div>
+          <div class="metric-note" id="absoluteChangeNote">变化 $0.00000000</div>
+        </article>
+        <article class="metric accent-red">
+          <div class="metric-label">整笔费用相对变化</div>
+          <div class="metric-value" id="relativeChangeValue">0.00%</div>
+          <div class="metric-note" id="inputChangeNote">仅输入 0.00%</div>
+        </article>
+        <article class="metric accent-blue">
+          <div class="metric-label">最终用户扣费</div>
+          <div class="metric-value" id="userChargeValue">$0.00000000</div>
+          <div class="metric-note" id="multiplierNote">应计费用 × 1</div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div class="heading-copy">
+            <h2>费用变化函数</h2>
+            <p id="curveDescription">横轴变化时，其余参数保持当前值</p>
+          </div>
+          <div class="segment" id="metricSegment" aria-label="曲线费用口径">
+            <button type="button" data-metric="request" aria-pressed="true">整笔费用</button>
+            <button type="button" data-metric="input" aria-pressed="false">仅输入费用</button>
+          </div>
+        </div>
+        <div class="chart-toolbar">
+          <div class="segment" id="axisSegment" aria-label="曲线横轴">
+            <button type="button" data-axis="cache" aria-pressed="true">读缓存占比</button>
+            <button type="button" data-axis="deduction" aria-pressed="false">扣除百分点</button>
+            <button type="button" data-axis="ratio" aria-pressed="false">输入 / 缓存单价比</button>
+          </div>
+          <div class="chart-context" id="chartContext">纵轴：整笔费用相对变化</div>
+        </div>
+        <div class="chart-stage" id="chartStage">
+          <svg id="curveChart" viewBox="0 0 900 390" role="img" aria-labelledby="chartTitle chartDesc">
+            <title id="chartTitle">读缓存扣除费用变化曲线</title>
+            <desc id="chartDesc">展示所选参数变化对费用相对变化的影响。</desc>
+          </svg>
+          <div class="chart-tooltip" id="chartTooltip"></div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><i class="legend-line"></i>费用相对变化</span>
+          <span class="legend-item"><i class="legend-dot"></i>当前参数</span>
+          <span class="legend-item"><i class="legend-knee"></i><span id="kneeLegend">缓存扣完拐点</span></span>
+        </div>
+      </section>
+
+      <div class="details-grid">
+        <section class="panel">
+          <div class="section-heading">
+            <div class="heading-copy">
+              <h2>费用拆分</h2>
+              <p>Tokens 与美元金额按同一行对照</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>类别</th>
+                  <th>原始 Tokens</th>
+                  <th>应计 Tokens</th>
+                  <th>原始费用</th>
+                  <th>应计费用</th>
+                  <th>变化</th>
+                </tr>
+              </thead>
+              <tbody id="breakdownBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <div class="heading-copy">
+              <h2>公式与当前区间</h2>
+              <p>扣除的是缓存命中率百分点</p>
+            </div>
+          </div>
+          <div class="formula-body">
+            <div class="formula" id="formulaBlock"></div>
+            <div class="insight" id="insightText"></div>
+            <dl class="definition-list">
+              <dt>T</dt><dd>总输入，包含普通输入、读缓存与写缓存</dd>
+              <dt>R</dt><dd>原始读缓存 Tokens</dd>
+              <dt>X</dt><dd>从读缓存转为普通输入的 Tokens</dd>
+              <dt>Pᵢ</dt><dd>普通输入单价</dd>
+              <dt>Pᵣ</dt><dd>读缓存单价</dd>
+            </dl>
+            <p class="footnote">精确点采用整数 Tokens 与百分比百位精度；曲线也按相同规则逐点计算，因此可能呈现细小阶梯。页面未模拟图片分项、分层价格或其他模型附加费用。</p>
+          </div>
+        </section>
+      </div>
+
+      <footer class="page-footer">
+        <span>输入价高于读缓存价时，扣除会提高用户侧费用。</span>
+        <span id="priceRatioFooter">输入 / 读缓存单价比：20.00×</span>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var MAX_SAFE = Number.MAX_SAFE_INTEGER;
+      var SVG_NS = "http://www.w3.org/2000/svg";
+      var defaults = {
+        totalInput: "157739",
+        cacheRead: "157568",
+        cacheWrite: "0",
+        outputTokens: "118",
+        deduction: "5",
+        inputPrice: "2",
+        readPrice: "0.1",
+        writePrice: "2",
+        outputPrice: "10",
+        userMultiplier: "0.12"
+      };
+      var state = {
+        axis: "cache",
+        metric: "request",
+        points: [],
+        plot: null
+      };
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      var fields = {
+        totalInput: byId("totalInput"),
+        cacheRead: byId("cacheRead"),
+        cacheRatio: byId("cacheRatio"),
+        cacheWrite: byId("cacheWrite"),
+        outputTokens: byId("outputTokens"),
+        deduction: byId("deduction"),
+        inputPrice: byId("inputPrice"),
+        readPrice: byId("readPrice"),
+        writePrice: byId("writePrice"),
+        outputPrice: byId("outputPrice"),
+        userMultiplier: byId("userMultiplier")
+      };
+
+      function setDefaults() {
+        Object.keys(defaults).forEach(function (key) {
+          fields[key].value = defaults[key];
+        });
+        syncRatioFromTokens();
+      }
+
+      function parseInteger(input, label) {
+        var raw = String(input.value).trim();
+        if (!/^\d+$/.test(raw)) {
+          throw new Error(label + "必须是非负整数");
+        }
+        var value = Number(raw);
+        if (!Number.isSafeInteger(value) || value < 0 || value > MAX_SAFE) {
+          throw new Error(label + "超出安全整数范围");
+        }
+        return value;
+      }
+
+      function parseDecimal(input, label, min, max) {
+        var raw = String(input.value).trim();
+        var value = Number(raw);
+        if (raw === "" || !Number.isFinite(value) || value < min || value > max) {
+          throw new Error(label + "必须在 " + min + " 至 " + max + " 之间");
+        }
+        return value;
+      }
+
+      function readValues() {
+        var values = {
+          totalInput: parseInteger(fields.totalInput, "总输入"),
+          cacheRead: parseInteger(fields.cacheRead, "原始读缓存"),
+          cacheWrite: parseInteger(fields.cacheWrite, "写缓存"),
+          outputTokens: parseInteger(fields.outputTokens, "输出"),
+          deduction: parseDecimal(fields.deduction, "扣除百分点", 0, 100),
+          inputPrice: parseDecimal(fields.inputPrice, "普通输入单价", 0, 1000000),
+          readPrice: parseDecimal(fields.readPrice, "读缓存单价", 0, 1000000),
+          writePrice: parseDecimal(fields.writePrice, "写缓存单价", 0, 1000000),
+          outputPrice: parseDecimal(fields.outputPrice, "输出单价", 0, 1000000),
+          userMultiplier: parseDecimal(fields.userMultiplier, "用户计费倍率", 0, 1000000)
+        };
+
+        if (values.cacheRead + values.cacheWrite > values.totalInput) {
+          throw new Error("原始读缓存与写缓存之和不能超过总输入");
+        }
+        if (Math.abs(values.deduction * 100 - Math.round(values.deduction * 100)) > 1e-8) {
+          throw new Error("扣除百分点最多保留两位小数");
+        }
+        return values;
+      }
+
+      function calculate(values) {
+        var total = BigInt(values.totalInput);
+        var percentHundredths = BigInt(Math.round(values.deduction * 100));
+        var removed = percentHundredths === 0n
+          ? 0n
+          : (total * percentHundredths + 9999n) / 10000n;
+        var shifted = Number(removed);
+        if (shifted > values.cacheRead) {
+          shifted = values.cacheRead;
+        }
+
+        var effectiveCache = values.cacheRead - shifted;
+        var normalBefore = values.totalInput - values.cacheRead - values.cacheWrite;
+        var normalAfter = normalBefore + shifted;
+        var original = {
+          normal: normalBefore * values.inputPrice / 1000000,
+          read: values.cacheRead * values.readPrice / 1000000,
+          write: values.cacheWrite * values.writePrice / 1000000,
+          output: values.outputTokens * values.outputPrice / 1000000
+        };
+        var adjusted = {
+          normal: normalAfter * values.inputPrice / 1000000,
+          read: effectiveCache * values.readPrice / 1000000,
+          write: original.write,
+          output: original.output
+        };
+        var originalInput = original.normal + original.read + original.write;
+        var adjustedInput = adjusted.normal + adjusted.read + adjusted.write;
+        var originalTotal = originalInput + original.output;
+        var adjustedTotal = adjustedInput + adjusted.output;
+        var delta = adjustedTotal - originalTotal;
+
+        return {
+          effectiveCache: effectiveCache,
+          shifted: shifted,
+          normalBefore: normalBefore,
+          normalAfter: normalAfter,
+          original: original,
+          adjusted: adjusted,
+          originalInput: originalInput,
+          adjustedInput: adjustedInput,
+          originalTotal: originalTotal,
+          adjustedTotal: adjustedTotal,
+          delta: delta,
+          requestChange: percentChange(originalTotal, adjustedTotal),
+          inputChange: percentChange(originalInput, adjustedInput),
+          userCharge: adjustedTotal * values.userMultiplier,
+          rawHitRate: values.totalInput > 0 ? values.cacheRead / values.totalInput * 100 : 0
+        };
+      }
+
+      function percentChange(before, after) {
+        if (before === 0) {
+          return after === 0 ? 0 : null;
+        }
+        return (after - before) / before * 100;
+      }
+
+      function formatInteger(value) {
+        return Math.round(value).toLocaleString("zh-CN");
+      }
+
+      function formatMoney(value) {
+        if (!Number.isFinite(value)) {
+          return "—";
+        }
+        var sign = value < 0 ? "-" : "";
+        return sign + "$" + Math.abs(value).toFixed(8);
+      }
+
+      function formatSignedMoney(value) {
+        if (!Number.isFinite(value)) {
+          return "—";
+        }
+        if (Math.abs(value) < 0.000000000001) {
+          return "$0.00000000";
+        }
+        return (value > 0 ? "+" : "-") + "$" + Math.abs(value).toFixed(8);
+      }
+
+      function formatPercent(value, digits) {
+        if (value === null || !Number.isFinite(value)) {
+          return "—";
+        }
+        var normalized = Math.abs(value) < 0.000000001 ? 0 : value;
+        var sign = normalized > 0 ? "+" : "";
+        return sign + normalized.toFixed(digits == null ? 2 : digits) + "%";
+      }
+
+      function formatPlainPercent(value, digits) {
+        if (!Number.isFinite(value)) {
+          return "—";
+        }
+        return value.toFixed(digits == null ? 4 : digits).replace(/\.?0+$/, "") + "%";
+      }
+
+      function setChangeClass(element, value) {
+        element.classList.remove("positive", "negative");
+        if (value > 0.000000001) {
+          element.classList.add("positive");
+        } else if (value < -0.000000001) {
+          element.classList.add("negative");
+        }
+      }
+
+      function showError(message) {
+        var banner = byId("errorBanner");
+        banner.textContent = message;
+        banner.classList.add("visible");
+      }
+
+      function clearError() {
+        var banner = byId("errorBanner");
+        banner.textContent = "";
+        banner.classList.remove("visible");
+      }
+
+      function syncRatioFromTokens() {
+        var total = Number(fields.totalInput.value);
+        var cache = Number(fields.cacheRead.value);
+        if (Number.isFinite(total) && total > 0 && Number.isFinite(cache)) {
+          fields.cacheRatio.value = (cache / total * 100).toFixed(4).replace(/\.?0+$/, "");
+        } else if (total === 0 && cache === 0) {
+          fields.cacheRatio.value = "0";
+        }
+      }
+
+      function syncTokensFromRatio() {
+        var totalRaw = String(fields.totalInput.value).trim();
+        var ratio = Number(fields.cacheRatio.value);
+        if (!/^\d+$/.test(totalRaw) || !Number.isFinite(ratio) || ratio < 0 || ratio > 100) {
+          return;
+        }
+        var total = BigInt(totalRaw);
+        var millionths = BigInt(Math.round(ratio * 10000));
+        var cache = Number((total * millionths + 500000n) / 1000000n);
+        var write = Number(fields.cacheWrite.value);
+        var maxCache = Number(total);
+        if (Number.isSafeInteger(write) && write >= 0) {
+          maxCache = Math.max(0, Number(total) - write);
+        }
+        fields.cacheRead.value = String(Math.min(cache, maxCache));
+      }
+
+      function updateSummary(values, result) {
+        byId("effectiveCacheValue").textContent = formatInteger(result.effectiveCache);
+        byId("effectiveCacheNote").textContent =
+          "原始 " + formatInteger(values.cacheRead) + " · 应计命中率 " +
+          formatPlainPercent(values.totalInput > 0 ? result.effectiveCache / values.totalInput * 100 : 0, 4);
+        byId("shiftedTokensValue").textContent = formatInteger(result.shifted);
+        byId("normalInputNote").textContent =
+          "普通输入 " + formatInteger(result.normalBefore) + " → " + formatInteger(result.normalAfter);
+        byId("originalCostValue").textContent = formatMoney(result.originalTotal);
+        byId("adjustedCostValue").textContent = formatMoney(result.adjustedTotal);
+        byId("absoluteChangeNote").textContent = "变化 " + formatSignedMoney(result.delta);
+
+        var relative = byId("relativeChangeValue");
+        relative.textContent = formatPercent(result.requestChange);
+        setChangeClass(relative, result.requestChange || 0);
+        byId("inputChangeNote").textContent = "仅输入 " + formatPercent(result.inputChange);
+
+        byId("userChargeValue").textContent = formatMoney(result.userCharge);
+        byId("multiplierNote").textContent = "应计费用 × " + trimNumber(values.userMultiplier, 4);
+        byId("hitRateLabel").textContent = formatPlainPercent(result.rawHitRate, 4);
+
+        var ratioText = values.readPrice > 0
+          ? (values.inputPrice / values.readPrice).toFixed(2) + "×"
+          : "读缓存价为 0";
+        byId("priceRatioFooter").textContent = "输入 / 读缓存单价比：" + ratioText;
+      }
+
+      function updateBreakdown(values, result) {
+        var rows = [
+          {
+            label: "普通输入",
+            beforeTokens: result.normalBefore,
+            afterTokens: result.normalAfter,
+            before: result.original.normal,
+            after: result.adjusted.normal
+          },
+          {
+            label: "读缓存",
+            beforeTokens: values.cacheRead,
+            afterTokens: result.effectiveCache,
+            before: result.original.read,
+            after: result.adjusted.read
+          },
+          {
+            label: "写缓存",
+            beforeTokens: values.cacheWrite,
+            afterTokens: values.cacheWrite,
+            before: result.original.write,
+            after: result.adjusted.write
+          },
+          {
+            label: "输出",
+            beforeTokens: values.outputTokens,
+            afterTokens: values.outputTokens,
+            before: result.original.output,
+            after: result.adjusted.output
+          },
+          {
+            label: "合计",
+            beforeTokens: values.totalInput + values.outputTokens,
+            afterTokens: values.totalInput + values.outputTokens,
+            before: result.originalTotal,
+            after: result.adjustedTotal,
+            total: true
+          }
+        ];
+
+        byId("breakdownBody").innerHTML = rows.map(function (row) {
+          var delta = row.after - row.before;
+          var deltaClass = delta > 0.000000001
+            ? "delta-positive"
+            : (delta < -0.000000001 ? "delta-negative" : "");
+          return "<tr" + (row.total ? " class=\"total-row\"" : "") + ">" +
+            "<td>" + row.label + "</td>" +
+            "<td>" + formatInteger(row.beforeTokens) + "</td>" +
+            "<td>" + formatInteger(row.afterTokens) + "</td>" +
+            "<td>" + formatMoney(row.before) + "</td>" +
+            "<td>" + formatMoney(row.after) + "</td>" +
+            "<td class=\"" + deltaClass + "\">" + formatSignedMoney(delta) + "</td>" +
+            "</tr>";
+        }).join("");
+      }
+
+      function updateFormula(values, result) {
+        var formula = [
+          "X = min(R, ceil(T × D / 100))",
+          "  = min(" + formatInteger(values.cacheRead) + ", ceil(" +
+            formatInteger(values.totalInput) + " × " + trimNumber(values.deduction, 2) + "%))",
+          "  = " + formatInteger(result.shifted) + " Tokens",
+          "",
+          "C₁ = C₀ + X × (Pᵢ - Pᵣ) / 1,000,000",
+          "   = " + formatMoney(result.originalTotal) + " " +
+            signedOperator(result.delta) + " " + formatMoney(Math.abs(result.delta)),
+          "   = " + formatMoney(result.adjustedTotal)
+        ];
+        byId("formulaBlock").innerHTML = formula.map(escapeHtml).join("<br>");
+
+        var insight;
+        var hitRate = result.rawHitRate;
+        if (values.deduction === 0 || result.shifted === 0) {
+          insight = "当前扣除为 0，原始用量与应计用量一致。";
+        } else if (values.inputPrice === values.readPrice) {
+          insight = "普通输入与读缓存单价相同。Tokens 分类发生变化，但费用不变。";
+        } else if (values.inputPrice < values.readPrice) {
+          insight = "普通输入单价低于读缓存单价。缓存转为普通输入后，当前费用下降 " +
+            formatPercent(Math.abs(result.requestChange || 0)) + "。";
+        } else if (values.deduction >= hitRate && values.cacheRead > 0) {
+          insight = "扣除百分点已达到当前读缓存占比，读缓存全部转为普通输入。继续提高扣除值不会再增加费用。";
+        } else {
+          insight = "当前位于部分扣除区间。固定总输入、扣除值和单价时，转移 Tokens 基本固定；读缓存占比越高，原始费用基数越低，因此相对涨幅按分式函数加速上升，不是线性或指数关系。";
+        }
+        byId("insightText").textContent = insight;
+      }
+
+      function signedOperator(value) {
+        return value < 0 ? "−" : "+";
+      }
+
+      function trimNumber(value, digits) {
+        return Number(value).toFixed(digits).replace(/\.?0+$/, "");
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function cloneValues(values) {
+        return {
+          totalInput: values.totalInput,
+          cacheRead: values.cacheRead,
+          cacheWrite: values.cacheWrite,
+          outputTokens: values.outputTokens,
+          deduction: values.deduction,
+          inputPrice: values.inputPrice,
+          readPrice: values.readPrice,
+          writePrice: values.writePrice,
+          outputPrice: values.outputPrice,
+          userMultiplier: values.userMultiplier
+        };
+      }
+
+      function graphConfig(values, result) {
+        var maxCacheRatio = values.totalInput > 0
+          ? (values.totalInput - values.cacheWrite) / values.totalInput * 100
+          : 100;
+        var config;
+
+        if (state.axis === "cache") {
+          config = {
+            min: 0,
+            max: Math.max(maxCacheRatio, 0.01),
+            current: result.rawHitRate,
+            label: "原始读缓存占总输入",
+            unit: "%",
+            special: Math.min(values.deduction, maxCacheRatio),
+            specialLabel: "扣完拐点",
+            apply: function (scenario, x) {
+              scenario.cacheRead = Math.min(
+                scenario.totalInput - scenario.cacheWrite,
+                Math.max(0, Math.round(scenario.totalInput * x / 100))
+              );
+            }
+          };
+          byId("curveDescription").textContent = "读缓存占比变化时，总输入、扣除值和各项单价保持当前值";
+          byId("kneeLegend").textContent = "读缓存刚好扣完";
+        } else if (state.axis === "deduction") {
+          config = {
+            min: 0,
+            max: 100,
+            current: values.deduction,
+            label: "读缓存扣除",
+            unit: " 个百分点",
+            special: Math.min(result.rawHitRate, 100),
+            specialLabel: "缓存归零",
+            apply: function (scenario, x) {
+              scenario.deduction = Math.round(x * 100) / 100;
+            }
+          };
+          byId("curveDescription").textContent = "扣除百分点变化时，原始 usage 和各项单价保持当前值";
+          byId("kneeLegend").textContent = "读缓存归零阈值";
+        } else {
+          var heldReadPrice = values.readPrice > 0 ? values.readPrice : 0.1;
+          var currentRatio = values.inputPrice / heldReadPrice;
+          var ratioMax = Math.min(200, Math.max(10, currentRatio * 1.55, 40));
+          config = {
+            min: 0,
+            max: ratioMax,
+            current: currentRatio,
+            label: "输入 / 读缓存单价比",
+            unit: "×",
+            special: 1,
+            specialLabel: "同价点",
+            apply: function (scenario, x) {
+              scenario.readPrice = heldReadPrice;
+              scenario.inputPrice = heldReadPrice * x;
+            }
+          };
+          byId("curveDescription").textContent =
+            "读缓存单价固定为 $" + trimNumber(heldReadPrice, 4) + "/M，改变普通输入单价";
+          byId("kneeLegend").textContent = "普通输入与读缓存同价";
+        }
+        return config;
+      }
+
+      function graphMetric(result) {
+        return state.metric === "input" ? result.inputChange : result.requestChange;
+      }
+
+      function renderChart(values, result) {
+        var svg = byId("curveChart");
+        while (svg.firstChild) {
+          svg.removeChild(svg.firstChild);
+        }
+        appendSvg(svg, "title", {}, "读缓存扣除费用变化曲线");
+        appendSvg(svg, "desc", {}, "展示所选参数变化对费用相对变化的影响。");
+
+        var width = 900;
+        var height = 390;
+        var margin = { top: 26, right: 28, bottom: 56, left: 72 };
+        var plotWidth = width - margin.left - margin.right;
+        var plotHeight = height - margin.top - margin.bottom;
+        var config = graphConfig(values, result);
+        var points = [];
+        var samples = 160;
+
+        for (var i = 0; i <= samples; i++) {
+          var x = config.min + (config.max - config.min) * i / samples;
+          var scenario = cloneValues(values);
+          config.apply(scenario, x);
+          var y = graphMetric(calculate(scenario));
+          if (y !== null && Number.isFinite(y)) {
+            points.push({ x: x, y: y, scenario: scenario });
+          }
+        }
+
+        var currentScenario = cloneValues(values);
+        config.apply(currentScenario, config.current);
+        var currentY = graphMetric(calculate(currentScenario));
+        var yValues = points.map(function (point) { return point.y; });
+        if (currentY !== null && Number.isFinite(currentY)) {
+          yValues.push(currentY);
+        }
+        yValues.push(0);
+        var yMin = Math.min.apply(null, yValues);
+        var yMax = Math.max.apply(null, yValues);
+        if (Math.abs(yMax - yMin) < 0.000001) {
+          yMin -= 1;
+          yMax += 1;
+        } else {
+          var padding = (yMax - yMin) * 0.12;
+          yMin -= padding;
+          yMax += padding;
+        }
+
+        function sx(x) {
+          return margin.left + (x - config.min) / (config.max - config.min) * plotWidth;
+        }
+
+        function sy(y) {
+          return margin.top + (yMax - y) / (yMax - yMin) * plotHeight;
+        }
+
+        appendSvg(svg, "rect", {
+          x: margin.left,
+          y: margin.top,
+          width: plotWidth,
+          height: plotHeight,
+          fill: "#fbfcfd",
+          stroke: "#d9e0e4"
+        });
+
+        for (var yt = 0; yt <= 5; yt++) {
+          var yValue = yMin + (yMax - yMin) * yt / 5;
+          var yPos = sy(yValue);
+          appendSvg(svg, "line", {
+            x1: margin.left,
+            y1: yPos,
+            x2: width - margin.right,
+            y2: yPos,
+            stroke: Math.abs(yValue) < (yMax - yMin) / 80 ? "#9badb5" : "#e3e8eb",
+            "stroke-width": Math.abs(yValue) < (yMax - yMin) / 80 ? 1.4 : 1
+          });
+          appendSvg(svg, "text", {
+            x: margin.left - 10,
+            y: yPos + 4,
+            fill: "#647078",
+            "font-size": 11,
+            "text-anchor": "end"
+          }, compactPercent(yValue));
+        }
+
+        for (var xt = 0; xt <= 5; xt++) {
+          var xValue = config.min + (config.max - config.min) * xt / 5;
+          var xPos = sx(xValue);
+          appendSvg(svg, "line", {
+            x1: xPos,
+            y1: margin.top,
+            x2: xPos,
+            y2: height - margin.bottom,
+            stroke: "#edf0f2"
+          });
+          appendSvg(svg, "text", {
+            x: xPos,
+            y: height - margin.bottom + 21,
+            fill: "#647078",
+            "font-size": 11,
+            "text-anchor": "middle"
+          }, compactAxis(xValue, config));
+        }
+
+        appendSvg(svg, "text", {
+          x: margin.left + plotWidth / 2,
+          y: height - 13,
+          fill: "#4f5c63",
+          "font-size": 12,
+          "font-weight": 600,
+          "text-anchor": "middle"
+        }, config.label);
+        appendSvg(svg, "text", {
+          x: 17,
+          y: margin.top + plotHeight / 2,
+          fill: "#4f5c63",
+          "font-size": 12,
+          "font-weight": 600,
+          "text-anchor": "middle",
+          transform: "rotate(-90 17 " + (margin.top + plotHeight / 2) + ")"
+        }, state.metric === "input" ? "仅输入费用相对变化" : "整笔费用相对变化");
+
+        if (config.special >= config.min && config.special <= config.max) {
+          var specialX = sx(config.special);
+          appendSvg(svg, "line", {
+            x1: specialX,
+            y1: margin.top,
+            x2: specialX,
+            y2: height - margin.bottom,
+            stroke: "#b33b32",
+            "stroke-width": 1.2,
+            "stroke-dasharray": "5 5"
+          });
+          var labelAnchor = specialX > width - 150 ? "end" : "start";
+          appendSvg(svg, "text", {
+            x: specialX + (labelAnchor === "end" ? -6 : 6),
+            y: margin.top + 14,
+            fill: "#9a342d",
+            "font-size": 10,
+            "text-anchor": labelAnchor
+          }, config.specialLabel);
+        }
+
+        if (points.length > 1) {
+          var pathData = points.map(function (point, index) {
+            return (index === 0 ? "M" : "L") + sx(point.x).toFixed(2) + " " + sy(point.y).toFixed(2);
+          }).join(" ");
+          appendSvg(svg, "path", {
+            d: pathData,
+            fill: "none",
+            stroke: "#0f766e",
+            "stroke-width": 3,
+            "stroke-linejoin": "round",
+            "stroke-linecap": "round"
+          });
+        }
+
+        if (currentY !== null && Number.isFinite(currentY) &&
+            config.current >= config.min && config.current <= config.max) {
+          var currentXPos = sx(config.current);
+          var currentYPos = sy(currentY);
+          appendSvg(svg, "line", {
+            x1: currentXPos,
+            y1: margin.top,
+            x2: currentXPos,
+            y2: height - margin.bottom,
+            stroke: "#b7680c",
+            "stroke-width": 1,
+            "stroke-dasharray": "3 4",
+            opacity: 0.75
+          });
+          appendSvg(svg, "circle", {
+            cx: currentXPos,
+            cy: currentYPos,
+            r: 6,
+            fill: "#b7680c",
+            stroke: "#ffffff",
+            "stroke-width": 3
+          });
+        }
+
+        var hoverLine = appendSvg(svg, "line", {
+          x1: 0,
+          y1: margin.top,
+          x2: 0,
+          y2: height - margin.bottom,
+          stroke: "#60747d",
+          "stroke-width": 1,
+          "stroke-dasharray": "3 4",
+          visibility: "hidden"
+        });
+        var hoverDot = appendSvg(svg, "circle", {
+          cx: 0,
+          cy: 0,
+          r: 5,
+          fill: "#ffffff",
+          stroke: "#0f766e",
+          "stroke-width": 3,
+          visibility: "hidden"
+        });
+        var overlay = appendSvg(svg, "rect", {
+          x: margin.left,
+          y: margin.top,
+          width: plotWidth,
+          height: plotHeight,
+          fill: "transparent",
+          style: "cursor:crosshair"
+        });
+
+        state.points = points;
+        state.plot = {
+          config: config,
+          margin: margin,
+          width: width,
+          height: height,
+          plotWidth: plotWidth,
+          plotHeight: plotHeight,
+          sx: sx,
+          sy: sy,
+          hoverLine: hoverLine,
+          hoverDot: hoverDot
+        };
+
+        overlay.addEventListener("pointermove", onChartPointerMove);
+        overlay.addEventListener("pointerleave", hideChartTooltip);
+        byId("chartContext").textContent =
+          "纵轴：" + (state.metric === "input" ? "仅输入费用" : "整笔费用") + "相对变化";
+      }
+
+      function appendSvg(parent, tag, attributes, textContent) {
+        var element = document.createElementNS(SVG_NS, tag);
+        Object.keys(attributes).forEach(function (key) {
+          element.setAttribute(key, attributes[key]);
+        });
+        if (textContent != null) {
+          element.textContent = textContent;
+        }
+        parent.appendChild(element);
+        return element;
+      }
+
+      function compactPercent(value) {
+        var absolute = Math.abs(value);
+        var digits = absolute < 1 ? 2 : (absolute < 100 ? 1 : 0);
+        return value.toFixed(digits) + "%";
+      }
+
+      function compactAxis(value, config) {
+        var range = config.max - config.min;
+        var digits = range <= 5 ? 2 : (range <= 25 ? 1 : 0);
+        return value.toFixed(digits) + config.unit;
+      }
+
+      function clientPointToSvg(svg, clientX, clientY) {
+        var matrix = svg.getScreenCTM && svg.getScreenCTM();
+        if (matrix && svg.createSVGPoint) {
+          var point = svg.createSVGPoint();
+          point.x = clientX;
+          point.y = clientY;
+          return point.matrixTransform(matrix.inverse());
+        }
+
+        var rect = svg.getBoundingClientRect();
+        var viewBox = svg.viewBox.baseVal;
+        var scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height);
+        var renderedWidth = viewBox.width * scale;
+        var renderedHeight = viewBox.height * scale;
+        var offsetX = rect.left + (rect.width - renderedWidth) / 2;
+        var offsetY = rect.top + (rect.height - renderedHeight) / 2;
+        return {
+          x: viewBox.x + (clientX - offsetX) / scale,
+          y: viewBox.y + (clientY - offsetY) / scale
+        };
+      }
+
+      function onChartPointerMove(event) {
+        if (!state.plot || state.points.length === 0) {
+          return;
+        }
+        var svg = byId("curveChart");
+        var svgPoint = clientPointToSvg(svg, event.clientX, event.clientY);
+        var ratio = (svgPoint.x - state.plot.margin.left) / state.plot.plotWidth;
+        ratio = Math.max(0, Math.min(1, ratio));
+        var index = Math.round(ratio * (state.points.length - 1));
+        var point = state.points[index];
+        var x = state.plot.sx(point.x);
+        var y = state.plot.sy(point.y);
+
+        state.plot.hoverLine.setAttribute("x1", x);
+        state.plot.hoverLine.setAttribute("x2", x);
+        state.plot.hoverLine.setAttribute("visibility", "visible");
+        state.plot.hoverDot.setAttribute("cx", x);
+        state.plot.hoverDot.setAttribute("cy", y);
+        state.plot.hoverDot.setAttribute("visibility", "visible");
+
+        var tooltip = byId("chartTooltip");
+        var pointResult = calculate(point.scenario);
+        tooltip.innerHTML =
+          "<strong>" + escapeHtml(axisTooltipValue(point.x, state.plot.config)) + "</strong>" +
+          "<div>相对变化：" + escapeHtml(formatPercent(point.y)) + "</div>" +
+          "<div>金额变化：" + escapeHtml(formatSignedMoney(pointResult.delta)) + "</div>";
+        tooltip.classList.add("visible");
+
+        var stage = byId("chartStage");
+        var stageRect = stage.getBoundingClientRect();
+        var left = event.clientX - stageRect.left + 14;
+        var top = event.clientY - stageRect.top - 30;
+        if (left + 180 > stageRect.width) {
+          left -= 190;
+        }
+        tooltip.style.left = Math.max(6, left) + "px";
+        tooltip.style.top = Math.max(6, top) + "px";
+      }
+
+      function axisTooltipValue(value, config) {
+        if (state.axis === "cache") {
+          return "读缓存占比 " + value.toFixed(2) + "%";
+        }
+        if (state.axis === "deduction") {
+          return "扣除 " + value.toFixed(2) + " 个百分点";
+        }
+        return "单价比 " + value.toFixed(2) + "×";
+      }
+
+      function hideChartTooltip() {
+        byId("chartTooltip").classList.remove("visible");
+        if (state.plot) {
+          state.plot.hoverLine.setAttribute("visibility", "hidden");
+          state.plot.hoverDot.setAttribute("visibility", "hidden");
+        }
+      }
+
+      function render() {
+        try {
+          var values = readValues();
+          var result = calculate(values);
+          clearError();
+          updateSummary(values, result);
+          updateBreakdown(values, result);
+          updateFormula(values, result);
+          renderChart(values, result);
+        } catch (error) {
+          showError(error.message || "参数无效");
+        }
+      }
+
+      function bindSegment(containerId, key) {
+        byId(containerId).addEventListener("click", function (event) {
+          var button = event.target.closest("button[data-" + key + "]");
+          if (!button) {
+            return;
+          }
+          state[key] = button.getAttribute("data-" + key);
+          Array.prototype.forEach.call(
+            byId(containerId).querySelectorAll("button"),
+            function (item) {
+              item.setAttribute("aria-pressed", item === button ? "true" : "false");
+            }
+          );
+          hideChartTooltip();
+          render();
+        });
+      }
+
+      fields.cacheRead.addEventListener("input", function () {
+        syncRatioFromTokens();
+        render();
+      });
+      fields.cacheRatio.addEventListener("input", function () {
+        syncTokensFromRatio();
+        render();
+      });
+      fields.totalInput.addEventListener("input", function () {
+        syncRatioFromTokens();
+        render();
+      });
+      fields.cacheWrite.addEventListener("input", function () {
+        var total = Number(fields.totalInput.value);
+        var read = Number(fields.cacheRead.value);
+        var write = Number(fields.cacheWrite.value);
+        if (Number.isSafeInteger(total) && Number.isSafeInteger(read) &&
+            Number.isSafeInteger(write) && read + write > total) {
+          fields.cacheRead.value = String(Math.max(0, total - write));
+          syncRatioFromTokens();
+        }
+        render();
+      });
+
+      [
+        fields.outputTokens,
+        fields.deduction,
+        fields.inputPrice,
+        fields.readPrice,
+        fields.writePrice,
+        fields.outputPrice,
+        fields.userMultiplier
+      ].forEach(function (input) {
+        input.addEventListener("input", render);
+      });
+
+      byId("resetButton").addEventListener("click", function () {
+        setDefaults();
+        render();
+      });
+      bindSegment("axisSegment", "axis");
+      bindSegment("metricSegment", "metric");
+
+      setDefaults();
+      render();
+    }());
+  </script>
+</body>
+</html>

@@ -72,17 +72,45 @@ func TestOpenAIFaultFallback_HTTPHandlers(t *testing.T) {
 			status      int
 			onlyReserve bool
 			want        []int64
+			codes       []int
+			keywords    []string
+			mode        string
+			body        string
 		}{
-			{"upstream_failure", 503, false, []int64{1, 2}},
-			{"rate_limit", 429, false, []int64{1, 2}},
-			{"transport_failure", 0, false, []int64{1, 2}},
-			{"request_error", 400, false, []int64{1}},
-			{"body_limit", 413, false, []int64{1}},
-			{"no_primary", 503, true, nil},
-			{"configured_exclusion", 503, false, []int64{1}},
-			{"configured_auth", 401, false, []int64{1, 2}},
-			{"audit_cyber_mark", 503, false, []int64{1}},
-			{"cyber_keyword_only", 503, false, []int64{1, 2}},
+			{name: "upstream_failure", status: 503, want: []int64{1, 2}},
+			{name: "rate_limit", status: 429, want: []int64{1, 2}},
+			{name: "transport_failure", status: 0, want: []int64{1, 2}},
+			{name: "request_error", status: 400, want: []int64{1}},
+			{name: "body_limit", status: 413, want: []int64{1}},
+			{name: "no_primary", status: 503, onlyReserve: true},
+			{name: "configured_exclusion", status: 503, codes: []int{429}, want: []int64{1}},
+			{name: "configured_auth", status: 401, codes: []int{401}, want: []int64{1, 2}},
+			{name: "audit_cyber_mark", status: 503, want: []int64{1}},
+			{name: "cyber_keyword_only", status: 503, want: []int64{1, 2}},
+			{
+				name: "all_billing_example", status: 403, codes: []int{403}, keywords: []string{"insufficient balance"}, mode: "all",
+				body: `{"error":{"message":"insufficient balance","type":"billing_error"}}`, want: []int64{1, 2},
+			},
+			{
+				name: "all_message_mismatch", status: 403, codes: []int{403}, keywords: []string{"insufficient balance"}, mode: "all",
+				body: `{"error":{"message":"permission denied"}}`, want: []int64{1},
+			},
+			{
+				name: "all_status_mismatch", status: 503, codes: []int{403}, keywords: []string{"insufficient balance"}, mode: "all",
+				body: `{"error":{"message":"insufficient balance"}}`, want: []int64{1},
+			},
+			{
+				name: "any_message_match", status: 403, codes: []int{401}, keywords: []string{"insufficient balance"}, mode: "any",
+				body: `{"error":{"message":"Insufficient Balance"}}`, want: []int64{1, 2},
+			},
+			{
+				name: "any_status_match", status: 403, codes: []int{403}, keywords: []string{"insufficient balance"}, mode: "any",
+				body: `{"error":{"message":"permission denied"}}`, want: []int64{1, 2},
+			},
+			{
+				name: "keyword_does_not_enable_nonretryable_error", status: 400, codes: []int{}, keywords: []string{"invalid request"}, mode: "any",
+				body: `{"error":{"message":"invalid request"}}`, want: []int64{1},
+			},
 		} {
 			t.Run(endpoint.name+"/"+scenario.name, func(t *testing.T) {
 				groupID := int64(8330)
@@ -95,17 +123,20 @@ func TestOpenAIFaultFallback_HTTPHandlers(t *testing.T) {
 						Credentials: map[string]any{"api_key": "reserve-key", "base_url": "https://example.com"},
 						Extra:       map[string]any{service.OpenAIFaultFallbackOnlyExtraKey: true}},
 				}
-				if scenario.name == "configured_exclusion" {
-					accounts[1].Extra[service.OpenAIFaultFallbackStatusCodesExtraKey] = []int{429}
+				if scenario.codes != nil {
+					accounts[1].Extra[service.OpenAIFaultFallbackStatusCodesExtraKey] = scenario.codes
 				}
-				if scenario.name == "configured_auth" {
-					accounts[1].Extra[service.OpenAIFaultFallbackStatusCodesExtraKey] = []int{401}
+				if scenario.keywords != nil {
+					accounts[1].Extra[service.OpenAIFaultFallbackKeywordsExtraKey] = scenario.keywords
+				}
+				if scenario.mode != "" {
+					accounts[1].Extra[service.OpenAIFaultFallbackMatchModeExtraKey] = scenario.mode
 				}
 				if scenario.onlyReserve {
 					accounts = accounts[1:]
 				}
 				repo := &faultFallbackTestRepo{grokCredentialHandlerRepo: grokCredentialHandlerRepo{accounts: accounts}}
-				upstream := &faultFallbackTestUpstream{status: scenario.status}
+				upstream := &faultFallbackTestUpstream{status: scenario.status, body: scenario.body}
 				cfg := &config.Config{RunMode: config.RunModeSimple}
 				gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, nil, cfg,
 					nil, nil, nil, nil, nil, upstream, nil, nil, nil, nil, nil, nil, nil, nil)

@@ -78,8 +78,13 @@ func TestBuildOpsErrorLogsWhere_ModelFuzzy(t *testing.T) {
 func TestBuildOpsErrorLogsWhere_CyberPolicyStatusExemption(t *testing.T) {
 	// Default filter (no phase) must include the cyber_policy exemption.
 	where, _ := buildOpsErrorLogsWhere(&service.OpsErrorLogFilter{})
-	if !strings.Contains(where, "e.error_type = 'cyber_policy'") {
+	if !strings.Contains(where, "e.error_type IN (") || !strings.Contains(where, "'cyber_policy'") {
 		t.Fatalf("default filter must exempt cyber_policy from status >= 400 guard\nfull: %s", where)
+	}
+	for _, code := range service.SafetyPolicyErrorCodes() {
+		if !strings.Contains(where, "'"+code+"'") {
+			t.Fatalf("streaming policy code %q must remain visible: %s", code, where)
+		}
 	}
 	if !strings.Contains(where, "COALESCE(e.status_code, 0) >= 400") {
 		t.Fatalf("default filter must still include the status >= 400 guard for non-cyber rows\nfull: %s", where)

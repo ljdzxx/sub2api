@@ -189,6 +189,8 @@ type OpsStreamError struct {
 	// Code 是可选的稳定错误分类；用于既保留通用 OpenAI error.type，又向客户端和 Ops
 	// 暴露可编程判断的细分类（如 upstream_http2_stream_error）。
 	Code string
+	// Body preserves the original structured terminal payload for error details.
+	Body string
 	// Message 是写入 SSE 帧的对客错误消息。
 	Message string
 	// IntendedStatus 是流若未固化本应返回的 HTTP 状态码（如并发限流的 429）。
@@ -229,6 +231,7 @@ func BeginOpsStreamTurn(c *gin.Context, turn int) {
 	c.Set(OpsUpstreamStatusCodeKey, 0)
 	c.Set(OpsUpstreamErrorMessageKey, "")
 	c.Set(OpsUpstreamErrorDetailKey, "")
+	c.Set(opsUpstreamSafetyPolicyKey, (*OpsSafetyPolicyError)(nil))
 }
 
 // MarkOpsStreamError 记录一次就地 SSE 错误，供 ops 日志采集。
@@ -272,6 +275,9 @@ func markOpsStreamError(c *gin.Context, streamErr OpsStreamError) {
 	streamErr.ErrType = strings.TrimSpace(streamErr.ErrType)
 	streamErr.Code = strings.TrimSpace(streamErr.Code)
 	streamErr.Message = strings.TrimSpace(streamErr.Message)
+	if streamErr.Body != "" {
+		streamErr.Body, _ = SanitizeOpsErrorBodyForQueue(streamErr.Body)
+	}
 	if !streamErr.RequestScoped {
 		streamErr.SkipMonitoring = currentOpsFailureSkipMonitoring(c)
 	}
@@ -404,10 +410,15 @@ func SetOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage
 	setOpsUpstreamError(c, upstreamStatusCode, upstreamMessage, upstreamDetail)
 }
 
-func setOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {
+func setOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string, rawPayload ...[]byte) {
 	if c == nil {
 		return
 	}
+	payload := []byte(upstreamDetail)
+	if len(rawPayload) > 0 {
+		payload = rawPayload[0]
+	}
+	setOpsUpstreamSafetyPolicy(c, payload)
 	if upstreamStatusCode > 0 {
 		c.Set(OpsUpstreamStatusCodeKey, upstreamStatusCode)
 	}

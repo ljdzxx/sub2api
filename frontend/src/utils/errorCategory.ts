@@ -3,7 +3,19 @@
  * 镜像后端 service.MapUserErrorCategory(backend/internal/service/ops_user_error.go),
  * 两处修改须同步。返回稳定分类码,展示文案走 i18n `usage.errors.categories.*`。
  */
+const safetyPolicyErrorCodes = new Set([
+  'cyber_policy', 'bio_policy', 'misalignment_policy_violation',
+  'image_content_policy_violation', 'moderation_blocked', 'content_policy_violation',
+  'content_policy', 'content_filter',
+  'cyber_policy_session_blocked', 'session_blocked_by_cyber_policy',
+])
+
+export function isSafetyPolicyErrorCode(code?: string | null): boolean {
+  return safetyPolicyErrorCodes.has((code || '').trim().toLowerCase())
+}
+
 export function mapErrorCategory(phase?: string | null, errType?: string | null): string {
+  if (isSafetyPolicyErrorCode(errType)) return 'safety_policy'
   switch ((phase || '').toLowerCase()) {
     case 'auth':
       return 'auth'
@@ -24,8 +36,6 @@ export function mapErrorCategory(phase?: string | null, errType?: string | null)
           return 'quota'
         case 'invalid_request_error':
           return 'invalid_request'
-        case 'cyber_policy':
-          return 'cyber'
       }
   }
   return 'other'

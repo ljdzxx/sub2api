@@ -26,6 +26,17 @@ async function open() {
 }
 
 describe('user error detail requests', () => {
+  it('shows the common category and original policy code separately', async () => {
+    getDetail.mockResolvedValueOnce({
+      ...detail('test-model'), category: 'safety_policy', error_code: 'bio_policy',
+    })
+    const wrapper = await open()
+    await flushPromises()
+    expect(wrapper.text()).toContain('usage.errors.categories.safety_policy')
+    expect(wrapper.text()).toContain('bio_policy')
+    expect(wrapper.text()).toContain('usage.errors.errorCode')
+  })
+
   it('keeps the newer detail when an earlier request finishes last', async () => {
     const old = deferred(); const current = deferred()
     getDetail.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)

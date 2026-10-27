@@ -844,6 +844,11 @@ func isOpsTerminalSSEFrame(frame []byte) bool {
 	if len(payload) == 0 {
 		return false
 	}
+	if bytes.Contains(payload, []byte("content_filter")) || bytes.Contains(payload, []byte(`"error"`)) {
+		if code, _ := service.ParseSafetyPolicyPayload(payload); code != "" {
+			return true
+		}
+	}
 	// Most successful frames cannot be terminal. Avoid JSON decoding on this
 	// hot path while still validating any plausible terminal payload below.
 	if !bytes.Contains(payload, []byte("response.failed")) && !bytes.Contains(payload, []byte(`"error"`)) {
@@ -913,6 +918,12 @@ func (state *opsCaptureWriterState) captureResponseChunk(chunk []byte, status in
 		return
 	}
 	if status >= 400 {
+		state.appendCapturedResponse(chunk)
+		return
+	}
+	// JSON responses can carry an in-band policy failure or content-filter stop
+	// with HTTP 200. Keep the same bounded capture; ordinary successes are discarded.
+	if state.responseWriter != nil && strings.Contains(state.responseWriter.Header().Get("Content-Type"), "application/json") {
 		state.appendCapturedResponse(chunk)
 		return
 	}
@@ -1000,7 +1011,10 @@ func endsAtOpsSSEFrameBoundary(chunk []byte) bool {
 }
 
 func mayContainOpsTerminalSSE(chunk []byte) bool {
-	if bytes.Contains(chunk, []byte("response.failed")) {
+	if bytes.Contains(chunk, []byte("response.failed")) || bytes.Contains(chunk, []byte("content_filter")) {
+		return true
+	}
+	if bytes.Contains(chunk, []byte(`"error"`)) {
 		return true
 	}
 	return bytes.Contains(chunk, []byte("error")) &&
@@ -1116,6 +1130,15 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			if terminal, ok := w.capturedTerminalError(); ok {
 				parsed = terminal
 			}
+		}
+		// Compatibility writers may omit the upstream code. Only use the latest
+		// attempt's evidence for an actual failure, never for a recovered success
+		// or an explicit, different terminal error.
+		if policy := service.GetOpsUpstreamSafetyPolicy(c); policy != nil &&
+			parsed.Code == "" && (status >= 400 || parsed.StreamFailure) && !service.IsOpsRequestScopedError(c) {
+			parsed.Code = policy.Code
+			parsed.Message = policy.Message
+			body = []byte(policy.Body)
 		}
 		if status < 400 {
 			if parsed.StreamFailure {
@@ -1482,6 +1505,9 @@ func logOpsStreamErrorValue(c *gin.Context, ops *service.OpsService, wireStatus 
 			errorBody = string(payload)
 		}
 	}
+	if streamErr.Body != "" {
+		errorBody = streamErr.Body
+	}
 
 	apiKey := getOpsAPIKey(c)
 	clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string)
@@ -1807,6 +1833,9 @@ func parseOpsErrorResponse(body []byte) parsedOpsError {
 	if parsed, ok := parseOpsSSEFailure(body); ok {
 		return parsed
 	}
+	if code, message := service.ParseSafetyPolicyPayload(body); code != "" {
+		return parsedOpsError{ErrorType: "invalid_request_error", Code: code, Message: message, StreamFailure: true}
+	}
 
 	// Fast path: attempt to decode into a generic map.
 	var m map[string]any
@@ -1905,6 +1934,9 @@ func parseOpsSSEFailure(body []byte) (parsedOpsError, bool) {
 			}
 		}
 		if eventType != "response.failed" && eventType != "error" {
+			if code, message := service.ParseSafetyPolicyPayload(payloadBytes); code != "" {
+				return parsedOpsError{ErrorType: "invalid_request_error", Code: code, Message: message, StreamFailure: true}, true
+			}
 			continue
 		}
 
@@ -2038,6 +2070,9 @@ func sanitizeOpsSSEDataForPersistence(body []byte) string {
 }
 
 func inferResponsesFailedOpsErrorType(code string) string {
+	if service.IsSafetyPolicyErrorCode(code) {
+		return code
+	}
 	switch strings.TrimSpace(code) {
 	case "rate_limit_exceeded":
 		return "rate_limit_error"
@@ -2059,6 +2094,9 @@ func inferResponsesFailedOpsErrorType(code string) string {
 func inferStreamFailureStatus(_ *gin.Context, parsed parsedOpsError) int {
 	if parsed.StatusCode >= 400 && parsed.StatusCode <= 599 {
 		return parsed.StatusCode
+	}
+	if service.IsSafetyPolicyErrorCode(parsed.Code) || service.IsSafetyPolicyErrorCode(parsed.ErrorType) {
+		return http.StatusForbidden
 	}
 	switch strings.TrimSpace(parsed.Code) {
 	case "rate_limit_exceeded":
@@ -2155,6 +2193,12 @@ func isKnownOpsErrorType(t string) bool {
 }
 
 func normalizeOpsErrorType(errType string, code string) string {
+	if service.IsSafetyPolicyErrorCode(code) {
+		return strings.ToLower(strings.TrimSpace(code))
+	}
+	if service.IsSafetyPolicyErrorCode(errType) {
+		return strings.ToLower(strings.TrimSpace(errType))
+	}
 	if errType != "" && isKnownOpsErrorType(errType) {
 		return errType
 	}
@@ -2169,6 +2213,9 @@ func normalizeOpsErrorType(errType string, code string) string {
 }
 
 func classifyOpsPhase(errType, message, code string) string {
+	if service.IsSafetyPolicyErrorCode(errType) || service.IsSafetyPolicyErrorCode(code) {
+		return "request"
+	}
 	msg := strings.ToLower(message)
 	// Standardized phases: request|auth|account_auth|routing|upstream|network|internal
 	// Map billing/concurrency/response => request; scheduling => routing.
@@ -2204,6 +2251,9 @@ func classifyOpsPhase(errType, message, code string) string {
 }
 
 func classifyOpsSeverity(errType string, status int) string {
+	if service.IsSafetyPolicyErrorCode(errType) {
+		return "P3"
+	}
 	switch errType {
 	case "invalid_request_error", "authentication_error", "permission_error", "forbidden_error", "not_found_error", "model_not_found", "billing_error", "subscription_error":
 		return "P3"
@@ -2221,6 +2271,12 @@ func classifyOpsSeverity(errType string, status int) string {
 }
 
 func classifyOpsErrorLog(c *gin.Context, errType, message, code string, status int) (phase string, isBusinessLimited bool, errorOwner string, errorSource string) {
+	if service.IsSafetyPolicyErrorCode(errType) || service.IsSafetyPolicyErrorCode(code) {
+		if hasOpsUpstreamErrorContext(c) {
+			return "request", true, "provider", "upstream_http"
+		}
+		return "request", true, "client", "client_request"
+	}
 	phase = classifyOpsPhase(errType, message, code)
 	if service.IsOpsRequestScopedError(c) {
 		// 失败由请求内容决定：只按错误类型分类，上游错误上下文不参与归因。

@@ -44,6 +44,10 @@
           <p class="mt-0.5 text-gray-900 dark:text-dark-100">{{ t('usage.errors.categories.' + detail.category) }}</p>
         </div>
         <!-- Platform -->
+        <div v-if="detail.error_code">
+          <span class="font-medium text-gray-500 dark:text-dark-400">{{ t('usage.errors.errorCode') }}</span>
+          <p class="mt-0.5 break-all font-mono text-gray-900 dark:text-dark-100">{{ detail.error_code }}</p>
+        </div>
         <div>
           <span class="font-medium text-gray-500 dark:text-dark-400">{{ t('usage.errors.platform') }}</span>
           <p class="mt-0.5 text-gray-900 dark:text-dark-100">{{ detail.platform || '-' }}</p>

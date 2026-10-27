@@ -623,6 +623,11 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 	}
 	observer.Observe(finalResponse.Model, true)
 	observer.ObserveServiceTier(finalResponse.ServiceTier, true)
+	if finalResponse.IncompleteDetails != nil && finalResponse.IncompleteDetails.Reason == "content_filter" {
+		if payload, err := json.Marshal(finalResponse); err == nil {
+			markOpsContentFilter(c, payload, true)
+		}
+	}
 
 	if strings.TrimSpace(finalResponse.Status) == "failed" {
 		payload, _ := json.Marshal(gin.H{"type": "response.failed", "response": finalResponse})
@@ -1028,6 +1033,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 			return false
 		}
 		observer.ObserveOpenAI([]byte(payload), event.Type)
+		markOpsContentFilter(c, []byte(payload), false)
 		s.parseSSEUsageBytesWithType([]byte(payload), event.Type, &usage)
 
 		eventType := strings.TrimSpace(event.Type)

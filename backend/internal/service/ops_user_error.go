@@ -17,6 +17,7 @@ type UserErrorRequest struct {
 	InboundEndpoint string    `json:"inbound_endpoint"`
 	StatusCode      int       `json:"status_code"`
 	Category        string    `json:"category"`
+	ErrorCode       string    `json:"error_code,omitempty"`
 	Platform        string    `json:"platform"`
 	Message         string    `json:"message"`
 	KeyName         string    `json:"key_name"`
@@ -39,6 +40,9 @@ type UserErrorRequestList struct {
 // MapUserErrorCategory 把后端 error_phase + error_type 映射为用户侧粗分类码。
 // 返回的是稳定的分类 code（前端做 i18n），不是展示文案。
 func MapUserErrorCategory(phase, errType string) string {
+	if IsSafetyPolicyErrorCode(errType) {
+		return "safety_policy"
+	}
 	switch phase {
 	case "auth":
 		return "auth"
@@ -56,8 +60,6 @@ func MapUserErrorCategory(phase, errType string) string {
 			return "quota"
 		case "invalid_request_error":
 			return "invalid_request"
-		case "cyber_policy":
-			return "cyber"
 		}
 	}
 	return "other"
@@ -82,8 +84,8 @@ func CategoryToFilter(category string) (phases []string, errorTypes []string) {
 		return nil, []string{"billing_error", "subscription_error"}
 	case "invalid_request":
 		return nil, []string{"invalid_request_error"}
-	case "cyber":
-		return []string{"request"}, []string{"cyber_policy"}
+	case "safety_policy", "cyber": // Accept saved links using the old category.
+		return nil, SafetyPolicyErrorCodes()
 	default:
 		return nil, nil
 	}
@@ -109,15 +111,21 @@ func ToUserErrorRequest(e *OpsErrorLog) *UserErrorRequest {
 		InboundEndpoint: e.InboundEndpoint,
 		StatusCode:      e.StatusCode,
 		Category:        MapUserErrorCategory(e.Phase, e.Type),
-		Platform:        e.Platform,
-		Message:         publicUsageErrorBody(e.Message),
-		KeyName:         e.APIKeyName,
-		KeyDeleted:      e.APIKeyDeleted,
-		ClientIP:        clientIP,
-		GroupName:       e.GroupName,
-		RequestType:     e.RequestType,
-		Stream:          e.Stream,
-		UserAgent:       e.UserAgent,
+		ErrorCode: func() string {
+			if IsSafetyPolicyErrorCode(e.Type) {
+				return e.Type
+			}
+			return ""
+		}(),
+		Platform:    e.Platform,
+		Message:     publicUsageErrorBody(e.Message),
+		KeyName:     e.APIKeyName,
+		KeyDeleted:  e.APIKeyDeleted,
+		ClientIP:    clientIP,
+		GroupName:   e.GroupName,
+		RequestType: e.RequestType,
+		Stream:      e.Stream,
+		UserAgent:   e.UserAgent,
 	}
 }
 

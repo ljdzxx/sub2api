@@ -1,6 +1,25 @@
 export const OPENAI_FAULT_FALLBACK_ONLY = 'openai_fault_fallback_only'
 export const OPENAI_FAULT_FALLBACK_STATUS_CODES = 'openai_fault_fallback_status_codes'
+export const OPENAI_FAULT_FALLBACK_KEYWORDS = 'openai_fault_fallback_keywords'
+export const OPENAI_FAULT_FALLBACK_MATCH_MODE = 'openai_fault_fallback_match_mode'
 export const DEFAULT_FAULT_FALLBACK_STATUS_CODES = '429, 500-599'
+export type FaultFallbackMatchMode = 'any' | 'all'
+
+export function parseFaultFallbackKeywords(input: string): string[] | null {
+  const keywords = input.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+  if (keywords.length > 100 || keywords.some(keyword => [...keyword].length > 500)) return null
+  return keywords
+}
+
+export function formatFaultFallbackKeywords(extra: Record<string, unknown> | null | undefined): string {
+  const raw = extra?.[OPENAI_FAULT_FALLBACK_KEYWORDS]
+  if (raw === undefined) return ''
+  return Array.isArray(raw) ? raw.join('\n') : String(raw)
+}
+
+export function getFaultFallbackMatchMode(extra: Record<string, unknown> | null | undefined): FaultFallbackMatchMode {
+  return extra?.[OPENAI_FAULT_FALLBACK_MATCH_MODE] === 'all' ? 'all' : 'any'
+}
 
 export function parseFaultFallbackStatusCodes(input: string): number[] | null {
   if (!input.trim()) return []
@@ -50,12 +69,17 @@ export function formatFaultFallbackStatusCodes(extra: Record<string, unknown> | 
 export function withAccountFaultFallback(
   extra: Record<string, unknown> | null | undefined,
   enabled: boolean,
-  statusCodes?: number[]
+  statusCodes?: number[],
+  matching?: { keywords: string[]; matchMode: FaultFallbackMatchMode }
 ): Record<string, unknown> {
   // Keep an explicit false so disabling survives APIs that merge extra fields.
   return {
     ...extra,
     [OPENAI_FAULT_FALLBACK_ONLY]: enabled,
-    ...(statusCodes === undefined ? {} : { [OPENAI_FAULT_FALLBACK_STATUS_CODES]: statusCodes })
+    ...(statusCodes === undefined ? {} : { [OPENAI_FAULT_FALLBACK_STATUS_CODES]: statusCodes }),
+    ...(matching === undefined ? {} : {
+      [OPENAI_FAULT_FALLBACK_KEYWORDS]: matching.keywords,
+      [OPENAI_FAULT_FALLBACK_MATCH_MODE]: matching.matchMode
+    })
   }
 }

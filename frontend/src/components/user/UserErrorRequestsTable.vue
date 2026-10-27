@@ -46,6 +46,7 @@
 
         <template #cell-category="{ row }">
           <span class="text-sm text-gray-900 dark:text-white">{{ t('usage.errors.categories.' + row.category) }}</span>
+          <code v-if="row.error_code" class="block break-all text-xs text-gray-500 dark:text-dark-400">{{ row.error_code }}</code>
         </template>
 
         <template #cell-message="{ row }">
