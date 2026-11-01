@@ -1,5 +1,7 @@
 # ray 分支：Linux 双实例 Docker Compose 部署
 
+**旧服务器迁移到新服务器：请使用 [数据库迁移指南](db-transfer.md)，按 pg_dump/pg_restore 完成恢复后再执行 deploy.sh。**
+
 **已有生产数据库、希望只运行一个 `.sh` 管理 master/salve：请使用 [ops.sh 一键运维说明](OPS.md)。该入口接续原库，允许旧应用已停止，不创建 PostgreSQL/Redis，也不初始化空库。**
 
 下文 `deploy.sh` 用于全新部署；已有生产环境不要执行它的 `init / infra-up / up all` 流程。

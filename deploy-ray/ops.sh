@@ -145,8 +145,8 @@ def discover(app, postgres, redis, network=None):
     environment.setdefault("REDIS_PORT", "6379")
     environment.setdefault("REDIS_DB", "0")
     environment.setdefault("REDIS_PASSWORD", "")
-    environment["DATABASE_MAX_OPEN_CONNS"] = "20"
-    environment["DATABASE_MAX_IDLE_CONNS"] = "5"
+    environment["DATABASE_MAX_OPEN_CONNS"] = "50"
+    environment["DATABASE_MAX_IDLE_CONNS"] = "10"
     return {"version": 1, "old_app": app["Name"].lstrip("/"), "old_image": app["Image"],
             "postgres": postgres["Name"].lstrip("/"), "redis": redis["Name"].lstrip("/"),
             "postgres_mount": pg_mount, "redis_mount": redis_mount, "pgdata": pgdata,
