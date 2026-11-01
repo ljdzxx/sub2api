@@ -128,8 +128,14 @@ type Group struct {
 	AllowLive bool `json:"allow_live,omitempty"`
 	// 是否强制此 OpenAI/Composite 分组请求使用 service_tier=priority
 	ForceOpenaiFast bool `json:"force_openai_fast,omitempty"`
+	// 是否启用 OpenAI 实验性功能策略
+	OpenaiExperimentalFeaturesEnabled bool `json:"openai_experimental_features_enabled,omitempty"`
 	// CacheReadDeductionPercent holds the value of the "cache_read_deduction_percent" field.
 	CacheReadDeductionPercent float64 `json:"cache_read_deduction_percent,omitempty"`
+	// 按原始总输入百分比增加读缓存 Tokens
+	CacheReadAmplificationPercent float64 `json:"cache_read_amplification_percent,omitempty"`
+	// 读缓存放大生效的最小原始总输入 Tokens
+	CacheReadAmplificationMinInputTokens int64 `json:"cache_read_amplification_min_input_tokens,omitempty"`
 	// 是否让此 OpenAI/Composite 分组的 Fast 请求按 Standard 价格计费
 	FreeOpenaiFast bool `json:"free_openai_fast,omitempty"`
 	// 仅允许非 apikey 类型账号关联到此分组
@@ -266,11 +272,11 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case group.FieldI18n, group.FieldVideoModelPrices, group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelAllowlist, group.FieldCodexModelsManifestConfig, group.FieldReasoningEffortMappings:
 			values[i] = new([]byte)
-		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowBatchImageGeneration, group.FieldImageCountBilling, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldForceOpenaiFast, group.FieldFreeOpenaiFast, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldProfitControlEnabled:
+		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowBatchImageGeneration, group.FieldImageCountBilling, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldForceOpenaiFast, group.FieldOpenaiExperimentalFeaturesEnabled, group.FieldFreeOpenaiFast, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldProfitControlEnabled:
 			values[i] = new(sql.NullBool)
-		case group.FieldRateMultiplier, group.FieldPeakRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k, group.FieldBatchImageDiscountMultiplier, group.FieldBatchImageHoldMultiplier, group.FieldVideoRateMultiplier, group.FieldVideoPrice480p, group.FieldVideoPrice720p, group.FieldVideoPrice1080p, group.FieldWebSearchPricePerCall, group.FieldSearchPricePer1k, group.FieldAudioRealtimePricePerMin, group.FieldAudioTtsPricePerMillionChars, group.FieldAudioSttPricePerHour, group.FieldCacheReadDeductionPercent, group.FieldProfitMinMargin, group.FieldProfitSafetyBuffer:
+		case group.FieldRateMultiplier, group.FieldPeakRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k, group.FieldBatchImageDiscountMultiplier, group.FieldBatchImageHoldMultiplier, group.FieldVideoRateMultiplier, group.FieldVideoPrice480p, group.FieldVideoPrice720p, group.FieldVideoPrice1080p, group.FieldWebSearchPricePerCall, group.FieldSearchPricePer1k, group.FieldAudioRealtimePricePerMin, group.FieldAudioTtsPricePerMillionChars, group.FieldAudioSttPricePerHour, group.FieldCacheReadDeductionPercent, group.FieldCacheReadAmplificationPercent, group.FieldProfitMinMargin, group.FieldProfitSafetyBuffer:
 			values[i] = new(sql.NullFloat64)
-		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
+		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldCacheReadAmplificationMinInputTokens, group.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
 		case group.FieldName, group.FieldDescription, group.FieldPeakStart, group.FieldPeakEnd, group.FieldStatus, group.FieldDuplicateOperationID, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel, group.FieldMaxReasoningEffort, group.FieldMaxReasoningEffortOverLimit:
 			values[i] = new(sql.NullString)
@@ -650,11 +656,29 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ForceOpenaiFast = value.Bool
 			}
+		case group.FieldOpenaiExperimentalFeaturesEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field openai_experimental_features_enabled", values[i])
+			} else if value.Valid {
+				_m.OpenaiExperimentalFeaturesEnabled = value.Bool
+			}
 		case group.FieldCacheReadDeductionPercent:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field cache_read_deduction_percent", values[i])
 			} else if value.Valid {
 				_m.CacheReadDeductionPercent = value.Float64
+			}
+		case group.FieldCacheReadAmplificationPercent:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_read_amplification_percent", values[i])
+			} else if value.Valid {
+				_m.CacheReadAmplificationPercent = value.Float64
+			}
+		case group.FieldCacheReadAmplificationMinInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_read_amplification_min_input_tokens", values[i])
+			} else if value.Valid {
+				_m.CacheReadAmplificationMinInputTokens = value.Int64
 			}
 		case group.FieldFreeOpenaiFast:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -1024,8 +1048,17 @@ func (_m *Group) String() string {
 	builder.WriteString("force_openai_fast=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ForceOpenaiFast))
 	builder.WriteString(", ")
+	builder.WriteString("openai_experimental_features_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OpenaiExperimentalFeaturesEnabled))
+	builder.WriteString(", ")
 	builder.WriteString("cache_read_deduction_percent=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CacheReadDeductionPercent))
+	builder.WriteString(", ")
+	builder.WriteString("cache_read_amplification_percent=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CacheReadAmplificationPercent))
+	builder.WriteString(", ")
+	builder.WriteString("cache_read_amplification_min_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CacheReadAmplificationMinInputTokens))
 	builder.WriteString(", ")
 	builder.WriteString("free_openai_fast=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FreeOpenaiFast))

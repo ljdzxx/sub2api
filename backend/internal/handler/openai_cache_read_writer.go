@@ -12,15 +12,15 @@ import (
 // installCacheReadWriter leaves upstream bytes/usage untouched and transforms
 // only the final HTTP wire representation (including protocol bridge output).
 func installCacheReadWriter(c *gin.Context, key *service.APIKey) func() {
-	percent := service.OpenAICacheReadDeductionPercent(key)
-	if percent == 0 || strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+	policy := service.OpenAICacheReadPolicyForKey(key)
+	if !policy.HasAdjustments() || strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
 		return func() {}
 	}
 	if _, exists := c.Writer.(*cacheReadResponseWriter); exists {
 		return func() {}
 	}
 	original := c.Writer
-	w := &cacheReadResponseWriter{ResponseWriter: original, transform: service.NewCacheReadWireTransformer(percent, strings.Contains(c.Request.URL.Path, "/messages"))}
+	w := &cacheReadResponseWriter{ResponseWriter: original, transform: service.NewCacheReadPolicyWireTransformer(policy, strings.Contains(c.Request.URL.Path, "/messages"))}
 	c.Writer = w
 	return func() { w.finish(); c.Writer = original }
 }

@@ -102,14 +102,17 @@ type APIKeyAuthGroupSnapshot struct {
 	SupportedModelScopes []string `json:"supported_model_scopes,omitempty"`
 
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
-	AllowMessagesDispatch       bool                              `json:"allow_messages_dispatch"`
-	AllowLive                   bool                              `json:"allow_live"`
-	ForceOpenAIFast             bool                              `json:"force_openai_fast"`
-	FreeOpenAIFast              bool                              `json:"free_openai_fast"`
-	CacheReadDeductionPercent   float64                           `json:"cache_read_deduction_percent"`
-	DefaultMappedModel          string                            `json:"default_mapped_model,omitempty"`
-	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
-	ModelAllowlist              GroupModelAllowlist               `json:"model_allowlist,omitempty"`
+	AllowMessagesDispatch                bool                              `json:"allow_messages_dispatch"`
+	AllowLive                            bool                              `json:"allow_live"`
+	ForceOpenAIFast                      bool                              `json:"force_openai_fast"`
+	FreeOpenAIFast                       bool                              `json:"free_openai_fast"`
+	OpenAIExperimentalFeaturesEnabled    bool                              `json:"openai_experimental_features_enabled"`
+	CacheReadDeductionPercent            float64                           `json:"cache_read_deduction_percent"`
+	CacheReadAmplificationPercent        float64                           `json:"cache_read_amplification_percent"`
+	CacheReadAmplificationMinInputTokens int64                             `json:"cache_read_amplification_min_input_tokens"`
+	DefaultMappedModel                   string                            `json:"default_mapped_model,omitempty"`
+	MessagesDispatchModelConfig          OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
+	ModelAllowlist                       GroupModelAllowlist               `json:"model_allowlist,omitempty"`
 	// CodexModelsManifestConfig 与 ModelAllowlist 一样在认证快照分组里透传，
 	// Codex /models handler 直接读认证分组对象。
 	CodexModelsManifestConfig GroupCodexModelsManifestConfig `json:"codex_models_manifest_config,omitempty"`

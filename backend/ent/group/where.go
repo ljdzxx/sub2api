@@ -300,9 +300,24 @@ func ForceOpenaiFast(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldForceOpenaiFast, v))
 }
 
+// OpenaiExperimentalFeaturesEnabled applies equality check predicate on the "openai_experimental_features_enabled" field. It's identical to OpenaiExperimentalFeaturesEnabledEQ.
+func OpenaiExperimentalFeaturesEnabled(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
+}
+
 // CacheReadDeductionPercent applies equality check predicate on the "cache_read_deduction_percent" field. It's identical to CacheReadDeductionPercentEQ.
 func CacheReadDeductionPercent(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadAmplificationPercent applies equality check predicate on the "cache_read_amplification_percent" field. It's identical to CacheReadAmplificationPercentEQ.
+func CacheReadAmplificationPercent(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationMinInputTokens applies equality check predicate on the "cache_read_amplification_min_input_tokens" field. It's identical to CacheReadAmplificationMinInputTokensEQ.
+func CacheReadAmplificationMinInputTokens(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadAmplificationMinInputTokens, v))
 }
 
 // FreeOpenaiFast applies equality check predicate on the "free_openai_fast" field. It's identical to FreeOpenaiFastEQ.
@@ -2315,6 +2330,16 @@ func ForceOpenaiFastNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldForceOpenaiFast, v))
 }
 
+// OpenaiExperimentalFeaturesEnabledEQ applies the EQ predicate on the "openai_experimental_features_enabled" field.
+func OpenaiExperimentalFeaturesEnabledEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
+}
+
+// OpenaiExperimentalFeaturesEnabledNEQ applies the NEQ predicate on the "openai_experimental_features_enabled" field.
+func OpenaiExperimentalFeaturesEnabledNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
+}
+
 // CacheReadDeductionPercentEQ applies the EQ predicate on the "cache_read_deduction_percent" field.
 func CacheReadDeductionPercentEQ(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
@@ -2353,6 +2378,86 @@ func CacheReadDeductionPercentLT(v float64) predicate.Group {
 // CacheReadDeductionPercentLTE applies the LTE predicate on the "cache_read_deduction_percent" field.
 func CacheReadDeductionPercentLTE(v float64) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldCacheReadDeductionPercent, v))
+}
+
+// CacheReadAmplificationPercentEQ applies the EQ predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationPercentNEQ applies the NEQ predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationPercentIn applies the In predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldCacheReadAmplificationPercent, vs...))
+}
+
+// CacheReadAmplificationPercentNotIn applies the NotIn predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldCacheReadAmplificationPercent, vs...))
+}
+
+// CacheReadAmplificationPercentGT applies the GT predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationPercentGTE applies the GTE predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationPercentLT applies the LT predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationPercentLTE applies the LTE predicate on the "cache_read_amplification_percent" field.
+func CacheReadAmplificationPercentLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldCacheReadAmplificationPercent, v))
+}
+
+// CacheReadAmplificationMinInputTokensEQ applies the EQ predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// CacheReadAmplificationMinInputTokensNEQ applies the NEQ predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensNEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// CacheReadAmplificationMinInputTokensIn applies the In predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldCacheReadAmplificationMinInputTokens, vs...))
+}
+
+// CacheReadAmplificationMinInputTokensNotIn applies the NotIn predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensNotIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldCacheReadAmplificationMinInputTokens, vs...))
+}
+
+// CacheReadAmplificationMinInputTokensGT applies the GT predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensGT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// CacheReadAmplificationMinInputTokensGTE applies the GTE predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensGTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// CacheReadAmplificationMinInputTokensLT applies the LT predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensLT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// CacheReadAmplificationMinInputTokensLTE applies the LTE predicate on the "cache_read_amplification_min_input_tokens" field.
+func CacheReadAmplificationMinInputTokensLTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldCacheReadAmplificationMinInputTokens, v))
 }
 
 // FreeOpenaiFastEQ applies the EQ predicate on the "free_openai_fast" field.

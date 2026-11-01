@@ -15,7 +15,8 @@ func TestAPIKeyAuthSnapshotGroupForceOpenAIFastRoundtrip(t *testing.T) {
 		User: &User{ID: 40, Status: StatusActive},
 		Group: &Group{
 			ID: groupID, Name: "fast-roundtrip", Platform: PlatformOpenAI, Status: StatusActive,
-			Hydrated: true, ForceOpenAIFast: true, FreeOpenAIFast: true, CacheReadDeductionPercent: 20.25,
+			Hydrated: true, ForceOpenAIFast: true, FreeOpenAIFast: true, OpenAIExperimentalFeaturesEnabled: true,
+			CacheReadDeductionPercent: 20.25, CacheReadAmplificationPercent: 20, CacheReadAmplificationMinInputTokens: 10000,
 		},
 	}
 	svc := &APIKeyService{}
@@ -32,6 +33,9 @@ func TestAPIKeyAuthSnapshotGroupForceOpenAIFastRoundtrip(t *testing.T) {
 	require.True(t, materialized.Group.Hydrated)
 	require.True(t, materialized.Group.ForceOpenAIFast)
 	require.True(t, materialized.Group.FreeOpenAIFast)
+	require.True(t, materialized.Group.OpenAIExperimentalFeaturesEnabled)
 	require.Equal(t, 20.25, materialized.Group.CacheReadDeductionPercent)
+	require.Equal(t, 20.0, materialized.Group.CacheReadAmplificationPercent)
+	require.EqualValues(t, 10000, materialized.Group.CacheReadAmplificationMinInputTokens)
 	require.Equal(t, apiKeyAuthSnapshotVersion, cached.Snapshot.Version)
 }

@@ -596,7 +596,7 @@ const exportToExcel = async () => {
       t('usage.rate'), t('usage.accountMultiplier'), t('usage.original'), t('usage.userBilled'), t('usage.accountBilled'),
       t('usage.firstToken'), t('usage.duration'),
       t('admin.usage.requestId'), t('admin.usage.upstreamRequestId'), t('usage.userAgent'), t('admin.usage.ipAddress'),
-      t('admin.groups.cacheReadDeduction.raw'), t('admin.groups.cacheReadDeduction.totalInput'), t('admin.groups.cacheReadDeduction.title'), t('admin.groups.cacheReadDeduction.upstreamCost')
+      t('admin.groups.cacheReadDeduction.raw'), t('admin.groups.cacheReadDeduction.totalInput'), t('admin.groups.cacheReadDeduction.title'), t('admin.groups.cacheReadDeduction.amplificationTitle'), t('admin.groups.cacheReadDeduction.amplificationThreshold'), t('admin.groups.cacheReadDeduction.upstreamCost')
     ]
     const ws = XLSX.utils.aoa_to_sheet([headers])
     while (true) {
@@ -616,7 +616,7 @@ const exportToExcel = async () => {
         log.total_cost?.toFixed(6) || '0.000000', log.actual_cost?.toFixed(6) || '0.000000',
         ((log.account_stats_cost ?? log.total_cost) * (log.account_rate_multiplier ?? 1)).toFixed(6), log.first_token_ms ?? '', log.duration_ms,
         log.request_id || '', log.upstream_request_id || '', log.user_agent || '', log.ip_address || '',
-        log.cache_read_adjustment ? (log.cache_read_adjustment.raw.cache_read_input_tokens ?? 0) : '', log.cache_read_adjustment?.raw.input_tokens ?? '', log.cache_read_adjustment?.percent ?? '', log.cache_read_adjustment?.upstream_cost ?? ''
+        log.cache_read_adjustment ? (log.cache_read_adjustment.raw.cache_read_input_tokens ?? 0) : '', log.cache_read_adjustment?.raw.input_tokens ?? '', log.cache_read_adjustment?.percent ?? '', log.cache_read_adjustment?.amplification_percent ?? '', log.cache_read_adjustment?.amplification_min_input_tokens ?? '', log.cache_read_adjustment?.upstream_cost ?? ''
       ])
       if (rows.length) {
         XLSX.utils.sheet_add_aoa(ws, rows, { origin: -1 })

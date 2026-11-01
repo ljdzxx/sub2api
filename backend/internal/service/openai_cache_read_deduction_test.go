@@ -44,6 +44,33 @@ func TestCacheReadDeductionValidation(t *testing.T) {
 	require.Zero(t, g.CacheReadDeductionPercent)
 }
 
+func TestOpenAICacheReadDeductionRequiresExperimentalEnable(t *testing.T) {
+	key := &APIKey{Group: &Group{Platform: PlatformOpenAI, CacheReadDeductionPercent: 20}}
+	require.Zero(t, OpenAICacheReadDeductionPercent(key))
+	key.Group.OpenAIExperimentalFeaturesEnabled = true
+	require.Equal(t, 20.0, OpenAICacheReadDeductionPercent(key))
+}
+
+func TestCacheReadAmplificationArithmeticAndThreshold(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 10000, CacheReadInputTokens: 9700, CacheCreationInputTokens: 100}
+	require.Equal(t, raw, AmplifyOpenAICacheRead(raw, 20, 10001))
+	out := AmplifyOpenAICacheRead(raw, 20, 10000)
+	require.Equal(t, 12000, out.InputTokens)
+	require.Equal(t, 11700, out.CacheReadInputTokens)
+	require.Equal(t, 100, out.CacheCreationInputTokens)
+	require.Equal(t, 200, openAIUsageTokens(out).InputTokens)
+}
+
+func TestCacheReadPolicyAppliesDeductionBeforeAmplification(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 10000, CacheReadInputTokens: 9700, CacheCreationInputTokens: 100}
+	out := ApplyOpenAICacheReadPolicy(raw, OpenAICacheReadPolicy{
+		DeductionPercent: 20, AmplificationPercent: 20, AmplificationMinInputTokens: 10000,
+	})
+	require.Equal(t, 12000, out.InputTokens)
+	require.Equal(t, 9700, out.CacheReadInputTokens)
+	require.Equal(t, 2200, openAIUsageTokens(out).InputTokens)
+}
+
 func TestCacheReadWireProtocols(t *testing.T) {
 	for _, tc := range []struct{ body, path string }{
 		{`{"usage":{"input_tokens":10000,"input_tokens_details":{"cached_tokens":9630}}}`, "usage.input_tokens_details.cached_tokens"},
@@ -76,6 +103,19 @@ func TestCacheReadWireImageAndPartialUsage(t *testing.T) {
 	require.EqualValues(t, 900, gjson.GetBytes(body, "usage.input_tokens_details.cached_tokens").Int())
 }
 
+func TestCacheReadWireAmplificationUpdatesTotalAndCache(t *testing.T) {
+	policy := OpenAICacheReadPolicy{AmplificationPercent: 20, AmplificationMinInputTokens: 10000}
+	tr := NewCacheReadPolicyWireTransformer(policy, false)
+	out := tr.Transform([]byte(`{"usage":{"input_tokens":10000,"output_tokens":20,"total_tokens":10020,"input_tokens_details":{"cached_tokens":9700,"cache_write_tokens":100}}}`))
+	require.EqualValues(t, 12000, gjson.GetBytes(out, "usage.input_tokens").Int())
+	require.EqualValues(t, 11700, gjson.GetBytes(out, "usage.input_tokens_details.cached_tokens").Int())
+	require.EqualValues(t, 12020, gjson.GetBytes(out, "usage.total_tokens").Int())
+
+	below := NewCacheReadPolicyWireTransformer(policy, false).Transform([]byte(`{"usage":{"input_tokens":9999,"input_tokens_details":{"cached_tokens":9700}}}`))
+	require.EqualValues(t, 9999, gjson.GetBytes(below, "usage.input_tokens").Int())
+	require.EqualValues(t, 9700, gjson.GetBytes(below, "usage.input_tokens_details.cached_tokens").Int())
+}
+
 func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
 	logs := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
@@ -83,7 +123,7 @@ func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
 	svc.usageBillingRepo = billing
 	groupID := int64(4)
 	user := &User{ID: 1}
-	key := &APIKey{ID: 2, User: user, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1, CacheReadDeductionPercent: 20}}
+	key := &APIKey{ID: 2, User: user, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1, OpenAIExperimentalFeaturesEnabled: true, CacheReadDeductionPercent: 20}}
 	account := &Account{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{"quota_limit": 100.0}}
 	raw := OpenAIUsage{InputTokens: 10000, CacheReadInputTokens: 9630, OutputTokens: 20}
 	result := &OpenAIForwardResult{RequestID: "deduction-test", Model: "gpt-5.1", Usage: raw}
@@ -109,6 +149,35 @@ func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
 	}
 	p := &postUsageBillingParams{Cost: &CostBreakdown{TotalCost: 9}, UpstreamTotalCost: &firstCost}
 	require.Equal(t, firstCost, p.upstreamTotalCost())
+}
+
+func TestCacheReadAmplificationRecordUsageKeepsOrdinaryInputAndUpstreamAccounting(t *testing.T) {
+	logs := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	billing := &openAIRecordUsageBillingRepoStub{}
+	svc.usageBillingRepo = billing
+	groupID := int64(14)
+	user := &User{ID: 11}
+	key := &APIKey{ID: 12, User: user, GroupID: &groupID, Group: &Group{
+		ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1, OpenAIExperimentalFeaturesEnabled: true,
+		CacheReadAmplificationPercent: 20, CacheReadAmplificationMinInputTokens: 10000,
+	}}
+	account := &Account{ID: 13, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{"quota_limit": 100.0}}
+	raw := OpenAIUsage{InputTokens: 10000, CacheReadInputTokens: 9700, CacheCreationInputTokens: 100, OutputTokens: 20}
+	result := &OpenAIForwardResult{RequestID: "amplification-test", Model: "gpt-5.1", Usage: raw}
+
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{Result: result, APIKey: key, User: user, Account: account}))
+	require.Equal(t, raw, result.Usage)
+	require.Equal(t, 200, logs.lastLog.InputTokens)
+	require.Equal(t, 11700, logs.lastLog.CacheReadTokens)
+	require.Equal(t, 100, logs.lastLog.CacheCreationTokens)
+	require.NotNil(t, logs.lastLog.CacheReadAdjustment)
+	require.Equal(t, 2, logs.lastLog.CacheReadAdjustment.Version)
+	require.Equal(t, 20.0, logs.lastLog.CacheReadAdjustment.AmplificationPercent)
+	require.EqualValues(t, 10000, logs.lastLog.CacheReadAdjustment.AmplificationMinInputTokens)
+	require.Equal(t, 12000, logs.lastLog.CacheReadAdjustment.Effective.InputTokens)
+	require.Greater(t, logs.lastLog.TotalCost, logs.lastLog.CacheReadAdjustment.UpstreamCost)
+	require.InDelta(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, billing.lastCmd.AccountQuotaCost, 1e-8)
 }
 
 func TestCacheReadPrivateErrorDetails(t *testing.T) {

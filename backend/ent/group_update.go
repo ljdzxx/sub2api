@@ -1023,6 +1023,20 @@ func (_u *GroupUpdate) SetNillableForceOpenaiFast(v *bool) *GroupUpdate {
 	return _u
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_u *GroupUpdate) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _u
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_u *GroupUpdate) SetCacheReadDeductionPercent(v float64) *GroupUpdate {
 	_u.mutation.ResetCacheReadDeductionPercent()
@@ -1041,6 +1055,48 @@ func (_u *GroupUpdate) SetNillableCacheReadDeductionPercent(v *float64) *GroupUp
 // AddCacheReadDeductionPercent adds value to the "cache_read_deduction_percent" field.
 func (_u *GroupUpdate) AddCacheReadDeductionPercent(v float64) *GroupUpdate {
 	_u.mutation.AddCacheReadDeductionPercent(v)
+	return _u
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (_u *GroupUpdate) SetCacheReadAmplificationPercent(v float64) *GroupUpdate {
+	_u.mutation.ResetCacheReadAmplificationPercent()
+	_u.mutation.SetCacheReadAmplificationPercent(v)
+	return _u
+}
+
+// SetNillableCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableCacheReadAmplificationPercent(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetCacheReadAmplificationPercent(*v)
+	}
+	return _u
+}
+
+// AddCacheReadAmplificationPercent adds value to the "cache_read_amplification_percent" field.
+func (_u *GroupUpdate) AddCacheReadAmplificationPercent(v float64) *GroupUpdate {
+	_u.mutation.AddCacheReadAmplificationPercent(v)
+	return _u
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (_u *GroupUpdate) SetCacheReadAmplificationMinInputTokens(v int64) *GroupUpdate {
+	_u.mutation.ResetCacheReadAmplificationMinInputTokens()
+	_u.mutation.SetCacheReadAmplificationMinInputTokens(v)
+	return _u
+}
+
+// SetNillableCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableCacheReadAmplificationMinInputTokens(v *int64) *GroupUpdate {
+	if v != nil {
+		_u.SetCacheReadAmplificationMinInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheReadAmplificationMinInputTokens adds value to the "cache_read_amplification_min_input_tokens" field.
+func (_u *GroupUpdate) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpdate {
+	_u.mutation.AddCacheReadAmplificationMinInputTokens(v)
 	return _u
 }
 
@@ -1579,6 +1635,16 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CacheReadAmplificationPercent(); ok {
+		if err := group.CacheReadAmplificationPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_percent": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		if err := group.CacheReadAmplificationMinInputTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_min_input_tokens", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_min_input_tokens": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
 			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
@@ -1913,11 +1979,26 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedCacheReadDeductionPercent(); ok {
 		_spec.AddField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheReadAmplificationPercent(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadAmplificationPercent(); ok {
+		_spec.AddField(group.FieldCacheReadAmplificationPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadAmplificationMinInputTokens(); ok {
+		_spec.AddField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -3275,6 +3356,20 @@ func (_u *GroupUpdateOne) SetNillableForceOpenaiFast(v *bool) *GroupUpdateOne {
 	return _u
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_u *GroupUpdateOne) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _u
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_u *GroupUpdateOne) SetCacheReadDeductionPercent(v float64) *GroupUpdateOne {
 	_u.mutation.ResetCacheReadDeductionPercent()
@@ -3293,6 +3388,48 @@ func (_u *GroupUpdateOne) SetNillableCacheReadDeductionPercent(v *float64) *Grou
 // AddCacheReadDeductionPercent adds value to the "cache_read_deduction_percent" field.
 func (_u *GroupUpdateOne) AddCacheReadDeductionPercent(v float64) *GroupUpdateOne {
 	_u.mutation.AddCacheReadDeductionPercent(v)
+	return _u
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (_u *GroupUpdateOne) SetCacheReadAmplificationPercent(v float64) *GroupUpdateOne {
+	_u.mutation.ResetCacheReadAmplificationPercent()
+	_u.mutation.SetCacheReadAmplificationPercent(v)
+	return _u
+}
+
+// SetNillableCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableCacheReadAmplificationPercent(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetCacheReadAmplificationPercent(*v)
+	}
+	return _u
+}
+
+// AddCacheReadAmplificationPercent adds value to the "cache_read_amplification_percent" field.
+func (_u *GroupUpdateOne) AddCacheReadAmplificationPercent(v float64) *GroupUpdateOne {
+	_u.mutation.AddCacheReadAmplificationPercent(v)
+	return _u
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (_u *GroupUpdateOne) SetCacheReadAmplificationMinInputTokens(v int64) *GroupUpdateOne {
+	_u.mutation.ResetCacheReadAmplificationMinInputTokens()
+	_u.mutation.SetCacheReadAmplificationMinInputTokens(v)
+	return _u
+}
+
+// SetNillableCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableCacheReadAmplificationMinInputTokens(v *int64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetCacheReadAmplificationMinInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheReadAmplificationMinInputTokens adds value to the "cache_read_amplification_min_input_tokens" field.
+func (_u *GroupUpdateOne) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpdateOne {
+	_u.mutation.AddCacheReadAmplificationMinInputTokens(v)
 	return _u
 }
 
@@ -3844,6 +3981,16 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CacheReadAmplificationPercent(); ok {
+		if err := group.CacheReadAmplificationPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_percent": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		if err := group.CacheReadAmplificationMinInputTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_min_input_tokens", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_min_input_tokens": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
 			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
@@ -4195,11 +4342,26 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedCacheReadDeductionPercent(); ok {
 		_spec.AddField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheReadAmplificationPercent(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadAmplificationPercent(); ok {
+		_spec.AddField(group.FieldCacheReadAmplificationPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadAmplificationMinInputTokens(); ok {
+		_spec.AddField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)

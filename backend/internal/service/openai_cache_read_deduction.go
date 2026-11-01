@@ -10,33 +10,76 @@ import (
 // CacheReadAdjustment is persisted for admin audit only. Public usage DTOs must
 // never embed it. Raw contains total input, including both cache buckets.
 type CacheReadAdjustment struct {
-	Version      int         `json:"version"`
-	Percent      float64     `json:"percent"`
-	Raw          OpenAIUsage `json:"raw"`
-	Effective    OpenAIUsage `json:"effective"`
-	UpstreamCost float64     `json:"upstream_cost"`
+	Version                     int         `json:"version"`
+	Percent                     float64     `json:"percent"`
+	AmplificationPercent        float64     `json:"amplification_percent,omitempty"`
+	AmplificationMinInputTokens int64       `json:"amplification_min_input_tokens,omitempty"`
+	Raw                         OpenAIUsage `json:"raw"`
+	Effective                   OpenAIUsage `json:"effective"`
+	UpstreamCost                float64     `json:"upstream_cost"`
+}
+
+type OpenAICacheReadPolicy struct {
+	DeductionPercent            float64
+	AmplificationPercent        float64
+	AmplificationMinInputTokens int64
+}
+
+func (p OpenAICacheReadPolicy) HasAdjustments() bool {
+	return p.DeductionPercent > 0 || p.AmplificationPercent > 0
 }
 
 func normalizeGroupCacheReadDeduction(g *Group) error {
-	p := g.CacheReadDeductionPercent
-	if math.IsNaN(p) || math.IsInf(p, 0) || p < 0 || p > 100 || math.Abs(p*100-math.Round(p*100)) > 1e-8 {
-		return infraerrors.BadRequest("INVALID_CACHE_READ_DEDUCTION", "cache read deduction must be between 0 and 100, with at most two decimal places")
+	if !validCacheReadPercent(g.CacheReadDeductionPercent) {
+		return infraerrors.BadRequest("INVALID_CACHE_READ_DEDUCTION", "cache hit-rate reduction must be between 0 and 100 percentage points, with at most two decimal places")
+	}
+	if !validCacheReadPercent(g.CacheReadAmplificationPercent) {
+		return infraerrors.BadRequest("INVALID_CACHE_READ_AMPLIFICATION", "cache read amplification must be between 0 and 100 percent, with at most two decimal places")
+	}
+	if g.CacheReadAmplificationMinInputTokens < 0 {
+		return infraerrors.BadRequest("INVALID_CACHE_READ_AMPLIFICATION_THRESHOLD", "cache read amplification input threshold must be greater than or equal to 0")
 	}
 	if g.Platform != PlatformOpenAI {
+		g.OpenAIExperimentalFeaturesEnabled = false
 		g.CacheReadDeductionPercent = 0
+		g.CacheReadAmplificationPercent = 0
+		g.CacheReadAmplificationMinInputTokens = 0
 	}
 	return nil
 }
 
+func validCacheReadPercent(p float64) bool {
+	return !math.IsNaN(p) && !math.IsInf(p, 0) && p >= 0 && p <= 100 && math.Abs(p*100-math.Round(p*100)) <= 1e-8
+}
+
+func OpenAICacheReadPolicyForKey(key *APIKey) OpenAICacheReadPolicy {
+	if key == nil || key.Group == nil || key.Group.Platform != PlatformOpenAI || !key.Group.OpenAIExperimentalFeaturesEnabled {
+		return OpenAICacheReadPolicy{}
+	}
+	policy := OpenAICacheReadPolicy{
+		DeductionPercent:            key.Group.CacheReadDeductionPercent,
+		AmplificationPercent:        key.Group.CacheReadAmplificationPercent,
+		AmplificationMinInputTokens: key.Group.CacheReadAmplificationMinInputTokens,
+	}
+	if !validCacheReadPercent(policy.DeductionPercent) {
+		policy.DeductionPercent = 0
+	}
+	if !validCacheReadPercent(policy.AmplificationPercent) {
+		policy.AmplificationPercent = 0
+	}
+	if policy.AmplificationMinInputTokens < 0 {
+		policy.AmplificationMinInputTokens = 0
+	}
+	return policy
+}
+
 func OpenAICacheReadDeductionPercent(key *APIKey) float64 {
-	if key == nil || key.Group == nil || key.Group.Platform != PlatformOpenAI {
-		return 0
-	}
-	p := key.Group.CacheReadDeductionPercent
-	if math.IsNaN(p) || math.IsInf(p, 0) || p <= 0 || p > 100 {
-		return 0
-	}
-	return p
+	return OpenAICacheReadPolicyForKey(key).DeductionPercent
+}
+
+func ApplyOpenAICacheReadPolicy(raw OpenAIUsage, policy OpenAICacheReadPolicy) OpenAIUsage {
+	effective := DeductOpenAICacheRead(raw, policy.DeductionPercent)
+	return AmplifyOpenAICacheRead(effective, policy.AmplificationPercent, policy.AmplificationMinInputTokens)
 }
 
 // DeductOpenAICacheRead is a pure function: callers retain the upstream snapshot
@@ -57,6 +100,36 @@ func DeductOpenAICacheRead(raw OpenAIUsage, percent float64) OpenAIUsage {
 	imageCached := min(max(raw.ImageCacheReadTokens, 0), min(cached, max(raw.ImageInputTokens, 0)))
 	out.ImageCacheReadTokens = proportionalCacheTokens(imageCached, out.CacheReadInputTokens, cached)
 	return out
+}
+
+// AmplifyOpenAICacheRead adds a percentage of the original total input to both
+// total input and cache-read tokens. Ordinary input and cache creation therefore
+// remain unchanged. The threshold is evaluated against the original total input.
+func AmplifyOpenAICacheRead(raw OpenAIUsage, percent float64, minInputTokens int64) OpenAIUsage {
+	if percent <= 0 || !validCacheReadPercent(percent) || minInputTokens < 0 {
+		return raw
+	}
+	total := max(raw.InputTokens, 0)
+	if int64(total) < minInputTokens {
+		return raw
+	}
+	bp := int(math.Round(percent * 100))
+	added := (total/10000)*bp + ((total%10000)*bp)/10000
+	if added <= 0 {
+		return raw
+	}
+	out := raw
+	out.InputTokens = saturatingAddNonNegative(total, added)
+	out.CacheReadInputTokens = saturatingAddNonNegative(max(raw.CacheReadInputTokens, 0), added)
+	return out
+}
+
+func saturatingAddNonNegative(a, b int) int {
+	maxInt := int(^uint(0) >> 1)
+	if b > maxInt-a {
+		return maxInt
+	}
+	return a + b
 }
 
 // The image bucket rounds down; the text bucket receives the remainder.

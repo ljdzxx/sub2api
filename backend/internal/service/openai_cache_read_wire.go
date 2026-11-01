@@ -16,14 +16,14 @@ func newContextCacheReadTransformer(ctx context.Context) *CacheReadWireTransform
 		return nil
 	}
 	group, _ := ctx.Value(ctxkey.Group).(*Group)
-	return NewCacheReadWireTransformer(OpenAICacheReadDeductionPercent(&APIKey{Group: group}), false)
+	return NewCacheReadPolicyWireTransformer(OpenAICacheReadPolicyForKey(&APIKey{Group: group}), false)
 }
 
 // CacheReadWireTransformer operates only on a copy at the client write boundary.
 // Upstream parsing, turn completion and retry accounting retain original bytes.
 // One instance belongs to one HTTP request or downstream WS write goroutine.
 type CacheReadWireTransformer struct {
-	percent    float64
+	policy     OpenAICacheReadPolicy
 	anthropic  bool
 	raw        OpenAIUsage
 	haveInput  bool
@@ -31,11 +31,15 @@ type CacheReadWireTransformer struct {
 }
 
 func NewCacheReadWireTransformer(percent float64, anthropic bool) *CacheReadWireTransformer {
-	return &CacheReadWireTransformer{percent: percent, anthropic: anthropic}
+	return NewCacheReadPolicyWireTransformer(OpenAICacheReadPolicy{DeductionPercent: percent}, anthropic)
+}
+
+func NewCacheReadPolicyWireTransformer(policy OpenAICacheReadPolicy, anthropic bool) *CacheReadWireTransformer {
+	return &CacheReadWireTransformer{policy: policy, anthropic: anthropic}
 }
 
 func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
-	if t == nil || t.percent <= 0 || !gjson.ValidBytes(body) {
+	if t == nil || !t.policy.HasAdjustments() || !gjson.ValidBytes(body) {
 		return body
 	}
 	root := gjson.ParseBytes(body)
@@ -136,13 +140,27 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			del("prompt_tokens_details.cached_tokens_details")
 			continue
 		}
-		effective := DeductOpenAICacheRead(raw, t.percent)
+		effective := ApplyOpenAICacheReadPolicy(raw, t.policy)
 		for _, key := range cachePaths {
 			if usage.Get(key).Exists() {
 				set(key, effective.CacheReadInputTokens)
 			}
 		}
-		if !t.anthropic && input.Exists() && raw.CacheReadInputTokens > 0 {
+		if !t.anthropic && input.Exists() && effective.InputTokens != raw.InputTokens {
+			if usage.Get("prompt_tokens").Exists() {
+				set("prompt_tokens", effective.InputTokens)
+			} else {
+				set("input_tokens", effective.InputTokens)
+			}
+			if totalTokens := usage.Get("total_tokens"); totalTokens.Exists() {
+				adjustedTotal := totalTokens.Int() + int64(effective.InputTokens-raw.InputTokens)
+				if adjustedTotal < 0 {
+					adjustedTotal = 0
+				}
+				set("total_tokens", adjustedTotal)
+			}
+		}
+		if !t.anthropic && input.Exists() && effective.CacheReadInputTokens > 0 {
 			// Also supply the total when upstream only sent cache subcategories
 			// or an earlier provisional report had to be withheld.
 			if usage.Get("prompt_tokens").Exists() {

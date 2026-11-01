@@ -81,7 +81,10 @@ const sourceGroup = {
   long_context_pricing_enabled: true,
   force_openai_fast: false,
   free_openai_fast: false,
+  openai_experimental_features_enabled: false,
   cache_read_deduction_percent: 0,
+  cache_read_amplification_percent: 0,
+  cache_read_amplification_min_input_tokens: 0,
   model_pricing: [],
   profit_control_enabled: false,
   profit_min_margin: 0,
@@ -294,7 +297,7 @@ describe("GroupsView Codex manifest binding", () => {
   });
 
   it("loads and saves fractional cache deduction in the OpenAI edit form", async () => {
-    listGroups.mockResolvedValue({ items: [{ ...sourceGroup, cache_read_deduction_percent: 20.25 }], total: 1, page: 1, page_size: 20, pages: 1 });
+    listGroups.mockResolvedValue({ items: [{ ...sourceGroup, openai_experimental_features_enabled: true, cache_read_deduction_percent: 20.25, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000 }], total: 1, page: 1, page_size: 20, pages: 1 });
     vi.mocked(adminAPI.groups.update).mockResolvedValue(sourceGroup);
     const wrapper = mountView();
     await flushPromises();
@@ -306,7 +309,26 @@ describe("GroupsView Codex manifest binding", () => {
     await input.setValue('15.75');
     await wrapper.get('form').trigger('submit');
     await flushPromises();
-    expect(adminAPI.groups.update).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ cache_read_deduction_percent: 15.75 }));
+    expect(adminAPI.groups.update).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ openai_experimental_features_enabled: true, cache_read_deduction_percent: 15.75, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000 }));
+    wrapper.unmount();
+  });
+
+  it("shows cache hit-rate settings only after enabling the experimental policy", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const edit = wrapper.findAll('button').find(button => button.text().includes('common.edit'));
+    await edit!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('admin.groups.cacheReadDeduction.sectionTitle');
+    expect(wrapper.find('#editForm-cache-read-deduction').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="edit-openai-experimental-features-enabled"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('#editForm-cache-read-deduction').exists()).toBe(true);
+    expect(wrapper.find('#editForm-cache-read-amplification').exists()).toBe(true);
+    expect(wrapper.find('#editForm-cache-read-amplification-threshold').exists()).toBe(true);
+
     wrapper.unmount();
   });
 });

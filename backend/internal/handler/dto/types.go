@@ -174,8 +174,11 @@ type AdminGroup struct {
 	// ForceOpenAIFast 是管理端请求策略，用户侧分组 DTO 无需暴露。
 	ForceOpenAIFast bool `json:"force_openai_fast"`
 	// FreeOpenAIFast 是管理端计费策略，用户侧分组 DTO 无需暴露。
-	FreeOpenAIFast            bool    `json:"free_openai_fast"`
-	CacheReadDeductionPercent float64 `json:"cache_read_deduction_percent"`
+	FreeOpenAIFast                       bool    `json:"free_openai_fast"`
+	OpenAIExperimentalFeaturesEnabled    bool    `json:"openai_experimental_features_enabled"`
+	CacheReadDeductionPercent            float64 `json:"cache_read_deduction_percent"`
+	CacheReadAmplificationPercent        float64 `json:"cache_read_amplification_percent"`
+	CacheReadAmplificationMinInputTokens int64   `json:"cache_read_amplification_min_input_tokens"`
 
 	// 分组利润控制（五个 token 平台分组可启用；margin/buffer 为小数存储）。
 	// 仅管理员可见：这三个字段与同响应中的 rate_multiplier 相乘即可反推出

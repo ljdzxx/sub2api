@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
@@ -29,7 +30,7 @@ func TestCacheReadWriterJSONAndFragmentedSSE(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(rec)
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-		finish := installCacheReadWriter(c, &service.APIKey{Group: &service.Group{Platform: service.PlatformOpenAI, CacheReadDeductionPercent: 20}})
+		finish := installCacheReadWriter(c, &service.APIKey{Group: &service.Group{Platform: service.PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: true, CacheReadDeductionPercent: 20}})
 		body := `{"usage":{"input_tokens":10000,"input_tokens_details":{"cached_tokens":9630}}}`
 		wire := body
 		if stream {
@@ -55,4 +56,38 @@ func TestCacheReadWriterJSONAndFragmentedSSE(t *testing.T) {
 			require.EqualValues(t, 7630, gjson.Get(rec.Body.String(), "usage.input_tokens_details.cached_tokens").Int())
 		}
 	}
+}
+
+func TestCacheReadWriterFragmentedSSEAppliesDeductionBeforeAmplification(t *testing.T) {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	finish := installCacheReadWriter(c, &service.APIKey{Group: &service.Group{
+		Platform:                             service.PlatformOpenAI,
+		OpenAIExperimentalFeaturesEnabled:    true,
+		CacheReadDeductionPercent:            10,
+		CacheReadAmplificationPercent:        20,
+		CacheReadAmplificationMinInputTokens: 10000,
+	}})
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Content-Length", "100")
+
+	// Raw usage: ordinary=200, cache-read=9700, cache-write=100, total input=10000.
+	// Deduction removes 1000 cache-read tokens, then amplification adds 2000
+	// tokens to both total input and cache-read: input=12000, cache-read=10700.
+	body := `{"type":"response.completed","response":{"usage":{"input_tokens":10000,"output_tokens":20,"total_tokens":10020,"input_tokens_details":{"cached_tokens":9700,"cache_write_tokens":100}}}}`
+	wire := "data: " + body + "\n\n"
+	for _, b := range []byte(wire) {
+		_, err := c.Writer.Write([]byte{b})
+		require.NoError(t, err)
+	}
+	c.Writer.Flush()
+	finish()
+
+	payload := strings.TrimSpace(strings.TrimPrefix(rec.Body.String(), "data: "))
+	require.True(t, gjson.Valid(payload))
+	require.EqualValues(t, 12000, gjson.Get(payload, "response.usage.input_tokens").Int())
+	require.EqualValues(t, 10700, gjson.Get(payload, "response.usage.input_tokens_details.cached_tokens").Int())
+	require.EqualValues(t, 12020, gjson.Get(payload, "response.usage.total_tokens").Int())
+	require.Empty(t, rec.Result().Header.Get("Content-Length"))
 }

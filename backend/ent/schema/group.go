@@ -253,8 +253,16 @@ func (Group) Fields() []ent.Field {
 		field.Bool("force_openai_fast").
 			Default(false).
 			Comment("是否强制此 OpenAI/Composite 分组请求使用 service_tier=priority"),
+		field.Bool("openai_experimental_features_enabled").
+			Default(false).
+			Comment("是否启用 OpenAI 实验性功能策略"),
 		field.Float("cache_read_deduction_percent").Default(0).Min(0).Max(100).
 			SchemaType(map[string]string{dialect.Postgres: "numeric(5,2)"}),
+		field.Float("cache_read_amplification_percent").Default(0).Min(0).Max(100).
+			SchemaType(map[string]string{dialect.Postgres: "numeric(5,2)"}).
+			Comment("按原始总输入百分比增加读缓存 Tokens"),
+		field.Int64("cache_read_amplification_min_input_tokens").Default(0).Min(0).
+			Comment("读缓存放大生效的最小原始总输入 Tokens"),
 		field.Bool("free_openai_fast").
 			Default(false).
 			Comment("是否让此 OpenAI/Composite 分组的 Fast 请求按 Standard 价格计费"),

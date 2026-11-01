@@ -68,7 +68,7 @@ func TestCacheReadDeductionWSPreservesRawUsage(t *testing.T) {
 		}
 		defer func() { _ = conn.CloseNow() }()
 		ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
-		requestCtx := context.WithValue(r.Context(), ctxkey.Group, &Group{Platform: PlatformOpenAI, CacheReadDeductionPercent: 20})
+		requestCtx := context.WithValue(r.Context(), ctxkey.Group, &Group{Platform: PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: true, CacheReadDeductionPercent: 20})
 		ginCtx.Request = r.Clone(requestCtx)
 		readCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		_, firstMessage, readErr := conn.Read(readCtx)

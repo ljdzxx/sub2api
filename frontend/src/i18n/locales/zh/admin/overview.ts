@@ -1267,7 +1267,7 @@ export default {
         unsupportedMessage: '当前 Sub2API 服务端无法生成 Live 所需的设备证明，即使开启也不能使用。是否仍然开启？',
         enableAnyway: '仍然开启'
       },
-      cacheReadDeduction: { audit: '缓存扣除明细', raw: '原始读缓存 Tokens', effective: '应计读缓存 Tokens', totalInput: '原始总输入 Tokens', upstreamCost: '原始用量费用', title: '读缓存扣除（百分点）', hint: '默认 0 不扣除，支持 0–100，最多两位小数。例如原始命中率 96.3，扣除 20 后按 76.3 计算；减少的缓存转为普通输入计费。' },
+      cacheReadDeduction: { sectionTitle: 'OpenAI 实验性功能策略', sectionHint: '此区域中的设置属于实验性用量与计费策略，默认关闭。', enabled: '启用', enabledHint: '启用后，下方各项实验策略才可生效；百分比为 0 的子功能仍保持关闭。', audit: '缓存用量调整明细', raw: '原始读缓存 Tokens', effective: '应计读缓存 Tokens', totalInput: '原始总输入 Tokens', upstreamCost: '原始用量费用', title: '缓存命中率扣减（百分点）', hint: '支持 0–100，最多两位小数，0 表示不生效。例如原始缓存命中率 96.3%，扣减 20 个百分点后按 76.3% 计算。', amplificationTitle: '放大读缓存（百分比）', amplificationHint: '按上游原始总输入 Tokens 的百分比增加读缓存，同时增加应计总输入；普通输入和写缓存不变。0 表示不生效。', amplificationThreshold: '激活门槛：总输入 Tokens 大于等于', amplificationThresholdHint: '按上游原始总输入判断；0 表示不设最低门槛。与命中率扣减同时生效时，先扣减，再放大。' },
       openaiFast: {
         title: 'OpenAI Fast 模式',
         force: '强制使用 Fast（priority）',

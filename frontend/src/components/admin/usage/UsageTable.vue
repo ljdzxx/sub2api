@@ -151,7 +151,9 @@
             <div>{{ t('admin.groups.cacheReadDeduction.raw') }}: {{ row.cache_read_adjustment.raw.cache_read_input_tokens ?? 0 }}</div>
             <div>{{ t('admin.groups.cacheReadDeduction.effective') }}: {{ row.cache_read_tokens }}</div>
             <div>{{ t('admin.groups.cacheReadDeduction.totalInput') }}: {{ row.cache_read_adjustment.raw.input_tokens }}</div>
-            <div>{{ t('admin.groups.cacheReadDeduction.title') }}: {{ row.cache_read_adjustment.percent }}</div>
+            <div v-if="row.cache_read_adjustment.percent > 0">{{ t('admin.groups.cacheReadDeduction.title') }}: {{ row.cache_read_adjustment.percent }}</div>
+            <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationTitle') }}: {{ row.cache_read_adjustment.amplification_percent }}</div>
+            <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationThreshold') }}: {{ row.cache_read_adjustment.amplification_min_input_tokens ?? 0 }}</div>
             <div>{{ t('admin.groups.cacheReadDeduction.upstreamCost') }}: ${{ row.cache_read_adjustment.upstream_cost.toFixed(8) }}</div>
           </details>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->

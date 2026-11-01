@@ -117,9 +117,9 @@ const DataTableStub = {
 }
 
 it('shows upstream and billed cache separately only when an admin audit snapshot exists', () => {
-  const row = { request_id: 'adjusted', input_tokens: 2370, cache_read_tokens: 7630, output_tokens: 10,
-    cache_read_adjustment: { version: 1, percent: 20, raw: { input_tokens: 10000, cache_read_input_tokens: 9630 },
-      effective: { input_tokens: 10000, cache_read_input_tokens: 7630 }, upstream_cost: 0.0123 } }
+  const row = { request_id: 'adjusted', input_tokens: 2370, cache_read_tokens: 8630, output_tokens: 10,
+    cache_read_adjustment: { version: 2, percent: 20, amplification_percent: 10, amplification_min_input_tokens: 10000, raw: { input_tokens: 10000, cache_read_input_tokens: 9630 },
+      effective: { input_tokens: 11000, cache_read_input_tokens: 8630 }, upstream_cost: 0.0123 } }
   const wrapper = mount(UsageTable, {
     props: { data: [row, { ...row, request_id: 'historical', cache_read_adjustment: null }], loading: false, columns: [], showCacheReadAudit: true },
     global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
@@ -127,7 +127,7 @@ it('shows upstream and billed cache separately only when an admin audit snapshot
   const audits = wrapper.findAll('[data-testid="cache-read-adjustment"]')
   expect(audits).toHaveLength(1)
   expect(audits[0].text()).toContain('9630')
-  expect(audits[0].text()).toContain('7630')
+  expect(audits[0].text()).toContain('8630')
   expect(audits[0].text()).toContain('0.01230000')
   wrapper.unmount()
 })

@@ -17,8 +17,9 @@ func TestCacheReadAdjustmentAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(admin), "9630")
 	require.Contains(t, string(admin), "7630")
-	g := &service.Group{Platform: service.PlatformOpenAI, CacheReadDeductionPercent: 20}
+	g := &service.Group{Platform: service.PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: true, CacheReadDeductionPercent: 20}
 	public, err = json.Marshal(GroupFromService(g))
 	require.NoError(t, err)
+	require.NotContains(t, string(public), "openai_experimental_features_enabled")
 	require.NotContains(t, string(public), "cache_read_deduction_percent")
 }

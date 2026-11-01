@@ -155,22 +155,26 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		VideoModelPrices: map[string]map[string]float64{
 			VideoPriceFamilyGrokImagineVideo15: {VideoBillingResolution720P: 0.14},
 		},
-		WebSearchPricePerCall:           groupDuplicateTestPointer(0.005),
-		ClaudeCodeOnly:                  true,
-		FallbackGroupID:                 groupDuplicateTestPointer(int64(7)),
-		FallbackGroupIDOnInvalidRequest: groupDuplicateTestPointer(int64(8)),
-		ModelRouting:                    map[string][]int64{"gpt-*": {13, 17}},
-		ModelRoutingEnabled:             true,
-		MCPXMLInject:                    true,
-		SupportedModelScopes:            []string{"claude", "gemini_text"},
-		SortOrder:                       9,
-		AllowMessagesDispatch:           true,
-		AllowLive:                       true,
-		ForceOpenAIFast:                 true,
-		FreeOpenAIFast:                  true,
-		RequireOAuthOnly:                true,
-		RequirePrivacySet:               true,
-		DefaultMappedModel:              "gpt-5.4",
+		WebSearchPricePerCall:                groupDuplicateTestPointer(0.005),
+		ClaudeCodeOnly:                       true,
+		FallbackGroupID:                      groupDuplicateTestPointer(int64(7)),
+		FallbackGroupIDOnInvalidRequest:      groupDuplicateTestPointer(int64(8)),
+		ModelRouting:                         map[string][]int64{"gpt-*": {13, 17}},
+		ModelRoutingEnabled:                  true,
+		MCPXMLInject:                         true,
+		SupportedModelScopes:                 []string{"claude", "gemini_text"},
+		SortOrder:                            9,
+		AllowMessagesDispatch:                true,
+		AllowLive:                            true,
+		ForceOpenAIFast:                      true,
+		FreeOpenAIFast:                       true,
+		OpenAIExperimentalFeaturesEnabled:    true,
+		CacheReadDeductionPercent:            20.25,
+		CacheReadAmplificationPercent:        20,
+		CacheReadAmplificationMinInputTokens: 10000,
+		RequireOAuthOnly:                     true,
+		RequirePrivacySet:                    true,
+		DefaultMappedModel:                   "gpt-5.4",
 		MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
 			OpusMappedModel:    "gpt-5.4",
 			SonnetMappedModel:  "gpt-5.3",
@@ -217,6 +221,10 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.MessagesDispatchModelConfig, duplicate.MessagesDispatchModelConfig)
 	require.Equal(t, source.ForceOpenAIFast, duplicate.ForceOpenAIFast)
 	require.Equal(t, source.FreeOpenAIFast, duplicate.FreeOpenAIFast)
+	require.Equal(t, source.OpenAIExperimentalFeaturesEnabled, duplicate.OpenAIExperimentalFeaturesEnabled)
+	require.Equal(t, source.CacheReadDeductionPercent, duplicate.CacheReadDeductionPercent)
+	require.Equal(t, source.CacheReadAmplificationPercent, duplicate.CacheReadAmplificationPercent)
+	require.Equal(t, source.CacheReadAmplificationMinInputTokens, duplicate.CacheReadAmplificationMinInputTokens)
 	require.Equal(t, source.ModelAllowlist, duplicate.ModelAllowlist)
 	require.Equal(t, source.RPMLimit, duplicate.RPMLimit)
 	require.Equal(t, source.MaxReasoningEffort, duplicate.MaxReasoningEffort)

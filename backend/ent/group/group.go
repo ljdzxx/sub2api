@@ -124,8 +124,14 @@ const (
 	FieldAllowLive = "allow_live"
 	// FieldForceOpenaiFast holds the string denoting the force_openai_fast field in the database.
 	FieldForceOpenaiFast = "force_openai_fast"
+	// FieldOpenaiExperimentalFeaturesEnabled holds the string denoting the openai_experimental_features_enabled field in the database.
+	FieldOpenaiExperimentalFeaturesEnabled = "openai_experimental_features_enabled"
 	// FieldCacheReadDeductionPercent holds the string denoting the cache_read_deduction_percent field in the database.
 	FieldCacheReadDeductionPercent = "cache_read_deduction_percent"
+	// FieldCacheReadAmplificationPercent holds the string denoting the cache_read_amplification_percent field in the database.
+	FieldCacheReadAmplificationPercent = "cache_read_amplification_percent"
+	// FieldCacheReadAmplificationMinInputTokens holds the string denoting the cache_read_amplification_min_input_tokens field in the database.
+	FieldCacheReadAmplificationMinInputTokens = "cache_read_amplification_min_input_tokens"
 	// FieldFreeOpenaiFast holds the string denoting the free_openai_fast field in the database.
 	FieldFreeOpenaiFast = "free_openai_fast"
 	// FieldRequireOauthOnly holds the string denoting the require_oauth_only field in the database.
@@ -283,7 +289,10 @@ var Columns = []string{
 	FieldAllowMessagesDispatch,
 	FieldAllowLive,
 	FieldForceOpenaiFast,
+	FieldOpenaiExperimentalFeaturesEnabled,
 	FieldCacheReadDeductionPercent,
+	FieldCacheReadAmplificationPercent,
+	FieldCacheReadAmplificationMinInputTokens,
 	FieldFreeOpenaiFast,
 	FieldRequireOauthOnly,
 	FieldRequirePrivacySet,
@@ -413,10 +422,20 @@ var (
 	DefaultAllowLive bool
 	// DefaultForceOpenaiFast holds the default value on creation for the "force_openai_fast" field.
 	DefaultForceOpenaiFast bool
+	// DefaultOpenaiExperimentalFeaturesEnabled holds the default value on creation for the "openai_experimental_features_enabled" field.
+	DefaultOpenaiExperimentalFeaturesEnabled bool
 	// DefaultCacheReadDeductionPercent holds the default value on creation for the "cache_read_deduction_percent" field.
 	DefaultCacheReadDeductionPercent float64
 	// CacheReadDeductionPercentValidator is a validator for the "cache_read_deduction_percent" field. It is called by the builders before save.
 	CacheReadDeductionPercentValidator func(float64) error
+	// DefaultCacheReadAmplificationPercent holds the default value on creation for the "cache_read_amplification_percent" field.
+	DefaultCacheReadAmplificationPercent float64
+	// CacheReadAmplificationPercentValidator is a validator for the "cache_read_amplification_percent" field. It is called by the builders before save.
+	CacheReadAmplificationPercentValidator func(float64) error
+	// DefaultCacheReadAmplificationMinInputTokens holds the default value on creation for the "cache_read_amplification_min_input_tokens" field.
+	DefaultCacheReadAmplificationMinInputTokens int64
+	// CacheReadAmplificationMinInputTokensValidator is a validator for the "cache_read_amplification_min_input_tokens" field. It is called by the builders before save.
+	CacheReadAmplificationMinInputTokensValidator func(int64) error
 	// DefaultFreeOpenaiFast holds the default value on creation for the "free_openai_fast" field.
 	DefaultFreeOpenaiFast bool
 	// DefaultRequireOauthOnly holds the default value on creation for the "require_oauth_only" field.
@@ -706,9 +725,24 @@ func ByForceOpenaiFast(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForceOpenaiFast, opts...).ToFunc()
 }
 
+// ByOpenaiExperimentalFeaturesEnabled orders the results by the openai_experimental_features_enabled field.
+func ByOpenaiExperimentalFeaturesEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOpenaiExperimentalFeaturesEnabled, opts...).ToFunc()
+}
+
 // ByCacheReadDeductionPercent orders the results by the cache_read_deduction_percent field.
 func ByCacheReadDeductionPercent(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheReadDeductionPercent, opts...).ToFunc()
+}
+
+// ByCacheReadAmplificationPercent orders the results by the cache_read_amplification_percent field.
+func ByCacheReadAmplificationPercent(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheReadAmplificationPercent, opts...).ToFunc()
+}
+
+// ByCacheReadAmplificationMinInputTokens orders the results by the cache_read_amplification_min_input_tokens field.
+func ByCacheReadAmplificationMinInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheReadAmplificationMinInputTokens, opts...).ToFunc()
 }
 
 // ByFreeOpenaiFast orders the results by the free_openai_fast field.

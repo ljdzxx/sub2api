@@ -708,7 +708,7 @@
       <div class="brand-mark" aria-hidden="true">f(x)</div>
       <div class="brand-copy">
         <h1 class="brand-title">读缓存计价实验台</h1>
-        <div class="brand-subtitle">OpenAI 分组读缓存扣除 · 与后端整数口径一致</div>
+        <div class="brand-subtitle">OpenAI 分组缓存命中率扣减 · 与后端整数口径一致</div>
       </div>
     </div>
     <button class="reset-button" id="resetButton" type="button">重置实例</button>
@@ -759,10 +759,10 @@
       </section>
 
       <section class="control-section">
-        <h3>扣除</h3>
+        <h3>命中率扣减</h3>
         <div class="field-grid">
           <div class="field field-wide">
-            <label for="deduction">读缓存扣除百分点</label>
+            <label for="deduction">缓存命中率扣减（百分点）</label>
             <div class="input-wrap has-wide-suffix">
               <input id="deduction" type="number" min="0" max="100" step="0.01" inputmode="decimal">
               <span class="suffix">百分点</span>
@@ -867,14 +867,14 @@
         <div class="chart-toolbar">
           <div class="segment" id="axisSegment" aria-label="曲线横轴">
             <button type="button" data-axis="cache" aria-pressed="true">读缓存占比</button>
-            <button type="button" data-axis="deduction" aria-pressed="false">扣除百分点</button>
+            <button type="button" data-axis="deduction" aria-pressed="false">命中率扣减百分点</button>
             <button type="button" data-axis="ratio" aria-pressed="false">输入 / 缓存单价比</button>
           </div>
           <div class="chart-context" id="chartContext">纵轴：整笔费用相对变化</div>
         </div>
         <div class="chart-stage" id="chartStage">
           <svg id="curveChart" viewBox="0 0 900 390" role="img" aria-labelledby="chartTitle chartDesc">
-            <title id="chartTitle">读缓存扣除费用变化曲线</title>
+            <title id="chartTitle">缓存命中率扣减费用变化曲线</title>
             <desc id="chartDesc">展示所选参数变化对费用相对变化的影响。</desc>
           </svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
@@ -915,7 +915,7 @@
           <div class="section-heading">
             <div class="heading-copy">
               <h2>公式与当前区间</h2>
-              <p>扣除的是缓存命中率百分点</p>
+              <p>扣减的是缓存命中率百分点</p>
             </div>
           </div>
           <div class="formula-body">
@@ -934,7 +934,7 @@
       </div>
 
       <footer class="page-footer">
-        <span>输入价高于读缓存价时，扣除会提高用户侧费用。</span>
+        <span>输入价高于读缓存价时，命中率扣减会提高用户侧费用。</span>
         <span id="priceRatioFooter">输入 / 读缓存单价比：20.00×</span>
       </footer>
     </div>
@@ -1017,7 +1017,7 @@
           cacheRead: parseInteger(fields.cacheRead, "原始读缓存"),
           cacheWrite: parseInteger(fields.cacheWrite, "写缓存"),
           outputTokens: parseInteger(fields.outputTokens, "输出"),
-          deduction: parseDecimal(fields.deduction, "扣除百分点", 0, 100),
+          deduction: parseDecimal(fields.deduction, "命中率扣减百分点", 0, 100),
           inputPrice: parseDecimal(fields.inputPrice, "普通输入单价", 0, 1000000),
           readPrice: parseDecimal(fields.readPrice, "读缓存单价", 0, 1000000),
           writePrice: parseDecimal(fields.writePrice, "写缓存单价", 0, 1000000),
@@ -1029,7 +1029,7 @@
           throw new Error("原始读缓存与写缓存之和不能超过总输入");
         }
         if (Math.abs(values.deduction * 100 - Math.round(values.deduction * 100)) > 1e-8) {
-          throw new Error("扣除百分点最多保留两位小数");
+          throw new Error("命中率扣减百分点最多保留两位小数");
         }
         return values;
       }
@@ -1278,16 +1278,16 @@
         var insight;
         var hitRate = result.rawHitRate;
         if (values.deduction === 0 || result.shifted === 0) {
-          insight = "当前扣除为 0，原始用量与应计用量一致。";
+          insight = "当前命中率扣减为 0，原始用量与应计用量一致。";
         } else if (values.inputPrice === values.readPrice) {
           insight = "普通输入与读缓存单价相同。Tokens 分类发生变化，但费用不变。";
         } else if (values.inputPrice < values.readPrice) {
           insight = "普通输入单价低于读缓存单价。缓存转为普通输入后，当前费用下降 " +
             formatPercent(Math.abs(result.requestChange || 0)) + "。";
         } else if (values.deduction >= hitRate && values.cacheRead > 0) {
-          insight = "扣除百分点已达到当前读缓存占比，读缓存全部转为普通输入。继续提高扣除值不会再增加费用。";
+          insight = "命中率扣减百分点已达到当前读缓存占比，读缓存全部转为普通输入。继续提高扣减值不会再增加费用。";
         } else {
-          insight = "当前位于部分扣除区间。固定总输入、扣除值和单价时，转移 Tokens 基本固定；读缓存占比越高，原始费用基数越低，因此相对涨幅按分式函数加速上升，不是线性或指数关系。";
+          insight = "当前位于部分扣减区间。固定总输入、扣减值和单价时，转移 Tokens 基本固定；读缓存占比越高，原始费用基数越低，因此相对涨幅按分式函数加速上升，不是线性或指数关系。";
         }
         byId("insightText").textContent = insight;
       }
@@ -1346,14 +1346,14 @@
               );
             }
           };
-          byId("curveDescription").textContent = "读缓存占比变化时，总输入、扣除值和各项单价保持当前值";
+          byId("curveDescription").textContent = "读缓存占比变化时，总输入、命中率扣减值和各项单价保持当前值";
           byId("kneeLegend").textContent = "读缓存刚好扣完";
         } else if (state.axis === "deduction") {
           config = {
             min: 0,
             max: 100,
             current: values.deduction,
-            label: "读缓存扣除",
+            label: "缓存命中率扣减",
             unit: " 个百分点",
             special: Math.min(result.rawHitRate, 100),
             specialLabel: "缓存归零",
@@ -1361,7 +1361,7 @@
               scenario.deduction = Math.round(x * 100) / 100;
             }
           };
-          byId("curveDescription").textContent = "扣除百分点变化时，原始 usage 和各项单价保持当前值";
+          byId("curveDescription").textContent = "命中率扣减百分点变化时，原始 usage 和各项单价保持当前值";
           byId("kneeLegend").textContent = "读缓存归零阈值";
         } else {
           var heldReadPrice = values.readPrice > 0 ? values.readPrice : 0.1;
@@ -1396,7 +1396,7 @@
         while (svg.firstChild) {
           svg.removeChild(svg.firstChild);
         }
-        appendSvg(svg, "title", {}, "读缓存扣除费用变化曲线");
+        appendSvg(svg, "title", {}, "缓存命中率扣减费用变化曲线");
         appendSvg(svg, "desc", {}, "展示所选参数变化对费用相对变化的影响。");
 
         var width = 900;
@@ -1708,7 +1708,7 @@
           return "读缓存占比 " + value.toFixed(2) + "%";
         }
         if (state.axis === "deduction") {
-          return "扣除 " + value.toFixed(2) + " 个百分点";
+          return "扣减 " + value.toFixed(2) + " 个百分点";
         }
         return "单价比 " + value.toFixed(2) + "×";
       }

@@ -738,6 +738,20 @@ func (_c *GroupCreate) SetNillableForceOpenaiFast(v *bool) *GroupCreate {
 	return _c
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_c *GroupCreate) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupCreate {
+	_c.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _c
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _c
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_c *GroupCreate) SetCacheReadDeductionPercent(v float64) *GroupCreate {
 	_c.mutation.SetCacheReadDeductionPercent(v)
@@ -748,6 +762,34 @@ func (_c *GroupCreate) SetCacheReadDeductionPercent(v float64) *GroupCreate {
 func (_c *GroupCreate) SetNillableCacheReadDeductionPercent(v *float64) *GroupCreate {
 	if v != nil {
 		_c.SetCacheReadDeductionPercent(*v)
+	}
+	return _c
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (_c *GroupCreate) SetCacheReadAmplificationPercent(v float64) *GroupCreate {
+	_c.mutation.SetCacheReadAmplificationPercent(v)
+	return _c
+}
+
+// SetNillableCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableCacheReadAmplificationPercent(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetCacheReadAmplificationPercent(*v)
+	}
+	return _c
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (_c *GroupCreate) SetCacheReadAmplificationMinInputTokens(v int64) *GroupCreate {
+	_c.mutation.SetCacheReadAmplificationMinInputTokens(v)
+	return _c
+}
+
+// SetNillableCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableCacheReadAmplificationMinInputTokens(v *int64) *GroupCreate {
+	if v != nil {
+		_c.SetCacheReadAmplificationMinInputTokens(*v)
 	}
 	return _c
 }
@@ -1197,9 +1239,21 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultForceOpenaiFast
 		_c.mutation.SetForceOpenaiFast(v)
 	}
+	if _, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); !ok {
+		v := group.DefaultOpenaiExperimentalFeaturesEnabled
+		_c.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	}
 	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
 		v := group.DefaultCacheReadDeductionPercent
 		_c.mutation.SetCacheReadDeductionPercent(v)
+	}
+	if _, ok := _c.mutation.CacheReadAmplificationPercent(); !ok {
+		v := group.DefaultCacheReadAmplificationPercent
+		_c.mutation.SetCacheReadAmplificationPercent(v)
+	}
+	if _, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); !ok {
+		v := group.DefaultCacheReadAmplificationMinInputTokens
+		_c.mutation.SetCacheReadAmplificationMinInputTokens(v)
 	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
 		v := group.DefaultFreeOpenaiFast
@@ -1413,12 +1467,31 @@ func (_c *GroupCreate) check() error {
 	if _, ok := _c.mutation.ForceOpenaiFast(); !ok {
 		return &ValidationError{Name: "force_openai_fast", err: errors.New(`ent: missing required field "Group.force_openai_fast"`)}
 	}
+	if _, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); !ok {
+		return &ValidationError{Name: "openai_experimental_features_enabled", err: errors.New(`ent: missing required field "Group.openai_experimental_features_enabled"`)}
+	}
 	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
 		return &ValidationError{Name: "cache_read_deduction_percent", err: errors.New(`ent: missing required field "Group.cache_read_deduction_percent"`)}
 	}
 	if v, ok := _c.mutation.CacheReadDeductionPercent(); ok {
 		if err := group.CacheReadDeductionPercentValidator(v); err != nil {
 			return &ValidationError{Name: "cache_read_deduction_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_deduction_percent": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.CacheReadAmplificationPercent(); !ok {
+		return &ValidationError{Name: "cache_read_amplification_percent", err: errors.New(`ent: missing required field "Group.cache_read_amplification_percent"`)}
+	}
+	if v, ok := _c.mutation.CacheReadAmplificationPercent(); ok {
+		if err := group.CacheReadAmplificationPercentValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_percent", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_percent": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); !ok {
+		return &ValidationError{Name: "cache_read_amplification_min_input_tokens", err: errors.New(`ent: missing required field "Group.cache_read_amplification_min_input_tokens"`)}
+	}
+	if v, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		if err := group.CacheReadAmplificationMinInputTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_amplification_min_input_tokens", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_min_input_tokens": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
@@ -1721,9 +1794,21 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
 		_node.ForceOpenaiFast = value
 	}
+	if value, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+		_node.OpenaiExperimentalFeaturesEnabled = value
+	}
 	if value, ok := _c.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 		_node.CacheReadDeductionPercent = value
+	}
+	if value, ok := _c.mutation.CacheReadAmplificationPercent(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationPercent, field.TypeFloat64, value)
+		_node.CacheReadAmplificationPercent = value
+	}
+	if value, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); ok {
+		_spec.SetField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
+		_node.CacheReadAmplificationMinInputTokens = value
 	}
 	if value, ok := _c.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -2831,6 +2916,18 @@ func (u *GroupUpsert) UpdateForceOpenaiFast() *GroupUpsert {
 	return u
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *GroupUpsert) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldOpenaiExperimentalFeaturesEnabled, v)
+	return u
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldOpenaiExperimentalFeaturesEnabled)
+	return u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsert) SetCacheReadDeductionPercent(v float64) *GroupUpsert {
 	u.Set(group.FieldCacheReadDeductionPercent, v)
@@ -2846,6 +2943,42 @@ func (u *GroupUpsert) UpdateCacheReadDeductionPercent() *GroupUpsert {
 // AddCacheReadDeductionPercent adds v to the "cache_read_deduction_percent" field.
 func (u *GroupUpsert) AddCacheReadDeductionPercent(v float64) *GroupUpsert {
 	u.Add(group.FieldCacheReadDeductionPercent, v)
+	return u
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (u *GroupUpsert) SetCacheReadAmplificationPercent(v float64) *GroupUpsert {
+	u.Set(group.FieldCacheReadAmplificationPercent, v)
+	return u
+}
+
+// UpdateCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateCacheReadAmplificationPercent() *GroupUpsert {
+	u.SetExcluded(group.FieldCacheReadAmplificationPercent)
+	return u
+}
+
+// AddCacheReadAmplificationPercent adds v to the "cache_read_amplification_percent" field.
+func (u *GroupUpsert) AddCacheReadAmplificationPercent(v float64) *GroupUpsert {
+	u.Add(group.FieldCacheReadAmplificationPercent, v)
+	return u
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsert) SetCacheReadAmplificationMinInputTokens(v int64) *GroupUpsert {
+	u.Set(group.FieldCacheReadAmplificationMinInputTokens, v)
+	return u
+}
+
+// UpdateCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsert {
+	u.SetExcluded(group.FieldCacheReadAmplificationMinInputTokens)
+	return u
+}
+
+// AddCacheReadAmplificationMinInputTokens adds v to the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsert) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpsert {
+	u.Add(group.FieldCacheReadAmplificationMinInputTokens, v)
 	return u
 }
 
@@ -4126,6 +4259,20 @@ func (u *GroupUpsertOne) UpdateForceOpenaiFast() *GroupUpsertOne {
 	})
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *GroupUpsertOne) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOpenaiExperimentalFeaturesEnabled(v)
+	})
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOpenaiExperimentalFeaturesEnabled()
+	})
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsertOne) SetCacheReadDeductionPercent(v float64) *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
@@ -4144,6 +4291,48 @@ func (u *GroupUpsertOne) AddCacheReadDeductionPercent(v float64) *GroupUpsertOne
 func (u *GroupUpsertOne) UpdateCacheReadDeductionPercent() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateCacheReadDeductionPercent()
+	})
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (u *GroupUpsertOne) SetCacheReadAmplificationPercent(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadAmplificationPercent(v)
+	})
+}
+
+// AddCacheReadAmplificationPercent adds v to the "cache_read_amplification_percent" field.
+func (u *GroupUpsertOne) AddCacheReadAmplificationPercent(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadAmplificationPercent(v)
+	})
+}
+
+// UpdateCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateCacheReadAmplificationPercent() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadAmplificationPercent()
+	})
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsertOne) SetCacheReadAmplificationMinInputTokens(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadAmplificationMinInputTokens(v)
+	})
+}
+
+// AddCacheReadAmplificationMinInputTokens adds v to the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsertOne) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadAmplificationMinInputTokens(v)
+	})
+}
+
+// UpdateCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadAmplificationMinInputTokens()
 	})
 }
 
@@ -5621,6 +5810,20 @@ func (u *GroupUpsertBulk) UpdateForceOpenaiFast() *GroupUpsertBulk {
 	})
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *GroupUpsertBulk) SetOpenaiExperimentalFeaturesEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOpenaiExperimentalFeaturesEnabled(v)
+	})
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOpenaiExperimentalFeaturesEnabled()
+	})
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsertBulk) SetCacheReadDeductionPercent(v float64) *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
@@ -5639,6 +5842,48 @@ func (u *GroupUpsertBulk) AddCacheReadDeductionPercent(v float64) *GroupUpsertBu
 func (u *GroupUpsertBulk) UpdateCacheReadDeductionPercent() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateCacheReadDeductionPercent()
+	})
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (u *GroupUpsertBulk) SetCacheReadAmplificationPercent(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadAmplificationPercent(v)
+	})
+}
+
+// AddCacheReadAmplificationPercent adds v to the "cache_read_amplification_percent" field.
+func (u *GroupUpsertBulk) AddCacheReadAmplificationPercent(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadAmplificationPercent(v)
+	})
+}
+
+// UpdateCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateCacheReadAmplificationPercent() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadAmplificationPercent()
+	})
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsertBulk) SetCacheReadAmplificationMinInputTokens(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCacheReadAmplificationMinInputTokens(v)
+	})
+}
+
+// AddCacheReadAmplificationMinInputTokens adds v to the "cache_read_amplification_min_input_tokens" field.
+func (u *GroupUpsertBulk) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddCacheReadAmplificationMinInputTokens(v)
+	})
+}
+
+// UpdateCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCacheReadAmplificationMinInputTokens()
 	})
 }
 

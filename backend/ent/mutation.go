@@ -22078,131 +22078,136 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
-	op                                      Op
-	typ                                     string
-	id                                      *int64
-	created_at                              *time.Time
-	updated_at                              *time.Time
-	deleted_at                              *time.Time
-	name                                    *string
-	description                             *string
-	i18n                                    *domain.GroupI18n
-	rate_multiplier                         *float64
-	addrate_multiplier                      *float64
-	peak_rate_enabled                       *bool
-	peak_start                              *string
-	peak_end                                *string
-	peak_rate_multiplier                    *float64
-	addpeak_rate_multiplier                 *float64
-	is_exclusive                            *bool
-	status                                  *string
-	duplicate_operation_id                  *string
-	platform                                *string
-	subscription_type                       *string
-	daily_limit_usd                         *float64
-	adddaily_limit_usd                      *float64
-	weekly_limit_usd                        *float64
-	addweekly_limit_usd                     *float64
-	monthly_limit_usd                       *float64
-	addmonthly_limit_usd                    *float64
-	default_validity_days                   *int
-	adddefault_validity_days                *int
-	allow_image_generation                  *bool
-	allow_batch_image_generation            *bool
-	image_count_billing                     *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
-	batch_image_discount_multiplier         *float64
-	addbatch_image_discount_multiplier      *float64
-	batch_image_hold_multiplier             *float64
-	addbatch_image_hold_multiplier          *float64
-	video_rate_independent                  *bool
-	video_rate_multiplier                   *float64
-	addvideo_rate_multiplier                *float64
-	video_price_480p                        *float64
-	addvideo_price_480p                     *float64
-	video_price_720p                        *float64
-	addvideo_price_720p                     *float64
-	video_price_1080p                       *float64
-	addvideo_price_1080p                    *float64
-	video_model_prices                      *map[string]map[string]float64
-	web_search_price_per_call               *float64
-	addweb_search_price_per_call            *float64
-	search_price_per_1k                     *float64
-	addsearch_price_per_1k                  *float64
-	audio_realtime_price_per_min            *float64
-	addaudio_realtime_price_per_min         *float64
-	audio_tts_price_per_million_chars       *float64
-	addaudio_tts_price_per_million_chars    *float64
-	audio_stt_price_per_hour                *float64
-	addaudio_stt_price_per_hour             *float64
-	long_context_pricing_enabled            *bool
-	model_pricing                           *jsontext.Value
-	appendmodel_pricing                     jsontext.Value
-	claude_code_only                        *bool
-	fallback_group_id                       *int64
-	addfallback_group_id                    *int64
-	fallback_group_id_on_invalid_request    *int64
-	addfallback_group_id_on_invalid_request *int64
-	model_routing                           *map[string][]int64
-	model_routing_enabled                   *bool
-	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
-	sort_order                              *int
-	addsort_order                           *int
-	allow_messages_dispatch                 *bool
-	allow_live                              *bool
-	force_openai_fast                       *bool
-	cache_read_deduction_percent            *float64
-	addcache_read_deduction_percent         *float64
-	free_openai_fast                        *bool
-	require_oauth_only                      *bool
-	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
-	model_allowlist                         *domain.GroupModelAllowlist
-	codex_models_manifest_config            *domain.GroupCodexModelsManifestConfig
-	rpm_limit                               *int
-	addrpm_limit                            *int
-	max_reasoning_effort                    *string
-	max_reasoning_effort_over_limit         *string
-	reasoning_effort_mappings               *[]domain.ReasoningEffortMapping
-	appendreasoning_effort_mappings         []domain.ReasoningEffortMapping
-	profit_control_enabled                  *bool
-	profit_min_margin                       *float64
-	addprofit_min_margin                    *float64
-	profit_safety_buffer                    *float64
-	addprofit_safety_buffer                 *float64
-	clearedFields                           map[string]struct{}
-	api_keys                                map[int64]struct{}
-	removedapi_keys                         map[int64]struct{}
-	clearedapi_keys                         bool
-	redeem_codes                            map[int64]struct{}
-	removedredeem_codes                     map[int64]struct{}
-	clearedredeem_codes                     bool
-	subscriptions                           map[int64]struct{}
-	removedsubscriptions                    map[int64]struct{}
-	clearedsubscriptions                    bool
-	usage_logs                              map[int64]struct{}
-	removedusage_logs                       map[int64]struct{}
-	clearedusage_logs                       bool
-	accounts                                map[int64]struct{}
-	removedaccounts                         map[int64]struct{}
-	clearedaccounts                         bool
-	allowed_users                           map[int64]struct{}
-	removedallowed_users                    map[int64]struct{}
-	clearedallowed_users                    bool
-	done                                    bool
-	oldValue                                func(context.Context) (*Group, error)
-	predicates                              []predicate.Group
+	op                                           Op
+	typ                                          string
+	id                                           *int64
+	created_at                                   *time.Time
+	updated_at                                   *time.Time
+	deleted_at                                   *time.Time
+	name                                         *string
+	description                                  *string
+	i18n                                         *domain.GroupI18n
+	rate_multiplier                              *float64
+	addrate_multiplier                           *float64
+	peak_rate_enabled                            *bool
+	peak_start                                   *string
+	peak_end                                     *string
+	peak_rate_multiplier                         *float64
+	addpeak_rate_multiplier                      *float64
+	is_exclusive                                 *bool
+	status                                       *string
+	duplicate_operation_id                       *string
+	platform                                     *string
+	subscription_type                            *string
+	daily_limit_usd                              *float64
+	adddaily_limit_usd                           *float64
+	weekly_limit_usd                             *float64
+	addweekly_limit_usd                          *float64
+	monthly_limit_usd                            *float64
+	addmonthly_limit_usd                         *float64
+	default_validity_days                        *int
+	adddefault_validity_days                     *int
+	allow_image_generation                       *bool
+	allow_batch_image_generation                 *bool
+	image_count_billing                          *bool
+	image_rate_independent                       *bool
+	image_rate_multiplier                        *float64
+	addimage_rate_multiplier                     *float64
+	image_price_1k                               *float64
+	addimage_price_1k                            *float64
+	image_price_2k                               *float64
+	addimage_price_2k                            *float64
+	image_price_4k                               *float64
+	addimage_price_4k                            *float64
+	batch_image_discount_multiplier              *float64
+	addbatch_image_discount_multiplier           *float64
+	batch_image_hold_multiplier                  *float64
+	addbatch_image_hold_multiplier               *float64
+	video_rate_independent                       *bool
+	video_rate_multiplier                        *float64
+	addvideo_rate_multiplier                     *float64
+	video_price_480p                             *float64
+	addvideo_price_480p                          *float64
+	video_price_720p                             *float64
+	addvideo_price_720p                          *float64
+	video_price_1080p                            *float64
+	addvideo_price_1080p                         *float64
+	video_model_prices                           *map[string]map[string]float64
+	web_search_price_per_call                    *float64
+	addweb_search_price_per_call                 *float64
+	search_price_per_1k                          *float64
+	addsearch_price_per_1k                       *float64
+	audio_realtime_price_per_min                 *float64
+	addaudio_realtime_price_per_min              *float64
+	audio_tts_price_per_million_chars            *float64
+	addaudio_tts_price_per_million_chars         *float64
+	audio_stt_price_per_hour                     *float64
+	addaudio_stt_price_per_hour                  *float64
+	long_context_pricing_enabled                 *bool
+	model_pricing                                *jsontext.Value
+	appendmodel_pricing                          jsontext.Value
+	claude_code_only                             *bool
+	fallback_group_id                            *int64
+	addfallback_group_id                         *int64
+	fallback_group_id_on_invalid_request         *int64
+	addfallback_group_id_on_invalid_request      *int64
+	model_routing                                *map[string][]int64
+	model_routing_enabled                        *bool
+	mcp_xml_inject                               *bool
+	supported_model_scopes                       *[]string
+	appendsupported_model_scopes                 []string
+	sort_order                                   *int
+	addsort_order                                *int
+	allow_messages_dispatch                      *bool
+	allow_live                                   *bool
+	force_openai_fast                            *bool
+	openai_experimental_features_enabled         *bool
+	cache_read_deduction_percent                 *float64
+	addcache_read_deduction_percent              *float64
+	cache_read_amplification_percent             *float64
+	addcache_read_amplification_percent          *float64
+	cache_read_amplification_min_input_tokens    *int64
+	addcache_read_amplification_min_input_tokens *int64
+	free_openai_fast                             *bool
+	require_oauth_only                           *bool
+	require_privacy_set                          *bool
+	default_mapped_model                         *string
+	messages_dispatch_model_config               *domain.OpenAIMessagesDispatchModelConfig
+	model_allowlist                              *domain.GroupModelAllowlist
+	codex_models_manifest_config                 *domain.GroupCodexModelsManifestConfig
+	rpm_limit                                    *int
+	addrpm_limit                                 *int
+	max_reasoning_effort                         *string
+	max_reasoning_effort_over_limit              *string
+	reasoning_effort_mappings                    *[]domain.ReasoningEffortMapping
+	appendreasoning_effort_mappings              []domain.ReasoningEffortMapping
+	profit_control_enabled                       *bool
+	profit_min_margin                            *float64
+	addprofit_min_margin                         *float64
+	profit_safety_buffer                         *float64
+	addprofit_safety_buffer                      *float64
+	clearedFields                                map[string]struct{}
+	api_keys                                     map[int64]struct{}
+	removedapi_keys                              map[int64]struct{}
+	clearedapi_keys                              bool
+	redeem_codes                                 map[int64]struct{}
+	removedredeem_codes                          map[int64]struct{}
+	clearedredeem_codes                          bool
+	subscriptions                                map[int64]struct{}
+	removedsubscriptions                         map[int64]struct{}
+	clearedsubscriptions                         bool
+	usage_logs                                   map[int64]struct{}
+	removedusage_logs                            map[int64]struct{}
+	clearedusage_logs                            bool
+	accounts                                     map[int64]struct{}
+	removedaccounts                              map[int64]struct{}
+	clearedaccounts                              bool
+	allowed_users                                map[int64]struct{}
+	removedallowed_users                         map[int64]struct{}
+	clearedallowed_users                         bool
+	done                                         bool
+	oldValue                                     func(context.Context) (*Group, error)
+	predicates                                   []predicate.Group
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -25060,6 +25065,42 @@ func (m *GroupMutation) ResetForceOpenaiFast() {
 	m.force_openai_fast = nil
 }
 
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (m *GroupMutation) SetOpenaiExperimentalFeaturesEnabled(b bool) {
+	m.openai_experimental_features_enabled = &b
+}
+
+// OpenaiExperimentalFeaturesEnabled returns the value of the "openai_experimental_features_enabled" field in the mutation.
+func (m *GroupMutation) OpenaiExperimentalFeaturesEnabled() (r bool, exists bool) {
+	v := m.openai_experimental_features_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiExperimentalFeaturesEnabled returns the old "openai_experimental_features_enabled" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldOpenaiExperimentalFeaturesEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiExperimentalFeaturesEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiExperimentalFeaturesEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiExperimentalFeaturesEnabled: %w", err)
+	}
+	return oldValue.OpenaiExperimentalFeaturesEnabled, nil
+}
+
+// ResetOpenaiExperimentalFeaturesEnabled resets all changes to the "openai_experimental_features_enabled" field.
+func (m *GroupMutation) ResetOpenaiExperimentalFeaturesEnabled() {
+	m.openai_experimental_features_enabled = nil
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (m *GroupMutation) SetCacheReadDeductionPercent(f float64) {
 	m.cache_read_deduction_percent = &f
@@ -25114,6 +25155,118 @@ func (m *GroupMutation) AddedCacheReadDeductionPercent() (r float64, exists bool
 func (m *GroupMutation) ResetCacheReadDeductionPercent() {
 	m.cache_read_deduction_percent = nil
 	m.addcache_read_deduction_percent = nil
+}
+
+// SetCacheReadAmplificationPercent sets the "cache_read_amplification_percent" field.
+func (m *GroupMutation) SetCacheReadAmplificationPercent(f float64) {
+	m.cache_read_amplification_percent = &f
+	m.addcache_read_amplification_percent = nil
+}
+
+// CacheReadAmplificationPercent returns the value of the "cache_read_amplification_percent" field in the mutation.
+func (m *GroupMutation) CacheReadAmplificationPercent() (r float64, exists bool) {
+	v := m.cache_read_amplification_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheReadAmplificationPercent returns the old "cache_read_amplification_percent" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldCacheReadAmplificationPercent(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheReadAmplificationPercent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheReadAmplificationPercent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheReadAmplificationPercent: %w", err)
+	}
+	return oldValue.CacheReadAmplificationPercent, nil
+}
+
+// AddCacheReadAmplificationPercent adds f to the "cache_read_amplification_percent" field.
+func (m *GroupMutation) AddCacheReadAmplificationPercent(f float64) {
+	if m.addcache_read_amplification_percent != nil {
+		*m.addcache_read_amplification_percent += f
+	} else {
+		m.addcache_read_amplification_percent = &f
+	}
+}
+
+// AddedCacheReadAmplificationPercent returns the value that was added to the "cache_read_amplification_percent" field in this mutation.
+func (m *GroupMutation) AddedCacheReadAmplificationPercent() (r float64, exists bool) {
+	v := m.addcache_read_amplification_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheReadAmplificationPercent resets all changes to the "cache_read_amplification_percent" field.
+func (m *GroupMutation) ResetCacheReadAmplificationPercent() {
+	m.cache_read_amplification_percent = nil
+	m.addcache_read_amplification_percent = nil
+}
+
+// SetCacheReadAmplificationMinInputTokens sets the "cache_read_amplification_min_input_tokens" field.
+func (m *GroupMutation) SetCacheReadAmplificationMinInputTokens(i int64) {
+	m.cache_read_amplification_min_input_tokens = &i
+	m.addcache_read_amplification_min_input_tokens = nil
+}
+
+// CacheReadAmplificationMinInputTokens returns the value of the "cache_read_amplification_min_input_tokens" field in the mutation.
+func (m *GroupMutation) CacheReadAmplificationMinInputTokens() (r int64, exists bool) {
+	v := m.cache_read_amplification_min_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheReadAmplificationMinInputTokens returns the old "cache_read_amplification_min_input_tokens" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldCacheReadAmplificationMinInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheReadAmplificationMinInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheReadAmplificationMinInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheReadAmplificationMinInputTokens: %w", err)
+	}
+	return oldValue.CacheReadAmplificationMinInputTokens, nil
+}
+
+// AddCacheReadAmplificationMinInputTokens adds i to the "cache_read_amplification_min_input_tokens" field.
+func (m *GroupMutation) AddCacheReadAmplificationMinInputTokens(i int64) {
+	if m.addcache_read_amplification_min_input_tokens != nil {
+		*m.addcache_read_amplification_min_input_tokens += i
+	} else {
+		m.addcache_read_amplification_min_input_tokens = &i
+	}
+}
+
+// AddedCacheReadAmplificationMinInputTokens returns the value that was added to the "cache_read_amplification_min_input_tokens" field in this mutation.
+func (m *GroupMutation) AddedCacheReadAmplificationMinInputTokens() (r int64, exists bool) {
+	v := m.addcache_read_amplification_min_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheReadAmplificationMinInputTokens resets all changes to the "cache_read_amplification_min_input_tokens" field.
+func (m *GroupMutation) ResetCacheReadAmplificationMinInputTokens() {
+	m.cache_read_amplification_min_input_tokens = nil
+	m.addcache_read_amplification_min_input_tokens = nil
 }
 
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
@@ -26053,7 +26206,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 69)
+	fields := make([]string, 0, 72)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26216,8 +26369,17 @@ func (m *GroupMutation) Fields() []string {
 	if m.force_openai_fast != nil {
 		fields = append(fields, group.FieldForceOpenaiFast)
 	}
+	if m.openai_experimental_features_enabled != nil {
+		fields = append(fields, group.FieldOpenaiExperimentalFeaturesEnabled)
+	}
 	if m.cache_read_deduction_percent != nil {
 		fields = append(fields, group.FieldCacheReadDeductionPercent)
+	}
+	if m.cache_read_amplification_percent != nil {
+		fields = append(fields, group.FieldCacheReadAmplificationPercent)
+	}
+	if m.cache_read_amplification_min_input_tokens != nil {
+		fields = append(fields, group.FieldCacheReadAmplificationMinInputTokens)
 	}
 	if m.free_openai_fast != nil {
 		fields = append(fields, group.FieldFreeOpenaiFast)
@@ -26377,8 +26539,14 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.AllowLive()
 	case group.FieldForceOpenaiFast:
 		return m.ForceOpenaiFast()
+	case group.FieldOpenaiExperimentalFeaturesEnabled:
+		return m.OpenaiExperimentalFeaturesEnabled()
 	case group.FieldCacheReadDeductionPercent:
 		return m.CacheReadDeductionPercent()
+	case group.FieldCacheReadAmplificationPercent:
+		return m.CacheReadAmplificationPercent()
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		return m.CacheReadAmplificationMinInputTokens()
 	case group.FieldFreeOpenaiFast:
 		return m.FreeOpenaiFast()
 	case group.FieldRequireOauthOnly:
@@ -26524,8 +26692,14 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAllowLive(ctx)
 	case group.FieldForceOpenaiFast:
 		return m.OldForceOpenaiFast(ctx)
+	case group.FieldOpenaiExperimentalFeaturesEnabled:
+		return m.OldOpenaiExperimentalFeaturesEnabled(ctx)
 	case group.FieldCacheReadDeductionPercent:
 		return m.OldCacheReadDeductionPercent(ctx)
+	case group.FieldCacheReadAmplificationPercent:
+		return m.OldCacheReadAmplificationPercent(ctx)
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		return m.OldCacheReadAmplificationMinInputTokens(ctx)
 	case group.FieldFreeOpenaiFast:
 		return m.OldFreeOpenaiFast(ctx)
 	case group.FieldRequireOauthOnly:
@@ -26941,12 +27115,33 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetForceOpenaiFast(v)
 		return nil
+	case group.FieldOpenaiExperimentalFeaturesEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiExperimentalFeaturesEnabled(v)
+		return nil
 	case group.FieldCacheReadDeductionPercent:
 		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheReadDeductionPercent(v)
+		return nil
+	case group.FieldCacheReadAmplificationPercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadAmplificationPercent(v)
+		return nil
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadAmplificationMinInputTokens(v)
 		return nil
 	case group.FieldFreeOpenaiFast:
 		v, ok := value.(bool)
@@ -27129,6 +27324,12 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addcache_read_deduction_percent != nil {
 		fields = append(fields, group.FieldCacheReadDeductionPercent)
 	}
+	if m.addcache_read_amplification_percent != nil {
+		fields = append(fields, group.FieldCacheReadAmplificationPercent)
+	}
+	if m.addcache_read_amplification_min_input_tokens != nil {
+		fields = append(fields, group.FieldCacheReadAmplificationMinInputTokens)
+	}
 	if m.addrpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
@@ -27196,6 +27397,10 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSortOrder()
 	case group.FieldCacheReadDeductionPercent:
 		return m.AddedCacheReadDeductionPercent()
+	case group.FieldCacheReadAmplificationPercent:
+		return m.AddedCacheReadAmplificationPercent()
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		return m.AddedCacheReadAmplificationMinInputTokens()
 	case group.FieldRpmLimit:
 		return m.AddedRpmLimit()
 	case group.FieldProfitMinMargin:
@@ -27385,6 +27590,20 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddCacheReadDeductionPercent(v)
+		return nil
+	case group.FieldCacheReadAmplificationPercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheReadAmplificationPercent(v)
+		return nil
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheReadAmplificationMinInputTokens(v)
 		return nil
 	case group.FieldRpmLimit:
 		v, ok := value.(int)
@@ -27731,8 +27950,17 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldForceOpenaiFast:
 		m.ResetForceOpenaiFast()
 		return nil
+	case group.FieldOpenaiExperimentalFeaturesEnabled:
+		m.ResetOpenaiExperimentalFeaturesEnabled()
+		return nil
 	case group.FieldCacheReadDeductionPercent:
 		m.ResetCacheReadDeductionPercent()
+		return nil
+	case group.FieldCacheReadAmplificationPercent:
+		m.ResetCacheReadAmplificationPercent()
+		return nil
+	case group.FieldCacheReadAmplificationMinInputTokens:
+		m.ResetCacheReadAmplificationMinInputTokens()
 		return nil
 	case group.FieldFreeOpenaiFast:
 		m.ResetFreeOpenaiFast()
