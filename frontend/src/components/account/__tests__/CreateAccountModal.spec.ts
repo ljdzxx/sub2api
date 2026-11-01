@@ -261,7 +261,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     wrapper.unmount()
   })
 
-  it('hides only the redundant account toggle when every selected group enables tier pricing', async () => {
+  it('keeps the upstream account toggle visible when every selected group enables user tier pricing', async () => {
     authIsSimpleMode.value = false
     const wrapper = mountModal([
       { id: 1, long_context_pricing_enabled: true },
@@ -271,11 +271,11 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await selectButtonByText(wrapper, 'OpenAI')
     await wrapper.get('[data-testid="select-pricing-groups"]').trigger('click')
 
-    expect(wrapper.find('[data-testid="openai-long-context-billing-toggle"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-long-context-billing-toggle"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(true)
   })
 
-  it('keeps the account toggle when any selected group disables tier pricing', async () => {
+  it('keeps the upstream account toggle visible when a selected group disables user tier pricing', async () => {
     authIsSimpleMode.value = false
     const wrapper = mountModal([
       { id: 1, long_context_pricing_enabled: true },
