@@ -32,6 +32,8 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD:?Run bash deploy.sh init first}
       TZ: ${TZ:-Asia/Shanghai}
     command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --requirepass, "${REDIS_PASSWORD:?Run bash deploy.sh init first}"]
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -48,7 +50,7 @@ services:
         max-size: 10m
         max-file: "3"
 
-# No host ports: only containers on this Docker network can access the services.
+# PostgreSQL stays on this network; Redis also publishes host port 6379.
 networks:
   shared:
     name: sub2api-ray-shared

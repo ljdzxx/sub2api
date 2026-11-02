@@ -14,7 +14,8 @@
 | --- | --- | --- | --- |
 | `sub2api-ray-master` | `master` | `8080` | 独立 `master_data` 卷 |
 | `sub2api-ray-salve` | `salve` | `8081` | 独立 `salve_data` 卷 |
-| `sub2api-ray-infra` | `ray-postgres`、`ray-redis` | 不向宿主机发布 | 共享数据库卷和 Redis 卷 |
+| `sub2api-ray-infra` | `ray-postgres` | 不向宿主机发布 | 共享数据库卷 |
+| `sub2api-ray-infra` | `ray-redis` | `6379` | 共享 Redis 卷 |
 
 服务名按需求使用 **`salve`**，脚本参数也使用这个拼写。两个应用容器内部都监听 8080，通过宿主机端口区分。
 
@@ -202,6 +203,7 @@ bash deploy.sh up master
 - 数据库默认最大连接数 200，每个应用池默认最大 50；调整时按两个应用和后台任务的连接总和计算。
 - 两边必须使用相同的 `JWT_SECRET`、`TOTP_ENCRYPTION_KEY`、数据库参数、Redis 密码及 `REDIS_DB`。
 - PostgreSQL 显式设置 `PGDATA=/var/lib/postgresql/data`，避免 PostgreSQL 18 数据落入未挂载的位置；Redis 开启 AOF 持久化。
+- Redis 将容器 `6379` 映射到宿主机所有接口的 `6379` 端口，连接仍需 `REDIS_PASSWORD`；应用继续通过共享网络连接 `ray-redis:6379`。
 - `/app/data` 分别存放在两个应用自己的卷中，不共享配置文件写入。需要跨实例访问的上传文件/本地资源应另外配置共享对象存储或专用共享目录。
 - 共享密钥、数据库/Redis 密码变更需要协调两实例和基础服务。不要仅修改 `.env` 就认为已有数据库用户密码也会自动修改。
 - 默认固定项目名和网络名适用于同一 Docker 主机的一套双实例部署。迁移目录不改变卷名；不要在同一主机再用相同名称部署另一套环境。
