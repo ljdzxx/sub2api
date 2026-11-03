@@ -61,8 +61,8 @@ class ExistingDeploymentTests(unittest.TestCase):
         original = copy.deepcopy(containers)
         cfg = module.make_config(containers, Path("/srv/sub2api"))
         self.assertEqual(containers, original)
-        self.assertEqual(set(cfg["services"]), {"salve"})
-        app = cfg["services"]["salve"]
+        self.assertEqual(set(cfg["services"]), {"slave"})
+        app = cfg["services"]["slave"]
         env = app["environment"]
         self.assertEqual(app["ports"], ["0.0.0.0:8081:8080"])
         self.assertNotIn("depends_on", app)

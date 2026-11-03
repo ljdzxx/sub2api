@@ -25,7 +25,7 @@ case "$*" in
     if [[ ${MOCK_MISSING_INFRA:-0} == 0 ]]; then printf 'infra-container\n'; fi
     exit 0 ;;
   *' config --images master') printf 'sub2api-ray:master\n'; exit 0 ;;
-  *' config --images salve') printf 'sub2api-ray:salve\n'; exit 0 ;;
+  *' config --images slave') printf 'sub2api-ray:slave\n'; exit 0 ;;
   *' exec -T ray-postgres '*)
     if [[ ${MOCK_BACKUP_FAIL:-0} == 1 ]]; then exit 1; fi
     printf 'PGDMP test backup\n'; exit 0 ;;
@@ -81,7 +81,7 @@ class DeploymentTests(unittest.TestCase):
         return [args for args in self.calls() if any(x in args for x in ("up", "stop", "restart", "build", "tag", "exec", "down"))]
 
     def test_each_app_can_start_without_starting_other_app_or_infrastructure(self):
-        for role in ("master", "salve"):
+        for role in ("master", "slave"):
             self.trace.write_text("", encoding="utf-8")
             self.run_script("up", role)
             mutations = self.mutations()
@@ -93,7 +93,7 @@ class DeploymentTests(unittest.TestCase):
 
     def test_single_app_stop_and_restart_are_isolated(self):
         for command in ("stop", "restart"):
-            for role in ("master", "salve"):
+            for role in ("master", "slave"):
                 self.trace.write_text("", encoding="utf-8")
                 self.run_script(command, role)
                 mutations = self.mutations()
@@ -109,22 +109,22 @@ class DeploymentTests(unittest.TestCase):
             self.assertNotIn("down", call)
             self.assertNotIn("-v", call)
 
-    def test_all_starts_infra_then_waits_for_master_before_salve(self):
+    def test_all_starts_infra_then_waits_for_master_before_slave(self):
         self.run_script("up", "all")
         calls = self.mutations()
         self.assertEqual([x[x.index("--project-name") + 1] for x in calls],
-                         ["sub2api-ray-infra", "sub2api-ray-master", "sub2api-ray-salve"])
+                         ["sub2api-ray-infra", "sub2api-ray-master", "sub2api-ray-slave"])
         self.assertTrue(all("--wait" in x for x in calls))
 
-    def test_failed_master_bootstrap_does_not_start_salve(self):
+    def test_failed_master_bootstrap_does_not_start_slave(self):
         self.run_script("up", "all", success=False, MOCK_UP_FAIL_FOR="master")
         self.assertEqual(len(self.mutations()), 2)
-        self.assertFalse(any("sub2api-ray-salve" in call for call in self.mutations()))
+        self.assertFalse(any("sub2api-ray-slave" in call for call in self.mutations()))
 
     def test_unavailable_infra_does_not_trigger_automatic_recreation(self):
         for env in ({"MOCK_MISSING_INFRA": "1"}, {"MOCK_INFRA_HEALTH": "false healthy"}, {"MOCK_INFRA_HEALTH": "true unhealthy"}):
             self.trace.write_text("", encoding="utf-8")
-            self.run_script("up", "salve", success=False, **env)
+            self.run_script("up", "slave", success=False, **env)
             self.assertEqual(self.mutations(), [])
 
     def test_missing_image_fails_without_pulling_or_starting(self):
@@ -136,7 +136,7 @@ class DeploymentTests(unittest.TestCase):
         calls = self.mutations()
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0][-2:], ["build", "master"])
-        self.assertEqual(calls[1], ["image", "tag", "sub2api-ray:master", "sub2api-ray:salve"])
+        self.assertEqual(calls[1], ["image", "tag", "sub2api-ray:master", "sub2api-ray:slave"])
 
     def test_config_validation_never_sources_env_as_shell(self):
         marker = self.root / "should-not-exist"

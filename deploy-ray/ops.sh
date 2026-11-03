@@ -22,7 +22,7 @@ import tempfile
 
 REPOSITORY = os.environ.get("RAY_REPOSITORY", "https://github.com/ljdzxx/sub2api.git")
 STATE_DIR = Path(os.environ.get("RAY_OPS_STATE_DIR", str(Path(os.environ.get("RAY_OPS_SCRIPT_DIR", ".")) / ".ray-ops"))).resolve()
-ROLE_NAMES = ("master", "salve")
+ROLE_NAMES = ("master", "slave")
 APP_NAMES = {role: "sub2api-ray-" + role for role in ROLE_NAMES}
 CORE_QUERY = "SELECT current_database(), oid::text, (to_regclass('public.users') IS NOT NULL AND to_regclass('public.accounts') IS NOT NULL AND to_regclass('public.api_keys') IS NOT NULL AND to_regclass('public.settings') IS NOT NULL AND to_regclass('public.schema_migrations') IS NOT NULL)::int FROM pg_database WHERE datname=current_database();"
 ROWS_QUERY = "SELECT (EXISTS (SELECT 1 FROM public.users) AND EXISTS (SELECT 1 FROM public.schema_migrations))::int;"
@@ -216,7 +216,7 @@ def load_or_attach():
     names = [os.environ.get("RAY_OLD_APP", "sub2api"), os.environ.get("RAY_POSTGRES", "sub2api-postgres"), os.environ.get("RAY_REDIS", "sub2api-redis")]
     state = discover(*(inspect(name) for name in names), network=os.environ.get("RAY_EXISTING_NETWORK"))
     state["database_oid"] = probe_db(state)
-    # Preserve the original YAML for salve, including settings not present in Env.
+    # Preserve the original YAML for slave, including settings not present in Env.
     config = STATE_DIR / "original-config.yaml"
     run(["docker", "cp", state["old_app"] + ":" + posixpath.join(state["old_data_dir"], "config.yaml"), str(config)])
     os.chmod(config, 0o600)
@@ -242,7 +242,7 @@ def compose_model(state, role, image, directory=None):
             data_mount = {"type": "volume", "source": "original_app_data", "target": "/app/data"}
             volumes["original_app_data"] = {"external": True, "name": original["Name"]}
     else:
-        data_mount = {"type": "bind", "source": str(directory / "salve-data"), "target": "/app/data", "bind": {"create_host_path": False, "selinux": "Z"}}
+        data_mount = {"type": "bind", "source": str(directory / "slave-data"), "target": "/app/data", "bind": {"create_host_path": False, "selinux": "Z"}}
     config = {
         "services": {role: {
             "image": image, "pull_policy": "never", "container_name": APP_NAMES[role], "hostname": APP_NAMES[role],
@@ -271,8 +271,8 @@ def compose_model(state, role, image, directory=None):
 
 
 def render(state, role, image):
-    if role == "salve":
-        data = STATE_DIR / "salve-data"
+    if role == "slave":
+        data = STATE_DIR / "slave-data"
         data.mkdir(exist_ok=True)
         config = data / "config.yaml"
         if not config.exists():
@@ -342,7 +342,7 @@ def image_present(image):
 
 
 def selected_roles(target):
-    require(target in (*ROLE_NAMES, "all"), "目标只能是 master、salve 或 all。")
+    require(target in (*ROLE_NAMES, "all"), "目标只能是 master、slave 或 all。")
     return ROLE_NAMES if target == "all" else (target,)
 
 
@@ -404,7 +404,7 @@ def dispatch(action, target, backup_before_change=True):
         for role in selected_roles(target):
             compose(role, "restart", role)
     elif action == "logs":
-        require(target in ROLE_NAMES, "日志目标只能是 master 或 salve。")
+        require(target in ROLE_NAMES, "日志目标只能是 master 或 slave。")
         compose(target, "logs", "-f", "--tail", "100", target)
     elif action == "backup":
         backup(state)
@@ -433,7 +433,7 @@ def main():
     if args.action in ("start", "stop", "restart", "update"):
         selected_roles(args.target)
     if args.action == "logs":
-        require(args.target in ROLE_NAMES, "日志目标只能是 master 或 salve。")
+        require(args.target in ROLE_NAMES, "日志目标只能是 master 或 slave。")
     os.umask(0o077)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
@@ -479,25 +479,25 @@ while true; do
   cat <<'MENU'
 
 ==== ray 运维：仅接续原数据库 ====
-1) 启动 master :8080    2) 启动 salve :8081    3) 启动两个实例
-4) 停止 master          5) 停止 salve          6) 停止两个实例
-7) 更新 master          8) 更新 salve          9) 更新两个实例
-10) master 日志         11) salve 日志         12) 查看状态
+1) 启动 master :8080    2) 启动 slave :8081    3) 启动两个实例
+4) 停止 master          5) 停止 slave          6) 停止两个实例
+7) 更新 master          8) 更新 slave          9) 更新两个实例
+10) master 日志         11) slave 日志         12) 查看状态
 13) 只读备份数据库      14) 核验原库接续       0) 退出
 MENU
   read -r -p '请选择：' choice || exit 0
   case "$choice" in
     1) choose_backup_and_run start master || true ;;
-    2) choose_backup_and_run start salve || true ;;
+    2) choose_backup_and_run start slave || true ;;
     3) choose_backup_and_run start all || true ;;
     4) run_action stop master || true ;;
-    5) run_action stop salve || true ;;
+    5) run_action stop slave || true ;;
     6) run_action stop all || true ;;
     7) choose_backup_and_run update master || true ;;
-    8) choose_backup_and_run update salve || true ;;
+    8) choose_backup_and_run update slave || true ;;
     9) choose_backup_and_run update all || true ;;
     10) run_action logs master || true ;;
-    11) run_action logs salve || true ;;
+    11) run_action logs slave || true ;;
     12) run_action status || true ;;
     13) run_action backup || true ;;
     14) run_action attach || true ;;

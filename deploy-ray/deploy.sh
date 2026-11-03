@@ -13,12 +13,12 @@ usage() {
   cat <<'USAGE'
 Usage: bash deploy.sh COMMAND [TARGET]
   init                      Create .env with random secrets (never overwrite)
-  build [master|salve|all]   Build the current checkout; default: all
+  build [master|slave|all]   Build the current checkout; default: all
   infra-up                  Start/wait for shared PostgreSQL + Redis
-  up [master|salve|all]      Start/update an app; all also starts infrastructure
-  stop master|salve|all     Stop apps only; retain infrastructure and volumes
-  restart master|salve      Restart only the existing selected app
-  logs master|salve|infra   Follow selected logs
+  up [master|slave|all]      Start/update an app; all also starts infrastructure
+  stop master|slave|all     Stop apps only; retain infrastructure and volumes
+  restart master|slave      Restart only the existing selected app
+  logs master|slave|infra   Follow selected logs
   status                    Show the three Compose projects
   check                     Validate all Compose definitions without printing secrets
   backup                    Save a PostgreSQL custom-format dump in backups/
@@ -69,7 +69,7 @@ app() {
     -f "$DEPLOY_DIR/compose.app.yml" "$@"
 }
 
-valid_role() { [[ "$1" == master || "$1" == salve ]] || die "Target must be master or salve: $1"; }
+valid_role() { [[ "$1" == master || "$1" == slave ]] || die "Target must be master or slave: $1"; }
 valid_apps() { [[ "$1" == all ]] || valid_role "$1"; }
 
 require_infra() {
@@ -94,7 +94,7 @@ up_app() {
 }
 
 build_apps() {
-  local target=$1 master_image salve_image
+  local target=$1 master_image slave_image
   valid_apps "$target"
   [[ -f "$REPO_DIR/Dockerfile" ]] || die 'Keep deploy-ray inside the complete source checkout'
   export RAY_GIT_COMMIT RAY_BUILD_DATE
@@ -103,9 +103,9 @@ build_apps() {
   if [[ "$target" == all ]]; then
     app master build master
     master_image=$(image_for master)
-    salve_image=$(image_for salve)
-    if [[ "$master_image" != "$salve_image" ]]; then
-      docker image tag "$master_image" "$salve_image"
+    slave_image=$(image_for slave)
+    if [[ "$master_image" != "$slave_image" ]]; then
+      docker image tag "$master_image" "$slave_image"
     fi
   else
     app "$target" build "$target"
@@ -153,7 +153,7 @@ case "$command" in
   check)
     infra config --quiet
     app master config --quiet master
-    app salve config --quiet salve
+    app slave config --quiet slave
     printf 'Compose configuration is valid.\n'
     ;;
   build) build_apps "${target:-all}" ;;
@@ -162,11 +162,11 @@ case "$command" in
     if [[ "${target:-all}" == all ]]; then
       infra up -d --wait --wait-timeout "$WAIT_TIMEOUT"
       up_app master
-      up_app salve
+      up_app slave
     else up_app "$target"; fi
     ;;
   stop)
-    if [[ "$target" == all ]]; then app master stop master; app salve stop salve
+    if [[ "$target" == all ]]; then app master stop master; app slave stop slave
     else app "$target" stop "$target"; fi
     ;;
   restart) require_infra; app "$target" restart "$target" ;;
@@ -177,7 +177,7 @@ case "$command" in
   status)
     infra ps
     app master ps master
-    app salve ps salve
+    app slave ps slave
     ;;
   backup) backup_db ;;
 esac

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a salve-only Compose file against existing production containers.
+"""Prepare a slave-only Compose file against existing production containers.
 
 Only reads Docker metadata. Never starts, stops, connects or modifies containers.
 The generated file contains secrets and is created exclusively with mode 0600.
@@ -60,13 +60,13 @@ def make_config(containers, repo_dir, network=None, commit="ray-local"):
     environment = {key: value.replace("$", "$$") for key, value in environment.items()}
     return {
         "services": {
-            "salve": {
-                "image": "sub2api-ray:salve", "pull_policy": "never",
+            "slave": {
+                "image": "sub2api-ray:slave", "pull_policy": "never",
                 "build": {"context": str(repo_dir), "dockerfile": "Dockerfile", "args": {"COMMIT": commit}},
-                "hostname": "sub2api-ray-salve", "restart": "unless-stopped",
+                "hostname": "sub2api-ray-slave", "restart": "unless-stopped",
                 "security_opt": ["no-new-privileges:true"], "stop_grace_period": "60s",
                 "ports": ["0.0.0.0:8081:8080"], "environment": environment,
-                "volumes": ["salve_data:/app/data"], "networks": ["production"],
+                "volumes": ["slave_data:/app/data"], "networks": ["production"],
                 "ulimits": {"nofile": {"soft": 100000, "hard": 100000}},
                 "healthcheck": {"test": ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://127.0.0.1:8080/health"],
                                 "interval": "10s", "timeout": "6s", "retries": 18, "start_period": "90s"},
@@ -74,7 +74,7 @@ def make_config(containers, repo_dir, network=None, commit="ray-local"):
             }
         },
         "networks": {"production": {"external": True, "name": network}},
-        "volumes": {"salve_data": {}},
+        "volumes": {"slave_data": {}},
     }
 
 
@@ -108,7 +108,7 @@ def main():
         handle.write("\n")
     print(f"Created {output.name} (contains secrets; mode 600).")
     print(f"Existing network: {config['networks']['production']['name']}")
-    print("Only salve on port 8081 is defined. Existing containers were not modified.")
+    print("Only slave on port 8081 is defined. Existing containers were not modified.")
 
 
 if __name__ == "__main__":

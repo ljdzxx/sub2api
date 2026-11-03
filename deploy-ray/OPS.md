@@ -33,15 +33,15 @@ bash /root/sub2api-ops.sh
 
 | 选项 | 操作 |
 | --- | --- |
-| 1 / 2 / 3 | 启动 master / salve / 两者 |
-| 4 / 5 / 6 | 停止 master / salve / 两者 |
-| 7 / 8 / 9 | 更新 master / salve / 两者 |
-| 10 / 11 | 查看 master / salve 日志 |
+| 1 / 2 / 3 | 启动 master / slave / 两者 |
+| 4 / 5 / 6 | 停止 master / slave / 两者 |
+| 7 / 8 / 9 | 更新 master / slave / 两者 |
+| 10 / 11 | 查看 master / slave 日志 |
 | 12 | 查看旧应用、原基础服务及新实例状态 |
 | 13 | 只读备份原数据库 |
 | 14 | 首次接续或重新核验原库 |
 
-第一次选启动即可自动完成接续、获取 `ray` 源码、构建镜像，并按本次选择决定是否备份，然后启动。菜单选择启动或更新后会询问「本次启动/更新前备份数据库？[Y/n]」，回车或 Y 表示备份，n 表示不备份。master 使用 8080，salve 使用 8081；新容器名分别为 `sub2api-ray-master`、`sub2api-ray-salve`。旧 `sub2api` 不会被脚本删除或自动启动。
+第一次选启动即可自动完成接续、获取 `ray` 源码、构建镜像，并按本次选择决定是否备份，然后启动。菜单选择启动或更新后会询问「本次启动/更新前备份数据库？[Y/n]」，回车或 Y 表示备份，n 表示不备份。master 使用 8080，slave 使用 8081；新容器名分别为 `sub2api-ray-master`、`sub2api-ray-slave`。旧 `sub2api` 不会被脚本删除或自动启动。
 
 构建时可能下载 PostgreSQL 镜像，这是项目 Dockerfile 提取 `psql/pg_dump` 客户端的构建阶段，不会启动新的数据库容器。
 
@@ -55,15 +55,15 @@ bash /root/sub2api-ops.sh
 
 ```bash
 bash /root/sub2api-ops.sh start master
-bash /root/sub2api-ops.sh start salve
+bash /root/sub2api-ops.sh start slave
 bash /root/sub2api-ops.sh stop master
-bash /root/sub2api-ops.sh stop salve
+bash /root/sub2api-ops.sh stop slave
 bash /root/sub2api-ops.sh update master
-bash /root/sub2api-ops.sh update salve
+bash /root/sub2api-ops.sh update slave
 bash /root/sub2api-ops.sh update all
 bash /root/sub2api-ops.sh restart master
 bash /root/sub2api-ops.sh status
-bash /root/sub2api-ops.sh logs salve
+bash /root/sub2api-ops.sh logs slave
 ```
 
 `start` 使用实例已保存的镜像；首次缺少镜像时才自动拉源码构建。`update` 会快进更新受管 `ray` 源码、构建新镜像，按本次选择决定是否备份，再只重建所选实例。`restart` 只重启已有实例，不拉取代码。
@@ -81,7 +81,7 @@ bash /root/sub2api-ops.sh logs salve
 bash /root/sub2api-ops.sh update master --backup
 
 # 本次更新或启动不备份
-bash /root/sub2api-ops.sh update salve --no-backup
+bash /root/sub2api-ops.sh update slave --no-backup
 bash /root/sub2api-ops.sh start master --no-backup
 
 # 随时单独备份
@@ -121,14 +121,14 @@ bash /root/sub2api-ops.sh backup
 - `connection.json`：原连接信息、库标识、数据挂载和实例镜像信息，权限 600。
 - `original-config.yaml`：旧配置副本，权限 600。
 - `source/`：自动维护的 `ray` 源码，**只是源码，不是新数据库目录**。
-- `master.compose.json` / `salve.compose.json`：独立项目配置，包含密钥，权限 600。
-- `salve-data/`：salve 的独立应用数据目录；master 直接沿用原 `/app/data` 挂载。
+- `master.compose.json` / `slave.compose.json`：独立项目配置，包含密钥，权限 600。
+- `slave-data/`：slave 的独立应用数据目录；master 直接沿用原 `/app/data` 挂载。
 - `backups/`：原数据库只读导出，按时间保留；脚本不会自动删除历史备份。
 - `existing-db-guard.sh`：容器启动前检查，只读挂载到两个应用。
 
 整个状态目录权限为 700。不要上传该目录、移动运维入口后改用另一个状态目录，或手工删除连接记录来绕过检查。按需清理已确认不再需要的旧备份和镜像，避免磁盘耗尽。
 
-master/salve 启停独立，但同用原数据库和 Redis：配置、账号、配额和正常数据库迁移会作用于共享业务状态。salve 不会自动复制旧应用目录里的所有附件/自定义文件，仅继承原配置；如原配置引用额外本地文件，应在使用 salve 前将这些文件放入其应用数据目录，或使用共享对象存储。
+master/slave 启停独立，但同用原数据库和 Redis：配置、账号、配额和正常数据库迁移会作用于共享业务状态。slave 不会自动复制旧应用目录里的所有附件/自定义文件，仅继承原配置；如原配置引用额外本地文件，应在使用 slave 前将这些文件放入其应用数据目录，或使用共享对象存储。
 
 ## 少数需要显式指定的情况
 

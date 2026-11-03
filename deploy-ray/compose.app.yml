@@ -80,14 +80,14 @@ services:
     volumes:
       - master_data:/app/data
 
-  salve:
+  slave:
     <<: *app
-    image: ${SALVE_IMAGE:-sub2api-ray:salve}
-    hostname: sub2api-ray-salve
+    image: ${SLAVE_IMAGE:-sub2api-ray:slave}
+    hostname: sub2api-ray-slave
     ports:
-      - "${BIND_HOST:-0.0.0.0}:${SALVE_PORT:-8081}:8080"
+      - "${BIND_HOST:-0.0.0.0}:${SLAVE_PORT:-8081}:8080"
     volumes:
-      - salve_data:/app/data
+      - slave_data:/app/data
 
 networks:
   shared:
@@ -96,4 +96,4 @@ networks:
 
 volumes:
   master_data:
-  salve_data:
+  slave_data:

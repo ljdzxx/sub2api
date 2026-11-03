@@ -2,7 +2,7 @@
 
 **旧服务器迁移到新服务器：请使用 [数据库迁移指南](db-transfer.md)，按 pg_dump/pg_restore 完成恢复后再执行 deploy.sh。**
 
-**已有生产数据库、希望只运行一个 `.sh` 管理 master/salve：请使用 [ops.sh 一键运维说明](OPS.md)。该入口接续原库，允许旧应用已停止，不创建 PostgreSQL/Redis，也不初始化空库。**
+**已有生产数据库、希望只运行一个 `.sh` 管理 master/slave：请使用 [ops.sh 一键运维说明](OPS.md)。该入口接续原库，允许旧应用已停止，不创建 PostgreSQL/Redis，也不初始化空库。**
 
 下文 `deploy.sh` 用于全新部署；已有生产环境不要执行它的 `init / infra-up / up all` 流程。
 
@@ -13,15 +13,15 @@
 | Compose 项目 | 服务 | 宿主机端口 | 数据 |
 | --- | --- | --- | --- |
 | `sub2api-ray-master` | `master` | `8080` | 独立 `master_data` 卷 |
-| `sub2api-ray-salve` | `salve` | `8081` | 独立 `salve_data` 卷 |
+| `sub2api-ray-slave` | `slave` | `8081` | 独立 `slave_data` 卷 |
 | `sub2api-ray-infra` | `ray-postgres` | 不向宿主机发布 | 共享数据库卷 |
 | `sub2api-ray-infra` | `ray-redis` | `6379` | 共享 Redis 卷 |
 
-服务名按需求使用 **`salve`**，脚本参数也使用这个拼写。两个应用容器内部都监听 8080，通过宿主机端口区分。
+服务名和脚本参数统一使用 `master`、`slave`。两个应用容器内部都监听 8080，通过宿主机端口区分。
 
 三个项目通过 `sub2api-ray-shared` 网络连接。应用项目引用外部网络，不拥有基础服务；单独 `up/stop/restart` 某个应用不会创建、停止或重建另一个应用或数据库/Redis。
 
-`master/salve` 是部署名称，两者运行完整程序。它们不是数据库复制主从，不会因此自动分配程序内部后台任务，也没有自动流量切换。后台任务沿用项目已有的分布式锁/选主实现。
+`master/slave` 是部署名称，两者运行完整程序。它们不是数据库复制主从，不会因此自动分配程序内部后台任务，也没有自动流量切换。后台任务沿用项目已有的分布式锁/选主实现。
 
 **独立的是进程和部署生命周期，业务数据并不隔离。** 用户、账号、API Key、设置、用量来自同一个数据库；Redis DB、会话和并发状态也共享。任一实例修改公共设置会影响另一实例，数据库/Redis 故障会影响两者。
 
@@ -69,7 +69,7 @@ curl -fsS http://127.0.0.1:8081/health
 访问：
 
 - master：`http://服务器IP:8080`
-- salve：`http://服务器IP:8081`
+- slave：`http://服务器IP:8081`
 
 两边使用同一个管理员账号。`ADMIN_EMAIL/ADMIN_PASSWORD` 用于空数据库初始化；修改环境变量不会重置已有管理员密码。
 
@@ -85,8 +85,8 @@ cd deploy-ray
 python3 prepare-existing.py
 
 # 后续命令始终带这个项目名和配置文件
-docker compose -p sub2api-ray-salve -f compose.existing.local.json config --quiet
-docker compose -p sub2api-ray-salve -f compose.existing.local.json build salve
+docker compose -p sub2api-ray-slave -f compose.existing.local.json config --quiet
+docker compose -p sub2api-ray-slave -f compose.existing.local.json build slave
 
 # 备份旧部署初始化的生产数据库；命令失败时不要继续启动
 umask 077
@@ -95,11 +95,11 @@ docker exec sub2api-postgres sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGR
   > "backups/before-ray-$(date -u +%Y%m%dT%H%M%SZ).dump"
 
 # 确认 ray 的数据库迁移与当前 8080 版本兼容后，才执行启动
-docker compose -p sub2api-ray-salve -f compose.existing.local.json \
-  up -d --no-deps --no-build --pull never --wait --wait-timeout 600 salve
+docker compose -p sub2api-ray-slave -f compose.existing.local.json \
+  up -d --no-deps --no-build --pull never --wait --wait-timeout 600 slave
 
 curl -fsS http://127.0.0.1:8081/health
-docker compose -p sub2api-ray-salve -f compose.existing.local.json logs --tail 100 salve
+docker compose -p sub2api-ray-slave -f compose.existing.local.json logs --tail 100 slave
 ```
 
 准备脚本只读三个运行中容器的元数据，自动选取它们已有的共同网络，复制当前应用的数据库/Redis/JWT/TOTP 等运行环境。
@@ -108,26 +108,26 @@ docker compose -p sub2api-ray-salve -f compose.existing.local.json logs --tail 1
 如果运行环境中没有固定 JWT/TOTP 密钥，脚本会停止，要求先核实原实例配置，不会擅自生成替代密钥。
 
 生成的 `compose.existing.local.json` 含生产密钥，权限 600，已被 Git 和 Docker 构建上下文排除；不要上传或粘贴其完整内容。
-它只定义 salve、独立应用数据卷和外部生产网络，不定义 master、PostgreSQL 或 Redis，也不会修改原部署目录。
+它只定义 slave、独立应用数据卷和外部生产网络，不定义 master、PostgreSQL 或 Redis，也不会修改原部署目录。
 重复执行准备脚本不会覆盖已有文件；需要重新读取生产设置时，先把旧文件移到安全备份位置。
 
 单独停掉新增实例：
 
 ```bash
-docker compose -p sub2api-ray-salve -f compose.existing.local.json stop salve
+docker compose -p sub2api-ray-slave -f compose.existing.local.json stop slave
 ```
 
 已有的 8080 容器不会被以上 Compose 命令重建或停止，但新版应用启动可能自动迁移共享数据库，公共设置/配额状态也会共享。
 先确认新旧版本兼容；数据库迁移不兼容时，需要维护窗口或先使用独立数据库副本验证。
 
-`up all` 先等待 PostgreSQL/Redis 健康，然后启动 master，待 master 初始化完成并健康后再启动 salve。首次空数据库安装不要从两个终端同时启动两个应用：数据库迁移有锁，但初始化管理员仍应按顺序完成。
+`up all` 先等待 PostgreSQL/Redis 健康，然后启动 master，待 master 初始化完成并健康后再启动 slave。首次空数据库安装不要从两个终端同时启动两个应用：数据库迁移有锁，但初始化管理员仍应按顺序完成。
 
-也可以让 salve 首先启动，完全不启动 master：
+也可以让 slave 首先启动，完全不启动 master：
 
 ```bash
-bash deploy.sh build salve
+bash deploy.sh build slave
 bash deploy.sh infra-up
-bash deploy.sh up salve
+bash deploy.sh up slave
 ```
 
 `init` 创建的 `.env` 权限为 600，包含数据库密码、Redis 密码、JWT 密钥、TOTP 密钥和管理员初始密码。两实例始终读取这一份文件；不要分别生成密钥。自定义密码含 `$` 时，在 `.env` 中用单引号包围该值。`.env` 不作为 Shell 脚本执行。
@@ -137,26 +137,26 @@ bash deploy.sh up salve
 ```bash
 # 只启动/重建所选应用，基础服务必须已健康
 bash deploy.sh up master
-bash deploy.sh up salve
+bash deploy.sh up slave
 
 # 停止一个不会停止另一个
 bash deploy.sh stop master
-bash deploy.sh stop salve
+bash deploy.sh stop slave
 
 # 只重启已有容器，不应用新的镜像或 .env 配置
 bash deploy.sh restart master
-bash deploy.sh restart salve
+bash deploy.sh restart slave
 
 # 跟踪日志，Ctrl+C 只退出查看
 bash deploy.sh logs master
-bash deploy.sh logs salve
+bash deploy.sh logs slave
 bash deploy.sh logs infra
 
 # 停止两个应用，保留数据库、Redis 和所有卷
 bash deploy.sh stop all
 ```
 
-改变某个应用镜像或应用环境变量后，使用 `up master` 或 `up salve` 应用配置。单实例命令只读取基础服务的健康状态，**不会自动调用 `infra-up`**。
+改变某个应用镜像或应用环境变量后，使用 `up master` 或 `up slave` 应用配置。单实例命令只读取基础服务的健康状态，**不会自动调用 `infra-up`**。
 
 启动等待默认 600 秒，首次迁移耗时较长时可以增加：
 
@@ -172,16 +172,16 @@ RAY_WAIT_TIMEOUT=1200 bash deploy.sh up master
 cd /你的路径/sub2api/deploy-ray
 bash deploy.sh backup
 
-# 示例：保留默认 salve 镜像的旧版本标签
-docker image tag sub2api-ray:salve sub2api-ray:salve-before-update
+# 示例：保留默认 slave 镜像的旧版本标签
+docker image tag sub2api-ray:slave sub2api-ray:slave-before-update
 
 cd ..
 git switch ray
 git pull --ff-only origin ray
 cd deploy-ray
 
-bash deploy.sh build salve
-bash deploy.sh up salve
+bash deploy.sh build slave
+bash deploy.sh up slave
 curl -fsS http://127.0.0.1:8081/health
 
 # 验证后再更新 master
@@ -189,11 +189,11 @@ bash deploy.sh build master
 bash deploy.sh up master
 ```
 
-`build salve` 只更新 `SALVE_IMAGE` 对应的本地镜像标签；不会重启任何容器。`build all` 构建一次，再将同一镜像标记为两个实例的镜像。若使用自定义版本标签，更新 `.env` 中对应的 `MASTER_IMAGE`/`SALVE_IMAGE`，并为旧镜像保留独立标签。
+`build slave` 只更新 `SLAVE_IMAGE` 对应的本地镜像标签；不会重启任何容器。`build all` 构建一次，再将同一镜像标记为两个实例的镜像。若使用自定义版本标签，更新 `.env` 中对应的 `MASTER_IMAGE`/`SLAVE_IMAGE`，并为旧镜像保留独立标签。
 
-为保持镜像更新独立，请让 `MASTER_IMAGE` 和 `SALVE_IMAGE` 使用不同标签；不要把两者改成同一个标签。
+为保持镜像更新独立，请让 `MASTER_IMAGE` 和 `SLAVE_IMAGE` 使用不同标签；不要把两者改成同一个标签。
 
-**共享数据库的 schema 迁移会影响两个应用。** 不能将连着生产数据库的 salve 当作隔离的数据库升级测试环境。不兼容迁移应在维护窗口停止两个应用并按版本要求升级；只回退 Docker 镜像不会回退数据库结构。
+**共享数据库的 schema 迁移会影响两个应用。** 不能将连着生产数据库的 slave 当作隔离的数据库升级测试环境。不兼容迁移应在维护窗口停止两个应用并按版本要求升级；只回退 Docker 镜像不会回退数据库结构。
 
 持续维护本分支时，从源码构建并部署镜像；使用上游预构建镜像或程序内的上游更新功能，可能替换掉 `ray` 专有功能。
 
@@ -225,7 +225,7 @@ docker compose --project-name sub2api-ray-infra --env-file .env -f compose.infra
 # 恢复
 bash deploy.sh infra-up
 bash deploy.sh up master
-bash deploy.sh up salve
+bash deploy.sh up slave
 ```
 
 不要对共享 Redis 执行 `FLUSHALL`，也不要在需要保留数据时运行 `docker compose down -v`。

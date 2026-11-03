@@ -13,7 +13,7 @@
   -> 新服务器 deploy.sh init/check/build/infra-up
   -> pg_restore 恢复到新 PostgreSQL
   -> deploy.sh up master，验证迁移
-  -> deploy.sh up salve，完成双实例启动
+  -> deploy.sh up slave，完成双实例启动
 ~~~
 
 ops.sh 用于同一台服务器上复用已有 PostgreSQL/Redis；本次迁移完成后新服务器拥有新的基础服务，因此使用 deploy.sh，不要用 ops.sh 接续旧容器。
@@ -96,6 +96,8 @@ sha256sum /srv/sub2api-migration/sub2api-*.dump
 ~~~bash
 git clone --branch ray https://github.com/ljdzxx/sub2api.git /srv/sub2api
 cd /srv/sub2api/deploy-ray
+
+## 如果沿用旧的.env，本步可跳过 ##
 bash deploy.sh init
 nano .env
 ~~~
@@ -163,7 +165,7 @@ docker compose --project-name sub2api-ray-infra --env-file .env -f compose.infra
 
 ## 四、数据库恢复完成后执行 deploy.sh
 
-推荐先启动 master，验证后再启动 salve：
+推荐先启动 master，验证后再启动 slave：
 
 ~~~bash
 cd /srv/sub2api/deploy-ray
@@ -171,7 +173,7 @@ bash deploy.sh up master
 curl -fsS http://127.0.0.1:8080/health
 bash deploy.sh logs master
 
-bash deploy.sh up salve
+bash deploy.sh up slave
 curl -fsS http://127.0.0.1:8081/health
 bash deploy.sh status
 ~~~
@@ -190,7 +192,7 @@ up all 只负责启动基础服务和应用，不会从 dump 自动恢复数据�
 
 ~~~bash
 bash deploy.sh logs master
-bash deploy.sh logs salve
+bash deploy.sh logs slave
 curl -fsS http://新服务器IP:8080/health
 curl -fsS http://新服务器IP:8081/health
 ~~~
@@ -224,7 +226,7 @@ pg_dump 不包含 Redis。Redis 中的会话、缓存、分布式锁和短期状
 正确顺序是：
 
 ~~~text
-deploy.sh init -> check -> build all -> infra-up -> pg_restore -> up master -> up salve
+deploy.sh init -> check -> build all -> infra-up -> pg_restore -> up master -> up slave
 ~~~
 
 ### 只复制 PostgreSQL 数据目录

@@ -96,7 +96,7 @@ class OpsTests(unittest.TestCase):
             probe.assert_not_called()
 
     def test_compose_only_defines_selected_app_and_external_network(self):
-        for role, port in (("master", "8080"), ("salve", "8081")):
+        for role, port in (("master", "8080"), ("slave", "8081")):
             model = ops.compose_model(state(), role, "sub2api-ray:abc", Path("/opt/ray-state"))
             self.assertEqual(set(model["services"]), {role})
             app = model["services"][role]
@@ -109,7 +109,7 @@ class OpsTests(unittest.TestCase):
             self.assertEqual(app["environment"]["DATABASE_PASSWORD"], "pw$$with$${literal}")
             self.assertEqual(app["environment"]["RAY_EXPECTED_DATABASE_OID"], "16384")
             self.assertFalse(app["volumes"][0]["bind"]["create_host_path"])
-            expected = "/srv/production/data" if role == "master" else str(Path("/opt/ray-state/salve-data"))
+            expected = "/srv/production/data" if role == "master" else str(Path("/opt/ray-state/slave-data"))
             self.assertEqual(app["volumes"][0]["source"], expected)
 
     def test_original_named_app_volume_is_external_not_new(self):
@@ -124,7 +124,7 @@ class OpsTests(unittest.TestCase):
              patch.object(ops, "backup", side_effect=ops.OpsError("backup failed")), \
              patch.object(ops, "compose") as compose, patch.object(ops, "render") as render:
             with self.assertRaises(ops.OpsError):
-                ops.change_apps(state(), "update", ("salve",))
+                ops.change_apps(state(), "update", ("slave",))
             compose.assert_not_called()
             render.assert_not_called()
 
@@ -135,9 +135,9 @@ class OpsTests(unittest.TestCase):
              patch.object(ops, "backup", side_effect=lambda _: events.append("backup")), \
              patch.object(ops, "render"), patch.object(ops, "save"), \
              patch.object(ops, "compose", side_effect=lambda role, *args: events.append((role, args))):
-            ops.change_apps(state(), "update", ("salve",))
+            ops.change_apps(state(), "update", ("slave",))
         self.assertEqual(events[:2], ["build", "backup"])
-        self.assertTrue(all(item[0] == "salve" for item in events[2:]))
+        self.assertTrue(all(item[0] == "slave" for item in events[2:]))
         self.assertIn("--no-deps", events[-1][1])
         self.assertNotIn("master", events[-1][1])
 
@@ -145,7 +145,7 @@ class OpsTests(unittest.TestCase):
         with patch.object(ops, "check_old_stopped") as old, patch.object(ops, "verify") as verify, \
              patch.object(ops, "sync_build", return_value="new:image"), patch.object(ops, "backup") as backup, \
              patch.object(ops, "render"), patch.object(ops, "save"), patch.object(ops, "compose") as compose:
-            ops.change_apps(state(), "update", ("salve",), backup_before_change=False)
+            ops.change_apps(state(), "update", ("slave",), backup_before_change=False)
         backup.assert_not_called()
         old.assert_called_once()
         self.assertGreaterEqual(verify.call_count, 2)
@@ -156,11 +156,11 @@ class OpsTests(unittest.TestCase):
             root = Path(directory).resolve()
             self.assertEqual(root.parent, Path(tempfile.gettempdir()).resolve())
             for flags, expected in (([], True), (["--backup"], True), (["--no-backup"], False)):
-                with patch.object(ops, "STATE_DIR", root), patch.object(ops.sys, "argv", ["ops.sh", "update", "salve", *flags]), \
+                with patch.object(ops, "STATE_DIR", root), patch.object(ops.sys, "argv", ["ops.sh", "update", "slave", *flags]), \
                      patch.object(ops, "operation_lock", return_value=contextlib.nullcontext()), patch.object(ops, "dispatch") as dispatch:
                     ops.main()
-                    dispatch.assert_called_once_with("update", "salve", backup_before_change=expected)
-        with patch.object(ops.sys, "argv", ["ops.sh", "stop", "salve", "--no-backup"]), patch.object(ops, "dispatch") as dispatch:
+                    dispatch.assert_called_once_with("update", "slave", backup_before_change=expected)
+        with patch.object(ops.sys, "argv", ["ops.sh", "stop", "slave", "--no-backup"]), patch.object(ops, "dispatch") as dispatch:
             with self.assertRaisesRegex(ops.OpsError, "start"):
                 ops.main()
             dispatch.assert_not_called()
@@ -184,22 +184,22 @@ class OpsTests(unittest.TestCase):
     def test_menu_backup_choice_is_passed_without_running_docker(self):
         text = SCRIPT.read_text(encoding="utf-8")
         helper = text.split("choose_backup_and_run() {", 1)[1].split("\nif [[ $# -gt 0 ]]", 1)[0]
-        shell = 'run_action() { printf "%s\\n" "$*"; }\nchoose_backup_and_run() {' + helper + '\nchoose_backup_and_run update salve\n'
+        shell = 'run_action() { printf "%s\\n" "$*"; }\nchoose_backup_and_run() {' + helper + '\nchoose_backup_and_run update slave\n'
         for answer, flag in (("\n", "--backup"), ("Y\n", "--backup"), ("n\n", "--no-backup")):
             # Send Linux terminal newlines unchanged, including when run on Windows.
             result = subprocess.run([BASH, "-c", shell], input=answer.encode(), capture_output=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8"))
-            self.assertEqual(result.stdout.decode("utf-8").strip(), "update salve " + flag)
+            self.assertEqual(result.stdout.decode("utf-8").strip(), "update slave " + flag)
 
     def test_start_all_does_not_upgrade_an_existing_role_when_other_image_is_missing(self):
         s = state()
         s["images"]["master"] = "old:master"
         with patch.object(ops, "check_old_stopped"), patch.object(ops, "verify"), \
-             patch.object(ops, "sync_build", return_value="new:salve"), patch.object(ops, "backup"), \
+             patch.object(ops, "sync_build", return_value="new:slave"), patch.object(ops, "backup"), \
              patch.object(ops, "image_present", side_effect=lambda image: image == "old:master"), \
              patch.object(ops, "render") as render, patch.object(ops, "save"), patch.object(ops, "compose"):
-            ops.change_apps(s, "start", ("master", "salve"))
-        self.assertEqual([(call.args[1], call.args[2]) for call in render.call_args_list], [("master", "old:master"), ("salve", "new:salve")])
+            ops.change_apps(s, "start", ("master", "slave"))
+        self.assertEqual([(call.args[1], call.args[2]) for call in render.call_args_list], [("master", "old:master"), ("slave", "new:slave")])
 
     @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash required")
     def test_container_guard_blocks_empty_or_wrong_database_on_every_start(self):
