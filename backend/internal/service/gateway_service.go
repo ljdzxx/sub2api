@@ -1400,7 +1400,7 @@ func mixedListingModelAllowed(groupPlatform, model string) bool {
 	return groupPlatform == PlatformGemini && isAntigravityGeminiModel(model)
 }
 
-func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64, platform string) []string {
+func (s *GatewayService) getAccountAvailableModels(ctx context.Context, groupID *int64, platform string) []string {
 	cacheKey := modelsListCacheKey(groupID, platform)
 	if s.modelsListCache != nil {
 		if cached, found := s.modelsListCache.Get(cacheKey); found {

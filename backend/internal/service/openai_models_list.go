@@ -165,19 +165,23 @@ func standardOpenAIModelsBody(body []byte, fromManifest bool) ([]byte, error) {
 // checking their routing eligibility. Applying account mappings to source IDs
 // would interpret upstream names as aliases and can retain retired targets or
 // discard metadata needed by a valid replacement alias.
-func projectAccountModelsBody(body []byte, account *Account, group *Group, codex bool) ([]byte, error) {
-	projected, err := projectAccountModelAliases(body, account, group, codex)
+func projectAccountModelsBody(body []byte, account *Account, group *Group, codex bool, routing ...*openAIModelCatalogRoutes) ([]byte, error) {
+	var routes *openAIModelCatalogRoutes
+	if len(routing) > 0 {
+		routes = routing[0]
+	}
+	projected, err := projectAccountModelAliases(body, account, group, codex, routes)
 	if err != nil {
 		return nil, err
 	}
-	filtered, _, err := filterRetiredOpenAIPublicModelsBody(projected, []Account{*account}, codex)
+	filtered, _, err := filterRetiredOpenAIPublicModelsBody(projected, []Account{*account}, codex, routes)
 	return filtered, err
 }
 
 // projectAccountModelAliases retains the source entry's metadata, never changes
 // the shared response, and never synthesizes models absent from this account.
-func projectAccountModelAliases(body []byte, account *Account, group *Group, codex bool) ([]byte, error) {
-	if account.IsOpenAIPassthroughEnabled() || len(account.GetModelMapping()) == 0 {
+func projectAccountModelAliases(body []byte, account *Account, group *Group, codex bool, routes *openAIModelCatalogRoutes) ([]byte, error) {
+	if routes == nil && (account.IsOpenAIPassthroughEnabled() || len(account.GetModelMapping()) == 0) {
 		return body, nil
 	}
 	field, idField := "data", "id"
@@ -218,13 +222,18 @@ func projectAccountModelAliases(body []byte, account *Account, group *Group, cod
 		}
 	}
 	aliases := make([]string, 0, len(account.GetModelMapping()))
-	for alias := range account.GetModelMapping() {
-		aliases = append(aliases, alias)
+	if !account.IsOpenAIPassthroughEnabled() {
+		for alias := range account.GetModelMapping() {
+			aliases = append(aliases, alias)
+		}
 	}
 	sort.Strings(aliases)
 	candidates = append(candidates, aliases...)
 	if group.ModelAllowlistEnabled() {
 		candidates = append(candidates, group.ModelAllowlist.Models...)
+	}
+	if routes != nil {
+		candidates = routes.candidates(candidates, group)
 	}
 	projected := make([]json.RawMessage, 0, len(candidates))
 	seen := make(map[string]struct{}, len(candidates))
@@ -237,24 +246,17 @@ func projectAccountModelAliases(body []byte, account *Account, group *Group, cod
 			continue
 		}
 		target, matched := account.ResolveMappedModel(id)
+		if routes != nil {
+			channelTarget := routes.target(id)
+			matched = account.IsModelSupported(channelTarget)
+			target = resolveOpenAIAccountUpstreamModelForRequest(account, channelTarget, false)
+		}
 		raw, available := byID[strings.TrimSpace(target)]
 		if !matched || !available {
 			continue
 		}
 		seen[id] = struct{}{}
-		if id == target {
-			projected = append(projected, raw)
-			continue
-		}
-		var entry map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &entry); err != nil {
-			return nil, err
-		}
-		entry[idField], _ = json.Marshal(id)
-		if id != target {
-			entry["display_name"], _ = json.Marshal(id)
-		}
-		encoded, err := json.Marshal(entry)
+		encoded, err := renameCatalogModel(raw, idField, id, target)
 		if err != nil {
 			return nil, err
 		}
@@ -274,10 +276,18 @@ func projectAccountModelAliases(body []byte, account *Account, group *Group, cod
 // including ordinary discovery and pinned scheduler fallback. Locally generated
 // catalogs retain their existing policy and do not pass through this function.
 func ApplyPinnedCodexModelsMapping(response *OpenAIModelsResponse, account *Account, group *Group) error {
+	return applyCodexModelsCatalogMapping(response, account, group, nil)
+}
+
+func (s *OpenAIGatewayService) ApplyCodexModelsMapping(ctx context.Context, response *OpenAIModelsResponse, account *Account, group *Group) error {
+	return applyCodexModelsCatalogMapping(response, account, group, loadOpenAIModelCatalogRoutes(ctx, s.channelService, group))
+}
+
+func applyCodexModelsCatalogMapping(response *OpenAIModelsResponse, account *Account, group *Group, routes *openAIModelCatalogRoutes) error {
 	if group == nil || group.Platform != PlatformOpenAI {
 		return nil
 	}
-	body, err := projectAccountModelsBody(response.Body, account, group, true)
+	body, err := projectAccountModelsBody(response.Body, account, group, true, routes)
 	if err != nil {
 		return err
 	}
@@ -291,12 +301,13 @@ func ApplyPinnedCodexModelsMapping(response *OpenAIModelsResponse, account *Acco
 // FetchPinnedOpenAIModelsList includes explicitly enabled scheduler fallback.
 // An authoritative empty catalog is success, including after group filtering.
 func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, group *Group, maxAccountSwitches int, ifNoneMatch string) (*OpenAIModelsResponse, *Account, error) {
+	routes := loadOpenAIModelCatalogRoutes(ctx, s.channelService, group)
 	fetch := func(ctx context.Context, account *Account) (*OpenAIModelsResponse, error) {
 		response, err := s.FetchOpenAIModelsList(ctx, account)
 		if err != nil {
 			return nil, err
 		}
-		response.Body, err = projectAccountModelsBody(response.Body, account, group, false)
+		response.Body, err = projectAccountModelsBody(response.Body, account, group, false, routes)
 		return response, err
 	}
 	results, err := s.fetchPinnedOpenAIModels(ctx, group, fetch)

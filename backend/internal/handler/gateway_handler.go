@@ -1184,7 +1184,11 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 
 	// Get available models from account configurations for the selected group platform.
-	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
+	var listingGroup *service.Group
+	if apiKey != nil {
+		listingGroup = apiKey.Group
+	}
+	availableModels := h.gatewayService.GetAvailableModelsForGroup(c.Request.Context(), listingGroup, platform)
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
 		source := modelListingSource(platform, availableModels, defaultModelIDsForPlatform(platform))
 		writeAllowlistedModelsList(c, platform, apiKey.Group.ModelAllowlist.FilterForListing(source))
@@ -1280,12 +1284,12 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 		return models
 	}
 
-	availableModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	availableModels := h.gatewayService.GetAvailableModelsForGroup(ctx, group, platform)
 	fallbackModels := defaultCodexModelIDsForPlatform(platform)
 	if group.ModelAllowlistEnabled() {
 		return group.ModelAllowlist.FilterForListing(modelListingSource(platform, availableModels, fallbackModels))
 	}
-	if len(availableModels) > 0 {
+	if len(availableModels) > 0 || (platform == service.PlatformOpenAI && availableModels != nil) {
 		return availableModels
 	}
 	return fallbackModels

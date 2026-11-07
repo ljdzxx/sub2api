@@ -135,7 +135,11 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 		return nil, false, fmt.Errorf("load group configured Codex models: %w", err)
 	}
 	configuredModels := openAIConfiguredCodexModelIDsForGroup(visible, group)
-	if len(configuredModels) == 0 {
+	routes := loadOpenAIModelCatalogRoutes(ctx, s.channelService, group)
+	if routes != nil {
+		configuredModels = routes.modelIDs(visible, group)
+	}
+	if len(configuredModels) == 0 && routes == nil {
 		return nil, false, nil
 	}
 
@@ -146,6 +150,7 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 		group,
 		nil,
 		true,
+		routes,
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf("initialize group configured Codex models: %w", err)
@@ -192,8 +197,12 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		return fmt.Errorf("load group configured Codex models: %w", err)
 	}
 	var configuredModels []string
+	routes := loadOpenAIModelCatalogRoutes(ctx, s.channelService, group)
 	if !group.CodexModelsManifestConfig.Enabled {
 		configuredModels = openAIConfiguredCodexModelIDsForGroup(visible, group)
+		if routes != nil {
+			configuredModels = routes.modelIDs(visible, group)
+		}
 	}
 	body, changed, err := mergeConfiguredCodexModelsManifest(
 		manifest.Body,
@@ -211,7 +220,7 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		}
 		changed = true
 	}
-	filtered, retired, err := filterRetiredOpenAIPublicModelsBody(body, accounts, true)
+	filtered, retired, err := filterRetiredOpenAIPublicModelsBody(body, accounts, true, routes)
 	if err != nil {
 		return fmt.Errorf("filter retired Codex models: %w", err)
 	}
@@ -894,6 +903,7 @@ func (s *GatewayService) BuildCodexModelsManifestForGroup(
 		group,
 		compositeRoutes,
 		compositeRoutesAvailable,
+		loadOpenAIModelCatalogRoutes(ctx, s.channelService, group),
 	)
 }
 
@@ -904,7 +914,11 @@ func buildCodexModelsManifestForAccounts(
 	group *Group,
 	compositeRoutes []CompositeModelRoute,
 	compositeRoutesAvailable bool,
+	routing ...*openAIModelCatalogRoutes,
 ) ([]byte, error) {
+	if effectivePlatform == PlatformOpenAI && len(routing) > 0 && routing[0] != nil {
+		return routing[0].buildCodexManifest(modelIDs, accounts, group)
+	}
 	if effectivePlatform == PlatformOpenAI {
 		modelIDs = filterRetiredOpenAIModelIDs(accounts, modelIDs)
 	} else if effectivePlatform == PlatformComposite {
