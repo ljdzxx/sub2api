@@ -340,7 +340,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		MarkResponseCommitted(c)
 	}
 
-	needModelReplace := shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel)
+	responseModel, needModelReplace := openAIResponseModelRewriteTarget(c, originalModel, mappedModel)
 	var createdAtStamper responsesCreatedAtStamper
 	streamOutputAccumulator := apicompat.NewBufferedResponseAccumulator()
 	streamDoneItems := newResponsesStreamOutputItems()
@@ -383,7 +383,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		}
 		if codexFailureTerminal && sawBareError && !sawResponseFailed && !clientDisconnected {
 			applyAttemptResponseHeaders()
-			if _, err := writePendingString(buildOpenAIResponseFailedSSE(responseID, originalModel, createdAtStamper.Value(), bareErrorPayload, failedMessage)); err != nil {
+			if _, err := writePendingString(buildOpenAIResponseFailedSSE(responseID, responseModel, createdAtStamper.Value(), bareErrorPayload, failedMessage)); err != nil {
 				handlePendingWriteError(err)
 			} else {
 				failureDelivered = true
@@ -675,7 +675,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			}
 			// Replace model in response if needed.
 			if needModelReplace {
-				line = s.setModelInSSELine(line, originalModel)
+				line = s.setModelInSSELine(line, responseModel)
 			}
 			startsClientOutput := forceFlushFailedEvent || openAIStreamDataStartsClientOutput(data, eventType)
 			startsVisibleOutput := openAIStreamDataStartsVisibleOutput(data, eventType)
@@ -1794,8 +1794,8 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		restoredBody = restoreCodexToolNamesFromContext(c, restoredBody)
 		body = ensureOpenAIResponseObjectCreatedAt(restoredBody)
 	} else {
-		if shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel) {
-			bodyText = s.setModelInSSEBody(bodyText, originalModel)
+		if responseModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, mappedModel); shouldRewrite {
+			bodyText = s.setModelInSSEBody(bodyText, responseModel)
 		}
 		body = []byte(bodyText)
 	}

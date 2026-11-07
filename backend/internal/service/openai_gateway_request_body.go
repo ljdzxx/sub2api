@@ -1005,18 +1005,39 @@ func forceResponseModelMatchEnabled(c *gin.Context) bool {
 		group.OpenAIExperimentalFeaturesEnabled && group.ForceResponseModelMatch
 }
 
-func shouldRewriteOpenAIResponseModel(c *gin.Context, originalModel, mappedModel string) bool {
-	if strings.TrimSpace(originalModel) == "" {
-		return false
+// openAIResponseModelRewriteTarget keeps the model used for upstream routing
+// separate from the model the client originally requested. HTTP handlers may
+// apply channel mapping to the body before it reaches the forwarding layer, so
+// originalModel can already be the channel target at this point. The request
+// context is populated from the untouched client body before that mapping.
+func openAIResponseModelRewriteTarget(c *gin.Context, originalModel, mappedModel string) (string, bool) {
+	forceMatch := forceResponseModelMatchEnabled(c)
+	targetModel := originalModel
+	if forceMatch && c != nil && c.Request != nil {
+		if requestedModel, ok := c.Request.Context().Value(ctxkey.Model).(string); ok {
+			if requestedModel = strings.TrimSpace(requestedModel); requestedModel != "" {
+				targetModel = requestedModel
+			}
+		}
 	}
-	return (strings.TrimSpace(mappedModel) != "" && originalModel != mappedModel) || forceResponseModelMatchEnabled(c)
+	if strings.TrimSpace(targetModel) == "" {
+		return "", false
+	}
+	shouldRewrite := (strings.TrimSpace(mappedModel) != "" && originalModel != mappedModel) || forceMatch
+	return targetModel, shouldRewrite
+}
+
+func shouldRewriteOpenAIResponseModel(c *gin.Context, originalModel, mappedModel string) bool {
+	_, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, mappedModel)
+	return shouldRewrite
 }
 
 func (s *OpenAIGatewayService) rewriteOpenAIResponseModel(body []byte, c *gin.Context, originalModel, mappedModel string) []byte {
-	if !shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel) {
+	targetModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, mappedModel)
+	if !shouldRewrite {
 		return body
 	}
-	return s.setModelInResponseBody(body, originalModel)
+	return s.setModelInResponseBody(body, targetModel)
 }
 
 func getOpenAIReasoningEffortFromReqBody(reqBody map[string]any, requestedModel string) (value string, present bool) {

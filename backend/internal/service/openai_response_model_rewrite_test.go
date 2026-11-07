@@ -52,6 +52,7 @@ func TestForceResponseModelMatchUsesOriginalClientModel(t *testing.T) {
 				}
 				t.Run(name, func(t *testing.T) {
 					const requestedModel = "gpt-public"
+					const channelMappedModel = "gpt-6-luna"
 					const upstreamModel = "gpt-public-2026-10-01"
 					payload := `{"model":"` + upstreamModel + `","text":"keep","tool":{"model":"nested"},"usage":{"prompt_tokens":1,"completion_tokens":1}}`
 					wantModel := upstreamModel
@@ -72,21 +73,23 @@ func TestForceResponseModelMatchUsesOriginalClientModel(t *testing.T) {
 					c, _ := gin.CreateTestContext(rec)
 					req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 					group := &Group{Platform: PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: masterEnabled, ForceResponseModelMatch: true}
-					c.Request = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, group))
+					requestContext := context.WithValue(req.Context(), ctxkey.Group, group)
+					requestContext = context.WithValue(requestContext, ctxkey.Model, requestedModel)
+					c.Request = req.WithContext(requestContext)
 					resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {contentType}}, Body: io.NopCloser(strings.NewReader(body))}
 					svc := &OpenAIGatewayService{}
 					account := &Account{ID: 1}
 					var err error
 					if kind == "json" {
 						if passthrough {
-							_, err = svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, account, requestedModel, requestedModel)
+							_, err = svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, account, channelMappedModel, channelMappedModel)
 						} else {
-							_, err = svc.handleNonStreamingResponse(context.Background(), resp, c, account, requestedModel, requestedModel)
+							_, err = svc.handleNonStreamingResponse(context.Background(), resp, c, account, channelMappedModel, channelMappedModel)
 						}
 					} else if passthrough {
-						_, err = svc.handleStreamingResponsePassthrough(context.Background(), resp, c, account, time.Now(), requestedModel, requestedModel)
+						_, err = svc.handleStreamingResponsePassthrough(context.Background(), resp, c, account, time.Now(), channelMappedModel, channelMappedModel)
 					} else {
-						_, err = svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), requestedModel, requestedModel)
+						_, err = svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), channelMappedModel, channelMappedModel)
 					}
 					require.NoError(t, err)
 					if kind == "responses" {

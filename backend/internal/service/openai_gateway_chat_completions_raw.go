@@ -378,8 +378,8 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 		line = applyOllamaCloudRawChatCompletionsSSELine(account, line)
 		line = stripEmptyChatToolCallIdentityFromSSELine(line)
 
-		if shouldRewriteOpenAIResponseModel(c, originalModel, upstreamModel) {
-			line = s.setModelInSSELine(line, originalModel)
+		if responseModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, upstreamModel); shouldRewrite {
+			line = s.setModelInSSELine(line, responseModel)
 		}
 		writeLine(line)
 		if line == "" {

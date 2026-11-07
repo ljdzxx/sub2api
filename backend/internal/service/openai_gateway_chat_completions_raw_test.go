@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -1278,5 +1279,43 @@ func TestForwardAsRawChatCompletions_RestoresMappedResponseModel(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestForwardAsRawChatCompletions_ForceMatchUsesPreChannelMappingModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stream=%v", stream), func(t *testing.T) {
+			const requestedModel = "gpt-public"
+			const channelMappedModel = "gpt-6-luna"
+			body := []byte(fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hello"}],"stream":%v}`, channelMappedModel, stream))
+			payload := `{"id":"chatcmpl_1","model":"` + channelMappedModel + `","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`
+			upstreamBody, contentType := payload, "application/json"
+			if stream {
+				upstreamBody = "data: " + payload + "\n\ndata: [DONE]\n\n"
+				contentType = "text/event-stream"
+			}
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {contentType}},
+				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+			}}
+			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+			group := &Group{Platform: PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: true, ForceResponseModelMatch: true}
+			requestContext := context.WithValue(req.Context(), ctxkey.Group, group)
+			requestContext = context.WithValue(requestContext, ctxkey.Model, requestedModel)
+			c.Request = req.WithContext(requestContext)
+
+			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Equal(t, channelMappedModel, gjson.GetBytes(upstream.lastBody, "model").String())
+			require.Contains(t, rec.Body.String(), `"model":"`+requestedModel+`"`)
+			require.NotContains(t, rec.Body.String(), `"model":"`+channelMappedModel+`"`)
+		})
 	}
 }
