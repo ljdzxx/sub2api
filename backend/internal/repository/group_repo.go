@@ -140,9 +140,11 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
 		SetFreeOpenaiFast(groupIn.FreeOpenAIFast).
 		SetOpenaiExperimentalFeaturesEnabled(groupIn.OpenAIExperimentalFeaturesEnabled).
+		SetForceResponseModelMatch(groupIn.ForceResponseModelMatch).
 		SetCacheReadDeductionPercent(groupIn.CacheReadDeductionPercent).
 		SetCacheReadAmplificationPercent(groupIn.CacheReadAmplificationPercent).
 		SetCacheReadAmplificationMinInputTokens(groupIn.CacheReadAmplificationMinInputTokens).
+		SetTransferCacheWriteToInput(groupIn.TransferCacheWriteToInput).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
@@ -329,9 +331,11 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
 		SetFreeOpenaiFast(groupIn.FreeOpenAIFast).
 		SetOpenaiExperimentalFeaturesEnabled(groupIn.OpenAIExperimentalFeaturesEnabled).
+		SetForceResponseModelMatch(groupIn.ForceResponseModelMatch).
 		SetCacheReadDeductionPercent(groupIn.CacheReadDeductionPercent).
 		SetCacheReadAmplificationPercent(groupIn.CacheReadAmplificationPercent).
 		SetCacheReadAmplificationMinInputTokens(groupIn.CacheReadAmplificationMinInputTokens).
+		SetTransferCacheWriteToInput(groupIn.TransferCacheWriteToInput).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).

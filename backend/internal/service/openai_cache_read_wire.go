@@ -69,6 +69,7 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 		}
 		cachedPresent := false
 		cachePaths := []string{"input_tokens_details.cached_tokens", "prompt_tokens_details.cached_tokens", "cache_read_input_tokens", "cache_read_tokens", "cached_tokens"}
+		cacheWritePaths := []string{"input_tokens_details.cache_write_tokens", "prompt_tokens_details.cache_write_tokens", "input_tokens_details.cache_creation_tokens", "prompt_tokens_details.cache_creation_tokens", "cache_write_tokens", "cache_creation_input_tokens", "cache_write_input_tokens", "cache_creation_tokens"}
 		for _, key := range cachePaths {
 			cachedPresent = cachedPresent || usage.Get(key).Exists()
 		}
@@ -104,7 +105,7 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			if cachedPresent {
 				t.raw.CacheReadInputTokens = raw.CacheReadInputTokens
 			}
-			for _, key := range []string{"input_tokens_details.cache_write_tokens", "prompt_tokens_details.cache_write_tokens", "input_tokens_details.cache_creation_tokens", "prompt_tokens_details.cache_creation_tokens", "cache_write_tokens", "cache_creation_input_tokens", "cache_write_input_tokens", "cache_creation_tokens"} {
+			for _, key := range cacheWritePaths {
 				if usage.Get(key).Exists() {
 					t.raw.CacheCreationInputTokens = raw.CacheCreationInputTokens
 					break
@@ -141,6 +142,13 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			continue
 		}
 		effective := ApplyOpenAICacheReadPolicy(raw, t.policy)
+		if t.policy.TransferCacheWriteToInput {
+			for _, key := range cacheWritePaths {
+				if usage.Get(key).Exists() {
+					set(key, 0)
+				}
+			}
+		}
 		for _, key := range cachePaths {
 			if usage.Get(key).Exists() {
 				set(key, effective.CacheReadInputTokens)
@@ -172,6 +180,9 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 		if t.anthropic {
 			set("input_tokens", max(effective.InputTokens-effective.CacheReadInputTokens-effective.CacheCreationInputTokens, 0))
 			set("cache_read_input_tokens", effective.CacheReadInputTokens)
+			if usage.Get("cache_creation_input_tokens").Exists() {
+				set("cache_creation_input_tokens", effective.CacheCreationInputTokens)
+			}
 		}
 		for _, prefix := range []string{"input_tokens_details", "prompt_tokens_details"} {
 			details := prefix + ".cached_tokens_details"

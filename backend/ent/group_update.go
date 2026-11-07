@@ -1037,6 +1037,20 @@ func (_u *GroupUpdate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *Gr
 	return _u
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (_u *GroupUpdate) SetForceResponseModelMatch(v bool) *GroupUpdate {
+	_u.mutation.SetForceResponseModelMatch(v)
+	return _u
+}
+
+// SetNillableForceResponseModelMatch sets the "force_response_model_match" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableForceResponseModelMatch(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetForceResponseModelMatch(*v)
+	}
+	return _u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_u *GroupUpdate) SetCacheReadDeductionPercent(v float64) *GroupUpdate {
 	_u.mutation.ResetCacheReadDeductionPercent()
@@ -1097,6 +1111,20 @@ func (_u *GroupUpdate) SetNillableCacheReadAmplificationMinInputTokens(v *int64)
 // AddCacheReadAmplificationMinInputTokens adds value to the "cache_read_amplification_min_input_tokens" field.
 func (_u *GroupUpdate) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpdate {
 	_u.mutation.AddCacheReadAmplificationMinInputTokens(v)
+	return _u
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (_u *GroupUpdate) SetTransferCacheWriteToInput(v bool) *GroupUpdate {
+	_u.mutation.SetTransferCacheWriteToInput(v)
+	return _u
+}
+
+// SetNillableTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableTransferCacheWriteToInput(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetTransferCacheWriteToInput(*v)
+	}
 	return _u
 }
 
@@ -1982,6 +2010,9 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
 		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.ForceResponseModelMatch(); ok {
+		_spec.SetField(group.FieldForceResponseModelMatch, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
@@ -1999,6 +2030,9 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedCacheReadAmplificationMinInputTokens(); ok {
 		_spec.AddField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TransferCacheWriteToInput(); ok {
+		_spec.SetField(group.FieldTransferCacheWriteToInput, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -3370,6 +3404,20 @@ func (_u *GroupUpdateOne) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) 
 	return _u
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (_u *GroupUpdateOne) SetForceResponseModelMatch(v bool) *GroupUpdateOne {
+	_u.mutation.SetForceResponseModelMatch(v)
+	return _u
+}
+
+// SetNillableForceResponseModelMatch sets the "force_response_model_match" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableForceResponseModelMatch(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetForceResponseModelMatch(*v)
+	}
+	return _u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_u *GroupUpdateOne) SetCacheReadDeductionPercent(v float64) *GroupUpdateOne {
 	_u.mutation.ResetCacheReadDeductionPercent()
@@ -3430,6 +3478,20 @@ func (_u *GroupUpdateOne) SetNillableCacheReadAmplificationMinInputTokens(v *int
 // AddCacheReadAmplificationMinInputTokens adds value to the "cache_read_amplification_min_input_tokens" field.
 func (_u *GroupUpdateOne) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpdateOne {
 	_u.mutation.AddCacheReadAmplificationMinInputTokens(v)
+	return _u
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (_u *GroupUpdateOne) SetTransferCacheWriteToInput(v bool) *GroupUpdateOne {
+	_u.mutation.SetTransferCacheWriteToInput(v)
+	return _u
+}
+
+// SetNillableTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableTransferCacheWriteToInput(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetTransferCacheWriteToInput(*v)
+	}
 	return _u
 }
 
@@ -4345,6 +4407,9 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
 		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.ForceResponseModelMatch(); ok {
+		_spec.SetField(group.FieldForceResponseModelMatch, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 	}
@@ -4362,6 +4427,9 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedCacheReadAmplificationMinInputTokens(); ok {
 		_spec.AddField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TransferCacheWriteToInput(); ok {
+		_spec.SetField(group.FieldTransferCacheWriteToInput, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)

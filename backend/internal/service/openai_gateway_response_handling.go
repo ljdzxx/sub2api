@@ -340,7 +340,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		MarkResponseCommitted(c)
 	}
 
-	needModelReplace := originalModel != mappedModel
+	needModelReplace := shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel)
 	var createdAtStamper responsesCreatedAtStamper
 	streamOutputAccumulator := apicompat.NewBufferedResponseAccumulator()
 	streamDoneItems := newResponsesStreamOutputItems()
@@ -675,7 +675,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			}
 			// Replace model in response if needed.
 			if needModelReplace {
-				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
+				line = s.setModelInSSELine(line, originalModel)
 			}
 			startsClientOutput := forceFlushFailedEvent || openAIStreamDataStartsClientOutput(data, eventType)
 			startsVisibleOutput := openAIStreamDataStartsVisibleOutput(data, eventType)
@@ -1102,6 +1102,13 @@ func (s *OpenAIGatewayService) replaceModelInSSELine(line, fromModel, toModel st
 	if fromModel == "" || toModel == "" || fromModel == toModel {
 		return line
 	}
+	return s.setModelInSSELine(line, toModel)
+}
+
+func (s *OpenAIGatewayService) setModelInSSELine(line, model string) string {
+	if strings.TrimSpace(model) == "" {
+		return line
+	}
 	data, ok := extractOpenAISSEDataLine(line)
 	if !ok || !gjson.Valid(data) {
 		return line
@@ -1111,7 +1118,7 @@ func (s *OpenAIGatewayService) replaceModelInSSELine(line, fromModel, toModel st
 	for _, path := range []string{"model", "response.model"} {
 		if m := gjson.Get(updated, path); m.Type == gjson.String {
 			var err error
-			updated, err = sjson.Set(updated, path, toModel)
+			updated, err = sjson.Set(updated, path, model)
 			if err != nil {
 				return line
 			}
@@ -1669,9 +1676,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	logOpenAISuccessMissingUsage(ctx, c, account, resp, usage, "json", false)
 
 	// Replace model in response if needed
-	if originalModel != mappedModel {
-		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
-	}
+	body = s.rewriteOpenAIResponseModel(body, c, originalModel, mappedModel)
 	body, err = restoreGrokResponsesClientToolPayload(c, body)
 	if err != nil {
 		return nil, fmt.Errorf("restore Grok Responses client tool response: %w", err)
@@ -1771,9 +1776,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		}
 		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, bodyText)
 		body = finalResponse
-		if originalModel != mappedModel {
-			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
-		}
+		body = s.rewriteOpenAIResponseModel(body, c, originalModel, mappedModel)
 		// Correct tool calls in final response
 		body = s.correctToolCallsInResponseBody(body)
 		restoredBody, restoreErr := restoreGrokResponsesClientToolPayload(c, body)
@@ -1791,8 +1794,8 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		restoredBody = restoreCodexToolNamesFromContext(c, restoredBody)
 		body = ensureOpenAIResponseObjectCreatedAt(restoredBody)
 	} else {
-		if originalModel != mappedModel {
-			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
+		if shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel) {
+			bodyText = s.setModelInSSEBody(bodyText, originalModel)
 		}
 		body = []byte(bodyText)
 	}
@@ -2435,12 +2438,19 @@ func (s *OpenAIGatewayService) parseSSEUsageFromBody(body string) *OpenAIUsage {
 }
 
 func (s *OpenAIGatewayService) replaceModelInSSEBody(body, fromModel, toModel string) string {
+	if fromModel == "" || toModel == "" || fromModel == toModel {
+		return body
+	}
+	return s.setModelInSSEBody(body, toModel)
+}
+
+func (s *OpenAIGatewayService) setModelInSSEBody(body, model string) string {
 	lines := strings.Split(body, "\n")
 	for i, line := range lines {
 		if _, ok := extractOpenAISSEDataLine(line); !ok {
 			continue
 		}
-		lines[i] = s.replaceModelInSSELine(line, fromModel, toModel)
+		lines[i] = s.setModelInSSELine(line, model)
 	}
 	return strings.Join(lines, "\n")
 }

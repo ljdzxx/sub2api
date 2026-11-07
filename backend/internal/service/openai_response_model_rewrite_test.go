@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -33,6 +34,72 @@ func TestMappedResponseModelPreservesOtherData(t *testing.T) {
 	}
 	require.Equal(t, `data: {"response":{"model":42}}`, svc.replaceModelInSSELine(`data: {"response":{"model":42}}`, "mapped", "public"))
 	require.Equal(t, `{"model":"public"}`, string(svc.replaceModelInResponseBody([]byte(`{"model":""}`), "mapped", "public")))
+}
+
+func TestForceResponseModelMatchUsesOriginalClientModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, passthrough := range []bool{false, true} {
+		for _, masterEnabled := range []bool{false, true} {
+			for _, kind := range []string{"json", "chat", "responses"} {
+				name := kind
+				if passthrough {
+					name += "/passthrough"
+				}
+				if masterEnabled {
+					name += "/enabled"
+				} else {
+					name += "/master-disabled"
+				}
+				t.Run(name, func(t *testing.T) {
+					const requestedModel = "gpt-public"
+					const upstreamModel = "gpt-public-2026-10-01"
+					payload := `{"model":"` + upstreamModel + `","text":"keep","tool":{"model":"nested"},"usage":{"prompt_tokens":1,"completion_tokens":1}}`
+					wantModel := upstreamModel
+					if masterEnabled {
+						wantModel = requestedModel
+					}
+					if kind == "responses" {
+						payload = `{"type":"response.completed","response":{"id":"resp_1","model":"` + upstreamModel + `","output":[],"usage":{"input_tokens":1,"output_tokens":1}}}`
+					}
+					body := payload
+					contentType := "application/json"
+					if kind != "json" {
+						body = "data: " + payload + "\n\ndata: [DONE]\n\n"
+						contentType = "text/event-stream"
+					}
+
+					rec := httptest.NewRecorder()
+					c, _ := gin.CreateTestContext(rec)
+					req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+					group := &Group{Platform: PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: masterEnabled, ForceResponseModelMatch: true}
+					c.Request = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, group))
+					resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {contentType}}, Body: io.NopCloser(strings.NewReader(body))}
+					svc := &OpenAIGatewayService{}
+					account := &Account{ID: 1}
+					var err error
+					if kind == "json" {
+						if passthrough {
+							_, err = svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, account, requestedModel, requestedModel)
+						} else {
+							_, err = svc.handleNonStreamingResponse(context.Background(), resp, c, account, requestedModel, requestedModel)
+						}
+					} else if passthrough {
+						_, err = svc.handleStreamingResponsePassthrough(context.Background(), resp, c, account, time.Now(), requestedModel, requestedModel)
+					} else {
+						_, err = svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), requestedModel, requestedModel)
+					}
+					require.NoError(t, err)
+					if kind == "responses" {
+						require.Contains(t, rec.Body.String(), `"response":{"id":"resp_1","model":"`+wantModel+`"`)
+					} else {
+						require.Contains(t, rec.Body.String(), `"model":"`+wantModel+`"`)
+						require.Contains(t, rec.Body.String(), `"model":"nested"`)
+					}
+					require.Equal(t, upstreamModel, observedUpstreamResponseModel(c))
+				})
+			}
+		}
+	}
 }
 
 // Exercise both streaming processors so substring fast paths cannot bypass the rewrite.

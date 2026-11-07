@@ -14,6 +14,7 @@ type CacheReadAdjustment struct {
 	Percent                     float64     `json:"percent"`
 	AmplificationPercent        float64     `json:"amplification_percent,omitempty"`
 	AmplificationMinInputTokens int64       `json:"amplification_min_input_tokens,omitempty"`
+	TransferCacheWriteToInput   bool        `json:"transfer_cache_write_to_input,omitempty"`
 	Raw                         OpenAIUsage `json:"raw"`
 	Effective                   OpenAIUsage `json:"effective"`
 	UpstreamCost                float64     `json:"upstream_cost"`
@@ -23,10 +24,11 @@ type OpenAICacheReadPolicy struct {
 	DeductionPercent            float64
 	AmplificationPercent        float64
 	AmplificationMinInputTokens int64
+	TransferCacheWriteToInput   bool
 }
 
 func (p OpenAICacheReadPolicy) HasAdjustments() bool {
-	return p.DeductionPercent > 0 || p.AmplificationPercent > 0
+	return p.DeductionPercent > 0 || p.AmplificationPercent > 0 || p.TransferCacheWriteToInput
 }
 
 func normalizeGroupCacheReadDeduction(g *Group) error {
@@ -41,9 +43,11 @@ func normalizeGroupCacheReadDeduction(g *Group) error {
 	}
 	if g.Platform != PlatformOpenAI {
 		g.OpenAIExperimentalFeaturesEnabled = false
+		g.ForceResponseModelMatch = false
 		g.CacheReadDeductionPercent = 0
 		g.CacheReadAmplificationPercent = 0
 		g.CacheReadAmplificationMinInputTokens = 0
+		g.TransferCacheWriteToInput = false
 	}
 	return nil
 }
@@ -60,6 +64,7 @@ func OpenAICacheReadPolicyForKey(key *APIKey) OpenAICacheReadPolicy {
 		DeductionPercent:            key.Group.CacheReadDeductionPercent,
 		AmplificationPercent:        key.Group.CacheReadAmplificationPercent,
 		AmplificationMinInputTokens: key.Group.CacheReadAmplificationMinInputTokens,
+		TransferCacheWriteToInput:   key.Group.TransferCacheWriteToInput,
 	}
 	if !validCacheReadPercent(policy.DeductionPercent) {
 		policy.DeductionPercent = 0
@@ -79,7 +84,20 @@ func OpenAICacheReadDeductionPercent(key *APIKey) float64 {
 
 func ApplyOpenAICacheReadPolicy(raw OpenAIUsage, policy OpenAICacheReadPolicy) OpenAIUsage {
 	effective := DeductOpenAICacheRead(raw, policy.DeductionPercent)
-	return AmplifyOpenAICacheRead(effective, policy.AmplificationPercent, policy.AmplificationMinInputTokens)
+	effective = AmplifyOpenAICacheRead(effective, policy.AmplificationPercent, policy.AmplificationMinInputTokens)
+	return TransferOpenAICacheWriteToInput(effective, policy.TransferCacheWriteToInput)
+}
+
+// TransferOpenAICacheWriteToInput runs after the cache-read adjustments. OpenAI
+// total input already includes cache creation, so clearing that bucket transfers
+// the same tokens to ordinary input without changing the total.
+func TransferOpenAICacheWriteToInput(raw OpenAIUsage, enabled bool) OpenAIUsage {
+	if !enabled || raw.CacheCreationInputTokens == 0 {
+		return raw
+	}
+	out := raw
+	out.CacheCreationInputTokens = 0
+	return out
 }
 
 // DeductOpenAICacheRead is a pure function: callers retain the upstream snapshot

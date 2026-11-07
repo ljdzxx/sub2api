@@ -628,9 +628,11 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ForceOpenAIFast:                      input.ForceOpenAIFast,
 		FreeOpenAIFast:                       input.FreeOpenAIFast,
 		OpenAIExperimentalFeaturesEnabled:    input.OpenAIExperimentalFeaturesEnabled,
+		ForceResponseModelMatch:              input.ForceResponseModelMatch,
 		CacheReadDeductionPercent:            input.CacheReadDeductionPercent,
 		CacheReadAmplificationPercent:        input.CacheReadAmplificationPercent,
 		CacheReadAmplificationMinInputTokens: input.CacheReadAmplificationMinInputTokens,
+		TransferCacheWriteToInput:            input.TransferCacheWriteToInput,
 		RequireOAuthOnly:                     input.RequireOAuthOnly,
 		RequirePrivacySet:                    input.RequirePrivacySet,
 		DefaultMappedModel:                   input.DefaultMappedModel,
@@ -1035,11 +1037,17 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.OpenAIExperimentalFeaturesEnabled != nil {
 		group.OpenAIExperimentalFeaturesEnabled = *input.OpenAIExperimentalFeaturesEnabled
 	}
+	if input.ForceResponseModelMatch != nil {
+		group.ForceResponseModelMatch = *input.ForceResponseModelMatch
+	}
 	if input.CacheReadAmplificationPercent != nil {
 		group.CacheReadAmplificationPercent = *input.CacheReadAmplificationPercent
 	}
 	if input.CacheReadAmplificationMinInputTokens != nil {
 		group.CacheReadAmplificationMinInputTokens = *input.CacheReadAmplificationMinInputTokens
+	}
+	if input.TransferCacheWriteToInput != nil {
+		group.TransferCacheWriteToInput = *input.TransferCacheWriteToInput
 	}
 	if input.RequireOAuthOnly != nil {
 		group.RequireOAuthOnly = *input.RequireOAuthOnly

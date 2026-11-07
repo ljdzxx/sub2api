@@ -169,6 +169,7 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		ForceOpenAIFast:                      true,
 		FreeOpenAIFast:                       true,
 		OpenAIExperimentalFeaturesEnabled:    true,
+		ForceResponseModelMatch:              true,
 		CacheReadDeductionPercent:            20.25,
 		CacheReadAmplificationPercent:        20,
 		CacheReadAmplificationMinInputTokens: 10000,
@@ -222,6 +223,7 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.ForceOpenAIFast, duplicate.ForceOpenAIFast)
 	require.Equal(t, source.FreeOpenAIFast, duplicate.FreeOpenAIFast)
 	require.Equal(t, source.OpenAIExperimentalFeaturesEnabled, duplicate.OpenAIExperimentalFeaturesEnabled)
+	require.Equal(t, source.ForceResponseModelMatch, duplicate.ForceResponseModelMatch)
 	require.Equal(t, source.CacheReadDeductionPercent, duplicate.CacheReadDeductionPercent)
 	require.Equal(t, source.CacheReadAmplificationPercent, duplicate.CacheReadAmplificationPercent)
 	require.Equal(t, source.CacheReadAmplificationMinInputTokens, duplicate.CacheReadAmplificationMinInputTokens)

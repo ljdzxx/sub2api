@@ -39,9 +39,10 @@ func TestCacheReadDeductionValidation(t *testing.T) {
 	for _, p := range []float64{-1, 101, 0.001, math.NaN(), math.Inf(1)} {
 		require.Error(t, normalizeGroupCacheReadDeduction(&Group{Platform: PlatformOpenAI, CacheReadDeductionPercent: p}))
 	}
-	g := &Group{Platform: PlatformAnthropic, CacheReadDeductionPercent: 20}
+	g := &Group{Platform: PlatformAnthropic, CacheReadDeductionPercent: 20, TransferCacheWriteToInput: true}
 	require.NoError(t, normalizeGroupCacheReadDeduction(g))
 	require.Zero(t, g.CacheReadDeductionPercent)
+	require.False(t, g.TransferCacheWriteToInput)
 }
 
 func TestOpenAICacheReadDeductionRequiresExperimentalEnable(t *testing.T) {
@@ -69,6 +70,19 @@ func TestCacheReadPolicyAppliesDeductionBeforeAmplification(t *testing.T) {
 	require.Equal(t, 12000, out.InputTokens)
 	require.Equal(t, 9700, out.CacheReadInputTokens)
 	require.Equal(t, 2200, openAIUsageTokens(out).InputTokens)
+}
+
+func TestCacheReadPolicyTransfersCacheWriteAfterOtherAdjustments(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 10000, CacheReadInputTokens: 9700, CacheCreationInputTokens: 100}
+	out := ApplyOpenAICacheReadPolicy(raw, OpenAICacheReadPolicy{
+		DeductionPercent: 20, AmplificationPercent: 20, AmplificationMinInputTokens: 10000,
+		TransferCacheWriteToInput: true,
+	})
+	require.Equal(t, 12000, out.InputTokens)
+	require.Equal(t, 9700, out.CacheReadInputTokens)
+	require.Zero(t, out.CacheCreationInputTokens)
+	require.Equal(t, 2300, openAIUsageTokens(out).InputTokens)
+	require.Equal(t, 100, raw.CacheCreationInputTokens)
 }
 
 func TestCacheReadWireProtocols(t *testing.T) {
@@ -114,6 +128,20 @@ func TestCacheReadWireAmplificationUpdatesTotalAndCache(t *testing.T) {
 	below := NewCacheReadPolicyWireTransformer(policy, false).Transform([]byte(`{"usage":{"input_tokens":9999,"input_tokens_details":{"cached_tokens":9700}}}`))
 	require.EqualValues(t, 9999, gjson.GetBytes(below, "usage.input_tokens").Int())
 	require.EqualValues(t, 9700, gjson.GetBytes(below, "usage.input_tokens_details.cached_tokens").Int())
+}
+
+func TestCacheWriteTransferUpdatesJSONAndSSEUsage(t *testing.T) {
+	policy := OpenAICacheReadPolicy{TransferCacheWriteToInput: true}
+	body := []byte(`{"usage":{"input_tokens":1000,"output_tokens":20,"total_tokens":1020,"input_tokens_details":{"cached_tokens":200,"cache_write_tokens":300}}}`)
+	out := NewCacheReadPolicyWireTransformer(policy, false).Transform(body)
+	require.EqualValues(t, 1000, gjson.GetBytes(out, "usage.input_tokens").Int())
+	require.EqualValues(t, 0, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens").Int())
+	require.EqualValues(t, 1020, gjson.GetBytes(out, "usage.total_tokens").Int())
+
+	sse := []byte("event: response.completed\n" +
+		`data: {"type":"response.completed","response":{"id":"r1","usage":{"input_tokens":1000,"output_tokens":20,"input_tokens_details":{"cached_tokens":200,"cache_write_tokens":300}}}}` + "\n\n")
+	sseOut := NewCacheReadPolicyWireTransformer(policy, false).TransformSSEEvent(sse)
+	require.Contains(t, string(sseOut), `"cache_write_tokens":0`)
 }
 
 func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
@@ -177,6 +205,33 @@ func TestCacheReadAmplificationRecordUsageKeepsOrdinaryInputAndUpstreamAccountin
 	require.EqualValues(t, 10000, logs.lastLog.CacheReadAdjustment.AmplificationMinInputTokens)
 	require.Equal(t, 12000, logs.lastLog.CacheReadAdjustment.Effective.InputTokens)
 	require.Greater(t, logs.lastLog.TotalCost, logs.lastLog.CacheReadAdjustment.UpstreamCost)
+	require.InDelta(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, billing.lastCmd.AccountQuotaCost, 1e-8)
+}
+
+func TestCacheWriteTransferRecordUsageKeepsRawUpstreamAccounting(t *testing.T) {
+	logs := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	billing := &openAIRecordUsageBillingRepoStub{}
+	svc.usageBillingRepo = billing
+	groupID := int64(24)
+	user := &User{ID: 21}
+	key := &APIKey{ID: 22, User: user, GroupID: &groupID, Group: &Group{
+		ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1, OpenAIExperimentalFeaturesEnabled: true,
+		TransferCacheWriteToInput: true,
+	}}
+	account := &Account{ID: 23, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{"quota_limit": 100.0}}
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 200, CacheCreationInputTokens: 300, OutputTokens: 20}
+	result := &OpenAIForwardResult{RequestID: "cache-write-transfer-test", Model: "gpt-5.1", Usage: raw}
+
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{Result: result, APIKey: key, User: user, Account: account}))
+	require.Equal(t, raw, result.Usage)
+	require.Equal(t, 800, logs.lastLog.InputTokens)
+	require.Equal(t, 200, logs.lastLog.CacheReadTokens)
+	require.Zero(t, logs.lastLog.CacheCreationTokens)
+	require.NotNil(t, logs.lastLog.CacheReadAdjustment)
+	require.True(t, logs.lastLog.CacheReadAdjustment.TransferCacheWriteToInput)
+	require.Equal(t, raw, logs.lastLog.CacheReadAdjustment.Raw)
+	require.Zero(t, logs.lastLog.CacheReadAdjustment.Effective.CacheCreationInputTokens)
 	require.InDelta(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, billing.lastCmd.AccountQuotaCost, 1e-8)
 }
 

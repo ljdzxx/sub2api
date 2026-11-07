@@ -752,6 +752,20 @@ func (_c *GroupCreate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *Gr
 	return _c
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (_c *GroupCreate) SetForceResponseModelMatch(v bool) *GroupCreate {
+	_c.mutation.SetForceResponseModelMatch(v)
+	return _c
+}
+
+// SetNillableForceResponseModelMatch sets the "force_response_model_match" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableForceResponseModelMatch(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetForceResponseModelMatch(*v)
+	}
+	return _c
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (_c *GroupCreate) SetCacheReadDeductionPercent(v float64) *GroupCreate {
 	_c.mutation.SetCacheReadDeductionPercent(v)
@@ -790,6 +804,20 @@ func (_c *GroupCreate) SetCacheReadAmplificationMinInputTokens(v int64) *GroupCr
 func (_c *GroupCreate) SetNillableCacheReadAmplificationMinInputTokens(v *int64) *GroupCreate {
 	if v != nil {
 		_c.SetCacheReadAmplificationMinInputTokens(*v)
+	}
+	return _c
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (_c *GroupCreate) SetTransferCacheWriteToInput(v bool) *GroupCreate {
+	_c.mutation.SetTransferCacheWriteToInput(v)
+	return _c
+}
+
+// SetNillableTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableTransferCacheWriteToInput(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetTransferCacheWriteToInput(*v)
 	}
 	return _c
 }
@@ -1243,6 +1271,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultOpenaiExperimentalFeaturesEnabled
 		_c.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
 	}
+	if _, ok := _c.mutation.ForceResponseModelMatch(); !ok {
+		v := group.DefaultForceResponseModelMatch
+		_c.mutation.SetForceResponseModelMatch(v)
+	}
 	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
 		v := group.DefaultCacheReadDeductionPercent
 		_c.mutation.SetCacheReadDeductionPercent(v)
@@ -1254,6 +1286,10 @@ func (_c *GroupCreate) defaults() error {
 	if _, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); !ok {
 		v := group.DefaultCacheReadAmplificationMinInputTokens
 		_c.mutation.SetCacheReadAmplificationMinInputTokens(v)
+	}
+	if _, ok := _c.mutation.TransferCacheWriteToInput(); !ok {
+		v := group.DefaultTransferCacheWriteToInput
+		_c.mutation.SetTransferCacheWriteToInput(v)
 	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
 		v := group.DefaultFreeOpenaiFast
@@ -1470,6 +1506,9 @@ func (_c *GroupCreate) check() error {
 	if _, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); !ok {
 		return &ValidationError{Name: "openai_experimental_features_enabled", err: errors.New(`ent: missing required field "Group.openai_experimental_features_enabled"`)}
 	}
+	if _, ok := _c.mutation.ForceResponseModelMatch(); !ok {
+		return &ValidationError{Name: "force_response_model_match", err: errors.New(`ent: missing required field "Group.force_response_model_match"`)}
+	}
 	if _, ok := _c.mutation.CacheReadDeductionPercent(); !ok {
 		return &ValidationError{Name: "cache_read_deduction_percent", err: errors.New(`ent: missing required field "Group.cache_read_deduction_percent"`)}
 	}
@@ -1493,6 +1532,9 @@ func (_c *GroupCreate) check() error {
 		if err := group.CacheReadAmplificationMinInputTokensValidator(v); err != nil {
 			return &ValidationError{Name: "cache_read_amplification_min_input_tokens", err: fmt.Errorf(`ent: validator failed for field "Group.cache_read_amplification_min_input_tokens": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.TransferCacheWriteToInput(); !ok {
+		return &ValidationError{Name: "transfer_cache_write_to_input", err: errors.New(`ent: missing required field "Group.transfer_cache_write_to_input"`)}
 	}
 	if _, ok := _c.mutation.FreeOpenaiFast(); !ok {
 		return &ValidationError{Name: "free_openai_fast", err: errors.New(`ent: missing required field "Group.free_openai_fast"`)}
@@ -1798,6 +1840,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		_spec.SetField(group.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
 		_node.OpenaiExperimentalFeaturesEnabled = value
 	}
+	if value, ok := _c.mutation.ForceResponseModelMatch(); ok {
+		_spec.SetField(group.FieldForceResponseModelMatch, field.TypeBool, value)
+		_node.ForceResponseModelMatch = value
+	}
 	if value, ok := _c.mutation.CacheReadDeductionPercent(); ok {
 		_spec.SetField(group.FieldCacheReadDeductionPercent, field.TypeFloat64, value)
 		_node.CacheReadDeductionPercent = value
@@ -1809,6 +1855,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CacheReadAmplificationMinInputTokens(); ok {
 		_spec.SetField(group.FieldCacheReadAmplificationMinInputTokens, field.TypeInt64, value)
 		_node.CacheReadAmplificationMinInputTokens = value
+	}
+	if value, ok := _c.mutation.TransferCacheWriteToInput(); ok {
+		_spec.SetField(group.FieldTransferCacheWriteToInput, field.TypeBool, value)
+		_node.TransferCacheWriteToInput = value
 	}
 	if value, ok := _c.mutation.FreeOpenaiFast(); ok {
 		_spec.SetField(group.FieldFreeOpenaiFast, field.TypeBool, value)
@@ -2928,6 +2978,18 @@ func (u *GroupUpsert) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsert {
 	return u
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (u *GroupUpsert) SetForceResponseModelMatch(v bool) *GroupUpsert {
+	u.Set(group.FieldForceResponseModelMatch, v)
+	return u
+}
+
+// UpdateForceResponseModelMatch sets the "force_response_model_match" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateForceResponseModelMatch() *GroupUpsert {
+	u.SetExcluded(group.FieldForceResponseModelMatch)
+	return u
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsert) SetCacheReadDeductionPercent(v float64) *GroupUpsert {
 	u.Set(group.FieldCacheReadDeductionPercent, v)
@@ -2979,6 +3041,18 @@ func (u *GroupUpsert) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsert 
 // AddCacheReadAmplificationMinInputTokens adds v to the "cache_read_amplification_min_input_tokens" field.
 func (u *GroupUpsert) AddCacheReadAmplificationMinInputTokens(v int64) *GroupUpsert {
 	u.Add(group.FieldCacheReadAmplificationMinInputTokens, v)
+	return u
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (u *GroupUpsert) SetTransferCacheWriteToInput(v bool) *GroupUpsert {
+	u.Set(group.FieldTransferCacheWriteToInput, v)
+	return u
+}
+
+// UpdateTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateTransferCacheWriteToInput() *GroupUpsert {
+	u.SetExcluded(group.FieldTransferCacheWriteToInput)
 	return u
 }
 
@@ -4273,6 +4347,20 @@ func (u *GroupUpsertOne) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsertO
 	})
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (u *GroupUpsertOne) SetForceResponseModelMatch(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetForceResponseModelMatch(v)
+	})
+}
+
+// UpdateForceResponseModelMatch sets the "force_response_model_match" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateForceResponseModelMatch() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateForceResponseModelMatch()
+	})
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsertOne) SetCacheReadDeductionPercent(v float64) *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
@@ -4333,6 +4421,20 @@ func (u *GroupUpsertOne) AddCacheReadAmplificationMinInputTokens(v int64) *Group
 func (u *GroupUpsertOne) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateCacheReadAmplificationMinInputTokens()
+	})
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (u *GroupUpsertOne) SetTransferCacheWriteToInput(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTransferCacheWriteToInput(v)
+	})
+}
+
+// UpdateTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateTransferCacheWriteToInput() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTransferCacheWriteToInput()
 	})
 }
 
@@ -5824,6 +5926,20 @@ func (u *GroupUpsertBulk) UpdateOpenaiExperimentalFeaturesEnabled() *GroupUpsert
 	})
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (u *GroupUpsertBulk) SetForceResponseModelMatch(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetForceResponseModelMatch(v)
+	})
+}
+
+// UpdateForceResponseModelMatch sets the "force_response_model_match" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateForceResponseModelMatch() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateForceResponseModelMatch()
+	})
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (u *GroupUpsertBulk) SetCacheReadDeductionPercent(v float64) *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
@@ -5884,6 +6000,20 @@ func (u *GroupUpsertBulk) AddCacheReadAmplificationMinInputTokens(v int64) *Grou
 func (u *GroupUpsertBulk) UpdateCacheReadAmplificationMinInputTokens() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateCacheReadAmplificationMinInputTokens()
+	})
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (u *GroupUpsertBulk) SetTransferCacheWriteToInput(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTransferCacheWriteToInput(v)
+	})
+}
+
+// UpdateTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateTransferCacheWriteToInput() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTransferCacheWriteToInput()
 	})
 }
 

@@ -292,9 +292,11 @@ type CreateGroupInput struct {
 	ForceOpenAIFast                      bool
 	FreeOpenAIFast                       bool
 	OpenAIExperimentalFeaturesEnabled    bool
+	ForceResponseModelMatch              bool
 	CacheReadDeductionPercent            float64
 	CacheReadAmplificationPercent        float64
 	CacheReadAmplificationMinInputTokens int64
+	TransferCacheWriteToInput            bool
 	DefaultMappedModel                   string
 	RequireOAuthOnly                     bool
 	RequirePrivacySet                    bool
@@ -379,9 +381,11 @@ type UpdateGroupInput struct {
 	ForceOpenAIFast                      *bool
 	FreeOpenAIFast                       *bool
 	OpenAIExperimentalFeaturesEnabled    *bool
+	ForceResponseModelMatch              *bool
 	CacheReadDeductionPercent            *float64
 	CacheReadAmplificationPercent        *float64
 	CacheReadAmplificationMinInputTokens *int64
+	TransferCacheWriteToInput            *bool
 	DefaultMappedModel                   *string
 	RequireOAuthOnly                     *bool
 	RequirePrivacySet                    *bool

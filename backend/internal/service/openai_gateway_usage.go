@@ -512,6 +512,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			Percent:                     cacheReadPolicy.DeductionPercent,
 			AmplificationPercent:        cacheReadPolicy.AmplificationPercent,
 			AmplificationMinInputTokens: cacheReadPolicy.AmplificationMinInputTokens,
+			TransferCacheWriteToInput:   cacheReadPolicy.TransferCacheWriteToInput,
 			Raw:                         rawResult.Usage, Effective: result.Usage, UpstreamCost: upstreamCost}
 		logger.L().Info("openai.cache_read_deduction", zap.String("component", "audit.cache_read_deduction"), zap.String("request_id", requestID),
 			zap.Int64("api_key_id", apiKey.ID), zap.Any("group_id", apiKey.GroupID),

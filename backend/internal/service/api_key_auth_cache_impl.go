@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 26 // v26: OpenAI experimental cache usage policy (deduction + amplification)
+const apiKeyAuthSnapshotVersion = 27 // v27: OpenAI force-response-model-match policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -422,9 +422,11 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			ForceOpenAIFast:                      apiKey.Group.ForceOpenAIFast,
 			FreeOpenAIFast:                       apiKey.Group.FreeOpenAIFast,
 			OpenAIExperimentalFeaturesEnabled:    apiKey.Group.OpenAIExperimentalFeaturesEnabled,
+			ForceResponseModelMatch:              apiKey.Group.ForceResponseModelMatch,
 			CacheReadDeductionPercent:            apiKey.Group.CacheReadDeductionPercent,
 			CacheReadAmplificationPercent:        apiKey.Group.CacheReadAmplificationPercent,
 			CacheReadAmplificationMinInputTokens: apiKey.Group.CacheReadAmplificationMinInputTokens,
+			TransferCacheWriteToInput:            apiKey.Group.TransferCacheWriteToInput,
 			DefaultMappedModel:                   apiKey.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:          apiKey.Group.MessagesDispatchModelConfig,
 			ModelAllowlist:                       apiKey.Group.ModelAllowlist,
@@ -529,9 +531,11 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			ForceOpenAIFast:                      snapshot.Group.ForceOpenAIFast,
 			FreeOpenAIFast:                       snapshot.Group.FreeOpenAIFast,
 			OpenAIExperimentalFeaturesEnabled:    snapshot.Group.OpenAIExperimentalFeaturesEnabled,
+			ForceResponseModelMatch:              snapshot.Group.ForceResponseModelMatch,
 			CacheReadDeductionPercent:            snapshot.Group.CacheReadDeductionPercent,
 			CacheReadAmplificationPercent:        snapshot.Group.CacheReadAmplificationPercent,
 			CacheReadAmplificationMinInputTokens: snapshot.Group.CacheReadAmplificationMinInputTokens,
+			TransferCacheWriteToInput:            snapshot.Group.TransferCacheWriteToInput,
 			DefaultMappedModel:                   snapshot.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:          snapshot.Group.MessagesDispatchModelConfig,
 			ModelAllowlist:                       snapshot.Group.ModelAllowlist,

@@ -241,9 +241,11 @@ type CreateGroupRequest struct {
 	ForceOpenAIFast                      bool                                      `json:"force_openai_fast"`
 	FreeOpenAIFast                       bool                                      `json:"free_openai_fast"`
 	OpenAIExperimentalFeaturesEnabled    bool                                      `json:"openai_experimental_features_enabled"`
+	ForceResponseModelMatch              bool                                      `json:"force_response_model_match"`
 	CacheReadDeductionPercent            float64                                   `json:"cache_read_deduction_percent"`
 	CacheReadAmplificationPercent        float64                                   `json:"cache_read_amplification_percent"`
 	CacheReadAmplificationMinInputTokens int64                                     `json:"cache_read_amplification_min_input_tokens"`
+	TransferCacheWriteToInput            bool                                      `json:"transfer_cache_write_to_input"`
 	RequireOAuthOnly                     bool                                      `json:"require_oauth_only"`
 	RequirePrivacySet                    bool                                      `json:"require_privacy_set"`
 	DefaultMappedModel                   string                                    `json:"default_mapped_model"`
@@ -322,9 +324,11 @@ type UpdateGroupRequest struct {
 	ForceOpenAIFast                      *bool                                      `json:"force_openai_fast"`
 	FreeOpenAIFast                       *bool                                      `json:"free_openai_fast"`
 	OpenAIExperimentalFeaturesEnabled    *bool                                      `json:"openai_experimental_features_enabled"`
+	ForceResponseModelMatch              *bool                                      `json:"force_response_model_match"`
 	CacheReadDeductionPercent            *float64                                   `json:"cache_read_deduction_percent"`
 	CacheReadAmplificationPercent        *float64                                   `json:"cache_read_amplification_percent"`
 	CacheReadAmplificationMinInputTokens *int64                                     `json:"cache_read_amplification_min_input_tokens"`
+	TransferCacheWriteToInput            *bool                                      `json:"transfer_cache_write_to_input"`
 	RequireOAuthOnly                     *bool                                      `json:"require_oauth_only"`
 	RequirePrivacySet                    *bool                                      `json:"require_privacy_set"`
 	DefaultMappedModel                   *string                                    `json:"default_mapped_model"`
@@ -729,9 +733,11 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		ForceOpenAIFast:                      req.ForceOpenAIFast,
 		FreeOpenAIFast:                       req.FreeOpenAIFast,
 		OpenAIExperimentalFeaturesEnabled:    req.OpenAIExperimentalFeaturesEnabled,
+		ForceResponseModelMatch:              req.ForceResponseModelMatch,
 		CacheReadDeductionPercent:            req.CacheReadDeductionPercent,
 		CacheReadAmplificationPercent:        req.CacheReadAmplificationPercent,
 		CacheReadAmplificationMinInputTokens: req.CacheReadAmplificationMinInputTokens,
+		TransferCacheWriteToInput:            req.TransferCacheWriteToInput,
 		RequireOAuthOnly:                     req.RequireOAuthOnly,
 		RequirePrivacySet:                    req.RequirePrivacySet,
 		DefaultMappedModel:                   req.DefaultMappedModel,
@@ -881,9 +887,11 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		ForceOpenAIFast:                      req.ForceOpenAIFast,
 		FreeOpenAIFast:                       req.FreeOpenAIFast,
 		OpenAIExperimentalFeaturesEnabled:    req.OpenAIExperimentalFeaturesEnabled,
+		ForceResponseModelMatch:              req.ForceResponseModelMatch,
 		CacheReadDeductionPercent:            req.CacheReadDeductionPercent,
 		CacheReadAmplificationPercent:        req.CacheReadAmplificationPercent,
 		CacheReadAmplificationMinInputTokens: req.CacheReadAmplificationMinInputTokens,
+		TransferCacheWriteToInput:            req.TransferCacheWriteToInput,
 		RequireOAuthOnly:                     req.RequireOAuthOnly,
 		RequirePrivacySet:                    req.RequirePrivacySet,
 		DefaultMappedModel:                   req.DefaultMappedModel,

@@ -976,17 +976,47 @@ func appendOpenAIResponsesRequestPathSuffix(baseURL, suffix string) string {
 
 func (s *OpenAIGatewayService) replaceModelInResponseBody(body []byte, fromModel, toModel string) []byte {
 	// A mapped request must retain its public name even when upstream uses an alias.
-	if fromModel == "" || toModel == "" || fromModel == toModel || !gjson.ValidBytes(body) {
+	if fromModel == "" || toModel == "" || fromModel == toModel {
+		return body
+	}
+	return s.setModelInResponseBody(body, toModel)
+}
+
+func (s *OpenAIGatewayService) setModelInResponseBody(body []byte, model string) []byte {
+	if strings.TrimSpace(model) == "" || !gjson.ValidBytes(body) {
 		return body
 	}
 	if m := gjson.GetBytes(body, "model"); m.Type == gjson.String {
-		newBody, err := sjson.SetBytes(body, "model", toModel)
+		newBody, err := sjson.SetBytes(body, "model", model)
 		if err != nil {
 			return body
 		}
 		return newBody
 	}
 	return body
+}
+
+func forceResponseModelMatchEnabled(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+	group, ok := c.Request.Context().Value(ctxkey.Group).(*Group)
+	return ok && group != nil && group.Platform == PlatformOpenAI &&
+		group.OpenAIExperimentalFeaturesEnabled && group.ForceResponseModelMatch
+}
+
+func shouldRewriteOpenAIResponseModel(c *gin.Context, originalModel, mappedModel string) bool {
+	if strings.TrimSpace(originalModel) == "" {
+		return false
+	}
+	return (strings.TrimSpace(mappedModel) != "" && originalModel != mappedModel) || forceResponseModelMatchEnabled(c)
+}
+
+func (s *OpenAIGatewayService) rewriteOpenAIResponseModel(body []byte, c *gin.Context, originalModel, mappedModel string) []byte {
+	if !shouldRewriteOpenAIResponseModel(c, originalModel, mappedModel) {
+		return body
+	}
+	return s.setModelInResponseBody(body, originalModel)
 }
 
 func getOpenAIReasoningEffortFromReqBody(reqBody map[string]any, requestedModel string) (value string, present bool) {

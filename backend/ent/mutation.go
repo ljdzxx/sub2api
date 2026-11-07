@@ -22162,12 +22162,14 @@ type GroupMutation struct {
 	allow_live                                   *bool
 	force_openai_fast                            *bool
 	openai_experimental_features_enabled         *bool
+	force_response_model_match                   *bool
 	cache_read_deduction_percent                 *float64
 	addcache_read_deduction_percent              *float64
 	cache_read_amplification_percent             *float64
 	addcache_read_amplification_percent          *float64
 	cache_read_amplification_min_input_tokens    *int64
 	addcache_read_amplification_min_input_tokens *int64
+	transfer_cache_write_to_input                *bool
 	free_openai_fast                             *bool
 	require_oauth_only                           *bool
 	require_privacy_set                          *bool
@@ -25101,6 +25103,42 @@ func (m *GroupMutation) ResetOpenaiExperimentalFeaturesEnabled() {
 	m.openai_experimental_features_enabled = nil
 }
 
+// SetForceResponseModelMatch sets the "force_response_model_match" field.
+func (m *GroupMutation) SetForceResponseModelMatch(b bool) {
+	m.force_response_model_match = &b
+}
+
+// ForceResponseModelMatch returns the value of the "force_response_model_match" field in the mutation.
+func (m *GroupMutation) ForceResponseModelMatch() (r bool, exists bool) {
+	v := m.force_response_model_match
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForceResponseModelMatch returns the old "force_response_model_match" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldForceResponseModelMatch(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForceResponseModelMatch is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForceResponseModelMatch requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForceResponseModelMatch: %w", err)
+	}
+	return oldValue.ForceResponseModelMatch, nil
+}
+
+// ResetForceResponseModelMatch resets all changes to the "force_response_model_match" field.
+func (m *GroupMutation) ResetForceResponseModelMatch() {
+	m.force_response_model_match = nil
+}
+
 // SetCacheReadDeductionPercent sets the "cache_read_deduction_percent" field.
 func (m *GroupMutation) SetCacheReadDeductionPercent(f float64) {
 	m.cache_read_deduction_percent = &f
@@ -25267,6 +25305,42 @@ func (m *GroupMutation) AddedCacheReadAmplificationMinInputTokens() (r int64, ex
 func (m *GroupMutation) ResetCacheReadAmplificationMinInputTokens() {
 	m.cache_read_amplification_min_input_tokens = nil
 	m.addcache_read_amplification_min_input_tokens = nil
+}
+
+// SetTransferCacheWriteToInput sets the "transfer_cache_write_to_input" field.
+func (m *GroupMutation) SetTransferCacheWriteToInput(b bool) {
+	m.transfer_cache_write_to_input = &b
+}
+
+// TransferCacheWriteToInput returns the value of the "transfer_cache_write_to_input" field in the mutation.
+func (m *GroupMutation) TransferCacheWriteToInput() (r bool, exists bool) {
+	v := m.transfer_cache_write_to_input
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTransferCacheWriteToInput returns the old "transfer_cache_write_to_input" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldTransferCacheWriteToInput(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTransferCacheWriteToInput is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTransferCacheWriteToInput requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTransferCacheWriteToInput: %w", err)
+	}
+	return oldValue.TransferCacheWriteToInput, nil
+}
+
+// ResetTransferCacheWriteToInput resets all changes to the "transfer_cache_write_to_input" field.
+func (m *GroupMutation) ResetTransferCacheWriteToInput() {
+	m.transfer_cache_write_to_input = nil
 }
 
 // SetFreeOpenaiFast sets the "free_openai_fast" field.
@@ -26206,7 +26280,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 72)
+	fields := make([]string, 0, 74)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26372,6 +26446,9 @@ func (m *GroupMutation) Fields() []string {
 	if m.openai_experimental_features_enabled != nil {
 		fields = append(fields, group.FieldOpenaiExperimentalFeaturesEnabled)
 	}
+	if m.force_response_model_match != nil {
+		fields = append(fields, group.FieldForceResponseModelMatch)
+	}
 	if m.cache_read_deduction_percent != nil {
 		fields = append(fields, group.FieldCacheReadDeductionPercent)
 	}
@@ -26380,6 +26457,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.cache_read_amplification_min_input_tokens != nil {
 		fields = append(fields, group.FieldCacheReadAmplificationMinInputTokens)
+	}
+	if m.transfer_cache_write_to_input != nil {
+		fields = append(fields, group.FieldTransferCacheWriteToInput)
 	}
 	if m.free_openai_fast != nil {
 		fields = append(fields, group.FieldFreeOpenaiFast)
@@ -26541,12 +26621,16 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.ForceOpenaiFast()
 	case group.FieldOpenaiExperimentalFeaturesEnabled:
 		return m.OpenaiExperimentalFeaturesEnabled()
+	case group.FieldForceResponseModelMatch:
+		return m.ForceResponseModelMatch()
 	case group.FieldCacheReadDeductionPercent:
 		return m.CacheReadDeductionPercent()
 	case group.FieldCacheReadAmplificationPercent:
 		return m.CacheReadAmplificationPercent()
 	case group.FieldCacheReadAmplificationMinInputTokens:
 		return m.CacheReadAmplificationMinInputTokens()
+	case group.FieldTransferCacheWriteToInput:
+		return m.TransferCacheWriteToInput()
 	case group.FieldFreeOpenaiFast:
 		return m.FreeOpenaiFast()
 	case group.FieldRequireOauthOnly:
@@ -26694,12 +26778,16 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldForceOpenaiFast(ctx)
 	case group.FieldOpenaiExperimentalFeaturesEnabled:
 		return m.OldOpenaiExperimentalFeaturesEnabled(ctx)
+	case group.FieldForceResponseModelMatch:
+		return m.OldForceResponseModelMatch(ctx)
 	case group.FieldCacheReadDeductionPercent:
 		return m.OldCacheReadDeductionPercent(ctx)
 	case group.FieldCacheReadAmplificationPercent:
 		return m.OldCacheReadAmplificationPercent(ctx)
 	case group.FieldCacheReadAmplificationMinInputTokens:
 		return m.OldCacheReadAmplificationMinInputTokens(ctx)
+	case group.FieldTransferCacheWriteToInput:
+		return m.OldTransferCacheWriteToInput(ctx)
 	case group.FieldFreeOpenaiFast:
 		return m.OldFreeOpenaiFast(ctx)
 	case group.FieldRequireOauthOnly:
@@ -27122,6 +27210,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetOpenaiExperimentalFeaturesEnabled(v)
 		return nil
+	case group.FieldForceResponseModelMatch:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForceResponseModelMatch(v)
+		return nil
 	case group.FieldCacheReadDeductionPercent:
 		v, ok := value.(float64)
 		if !ok {
@@ -27142,6 +27237,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheReadAmplificationMinInputTokens(v)
+		return nil
+	case group.FieldTransferCacheWriteToInput:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTransferCacheWriteToInput(v)
 		return nil
 	case group.FieldFreeOpenaiFast:
 		v, ok := value.(bool)
@@ -27953,6 +28055,9 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldOpenaiExperimentalFeaturesEnabled:
 		m.ResetOpenaiExperimentalFeaturesEnabled()
 		return nil
+	case group.FieldForceResponseModelMatch:
+		m.ResetForceResponseModelMatch()
+		return nil
 	case group.FieldCacheReadDeductionPercent:
 		m.ResetCacheReadDeductionPercent()
 		return nil
@@ -27961,6 +28066,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldCacheReadAmplificationMinInputTokens:
 		m.ResetCacheReadAmplificationMinInputTokens()
+		return nil
+	case group.FieldTransferCacheWriteToInput:
+		m.ResetTransferCacheWriteToInput()
 		return nil
 	case group.FieldFreeOpenaiFast:
 		m.ResetFreeOpenaiFast()

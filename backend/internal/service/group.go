@@ -105,9 +105,11 @@ type Group struct {
 	ForceOpenAIFast                      bool // 强制 OpenAI 网关请求使用 service_tier=priority
 	FreeOpenAIFast                       bool // OpenAI Fast 请求按 Standard 价格向用户计费
 	OpenAIExperimentalFeaturesEnabled    bool // 是否启用 OpenAI 实验性功能策略
+	ForceResponseModelMatch              bool // 强制响应 model 与客户端请求模型一致
 	CacheReadDeductionPercent            float64
 	CacheReadAmplificationPercent        float64
 	CacheReadAmplificationMinInputTokens int64
+	TransferCacheWriteToInput            bool
 	RequireOAuthOnly                     bool // 仅允许非 apikey 类型账号关联（OpenAI/Antigravity/Anthropic/Gemini）
 	RequirePrivacySet                    bool // 调度时仅允许 privacy 已成功设置的账号（OpenAI/Antigravity/Anthropic/Gemini）
 	DefaultMappedModel                   string

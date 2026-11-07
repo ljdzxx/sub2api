@@ -1629,6 +1629,19 @@
           </p>
           <div v-if="createForm.openai_experimental_features_enabled" class="mt-4 space-y-4">
             <div>
+              <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ t('admin.groups.cacheReadDeduction.forceResponseModelMatch') }}
+                </label>
+                <Toggle
+                  data-testid="create-force-response-model-match"
+                  :aria-label="t('admin.groups.cacheReadDeduction.forceResponseModelMatch')"
+                  v-model="createForm.force_response_model_match"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.forceResponseModelMatchHint') }}</p>
+            </div>
+            <div>
               <label class="input-label" for="createForm-cache-read-deduction">{{ t('admin.groups.cacheReadDeduction.title') }}</label>
               <input id="createForm-cache-read-deduction" v-model.number="createForm.cache_read_deduction_percent" type="number" min="0" max="100" step="0.01" class="input" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.hint') }}</p>
@@ -1642,6 +1655,19 @@
               <label class="input-label" for="createForm-cache-read-amplification-threshold">{{ t('admin.groups.cacheReadDeduction.amplificationThreshold') }}</label>
               <input id="createForm-cache-read-amplification-threshold" v-model.number="createForm.cache_read_amplification_min_input_tokens" type="number" min="0" step="1" class="input" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.amplificationThresholdHint') }}</p>
+            </div>
+            <div>
+              <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ t('admin.groups.cacheReadDeduction.transferCacheWriteToInput') }}
+                </label>
+                <Toggle
+                  data-testid="create-transfer-cache-write-to-input"
+                  :aria-label="t('admin.groups.cacheReadDeduction.transferCacheWriteToInput')"
+                  v-model="createForm.transfer_cache_write_to_input"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.transferCacheWriteToInputHint') }}</p>
             </div>
           </div>
         </div>
@@ -3332,6 +3358,19 @@
           </p>
           <div v-if="editForm.openai_experimental_features_enabled" class="mt-4 space-y-4">
             <div>
+              <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ t('admin.groups.cacheReadDeduction.forceResponseModelMatch') }}
+                </label>
+                <Toggle
+                  data-testid="edit-force-response-model-match"
+                  :aria-label="t('admin.groups.cacheReadDeduction.forceResponseModelMatch')"
+                  v-model="editForm.force_response_model_match"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.forceResponseModelMatchHint') }}</p>
+            </div>
+            <div>
               <label class="input-label" for="editForm-cache-read-deduction">{{ t('admin.groups.cacheReadDeduction.title') }}</label>
               <input id="editForm-cache-read-deduction" v-model.number="editForm.cache_read_deduction_percent" type="number" min="0" max="100" step="0.01" class="input" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.hint') }}</p>
@@ -3345,6 +3384,19 @@
               <label class="input-label" for="editForm-cache-read-amplification-threshold">{{ t('admin.groups.cacheReadDeduction.amplificationThreshold') }}</label>
               <input id="editForm-cache-read-amplification-threshold" v-model.number="editForm.cache_read_amplification_min_input_tokens" type="number" min="0" step="1" class="input" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.amplificationThresholdHint') }}</p>
+            </div>
+            <div>
+              <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ t('admin.groups.cacheReadDeduction.transferCacheWriteToInput') }}
+                </label>
+                <Toggle
+                  data-testid="edit-transfer-cache-write-to-input"
+                  :aria-label="t('admin.groups.cacheReadDeduction.transferCacheWriteToInput')"
+                  v-model="editForm.transfer_cache_write_to_input"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.cacheReadDeduction.transferCacheWriteToInputHint') }}</p>
             </div>
           </div>
         </div>
@@ -5062,9 +5114,11 @@ const createForm = reactive({
   force_openai_fast: false,
   free_openai_fast: false,
   openai_experimental_features_enabled: false,
+  force_response_model_match: false,
   cache_read_deduction_percent: 0,
   cache_read_amplification_percent: 0,
   cache_read_amplification_min_input_tokens: 0,
+  transfer_cache_write_to_input: false,
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5433,9 +5487,11 @@ const editForm = reactive({
   force_openai_fast: false,
   free_openai_fast: false,
   openai_experimental_features_enabled: false,
+  force_response_model_match: false,
   cache_read_deduction_percent: 0,
   cache_read_amplification_percent: 0,
   cache_read_amplification_min_input_tokens: 0,
+  transfer_cache_write_to_input: false,
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5929,9 +5985,11 @@ const closeCreateModal = () => {
   createForm.force_openai_fast = false;
   createForm.free_openai_fast = false;
   createForm.openai_experimental_features_enabled = false;
+  createForm.force_response_model_match = false;
   createForm.cache_read_deduction_percent = 0;
   createForm.cache_read_amplification_percent = 0;
   createForm.cache_read_amplification_min_input_tokens = 0;
+  createForm.transfer_cache_write_to_input = false;
   createForm.model_pricing = [];
   createForm.web_search_price_per_call = null;
   createForm.search_price_per_1k = null;
@@ -6059,8 +6117,10 @@ const handleCreateGroup = async () => {
       ),
       cache_read_deduction_percent: createForm.platform === "openai" ? Number(createForm.cache_read_deduction_percent) : 0,
       openai_experimental_features_enabled: createForm.platform === "openai" && createForm.openai_experimental_features_enabled,
+      force_response_model_match: createForm.platform === "openai" && createForm.force_response_model_match,
       cache_read_amplification_percent: createForm.platform === "openai" ? Number(createForm.cache_read_amplification_percent) : 0,
       cache_read_amplification_min_input_tokens: createForm.platform === "openai" ? Number(createForm.cache_read_amplification_min_input_tokens) : 0,
+      transfer_cache_write_to_input: createForm.platform === "openai" && createForm.transfer_cache_write_to_input,
       free_openai_fast: normalizeGroupOpenAIFast(
         createForm.platform,
         createForm.free_openai_fast,
@@ -6212,9 +6272,11 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.force_openai_fast = group.force_openai_fast ?? false;
   editForm.free_openai_fast = group.free_openai_fast ?? false;
   editForm.openai_experimental_features_enabled = group.openai_experimental_features_enabled ?? false;
+  editForm.force_response_model_match = group.force_response_model_match ?? false;
   editForm.cache_read_deduction_percent = group.cache_read_deduction_percent ?? 0;
   editForm.cache_read_amplification_percent = group.cache_read_amplification_percent ?? 0;
   editForm.cache_read_amplification_min_input_tokens = group.cache_read_amplification_min_input_tokens ?? 0;
+  editForm.transfer_cache_write_to_input = group.transfer_cache_write_to_input ?? false;
   editForm.model_pricing = groupPricingFromAPI(group.model_pricing);
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.allow_batch_image_generation =
@@ -6351,9 +6413,11 @@ const closeEditModal = () => {
   editForm.force_openai_fast = false;
   editForm.free_openai_fast = false;
   editForm.openai_experimental_features_enabled = false;
+  editForm.force_response_model_match = false;
   editForm.cache_read_deduction_percent = 0;
   editForm.cache_read_amplification_percent = 0;
   editForm.cache_read_amplification_min_input_tokens = 0;
+  editForm.transfer_cache_write_to_input = false;
   editForm.model_pricing = [];
   editForm.web_search_price_per_call = null;
   editForm.search_price_per_1k = null;
@@ -6415,8 +6479,10 @@ const handleUpdateGroup = async () => {
       ),
       cache_read_deduction_percent: editForm.platform === "openai" ? Number(editForm.cache_read_deduction_percent) : 0,
       openai_experimental_features_enabled: editForm.platform === "openai" && editForm.openai_experimental_features_enabled,
+      force_response_model_match: editForm.platform === "openai" && editForm.force_response_model_match,
       cache_read_amplification_percent: editForm.platform === "openai" ? Number(editForm.cache_read_amplification_percent) : 0,
       cache_read_amplification_min_input_tokens: editForm.platform === "openai" ? Number(editForm.cache_read_amplification_min_input_tokens) : 0,
+      transfer_cache_write_to_input: editForm.platform === "openai" && editForm.transfer_cache_write_to_input,
       free_openai_fast: normalizeGroupOpenAIFast(
         editForm.platform,
         editForm.free_openai_fast,

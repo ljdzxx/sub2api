@@ -107,9 +107,11 @@ type APIKeyAuthGroupSnapshot struct {
 	ForceOpenAIFast                      bool                              `json:"force_openai_fast"`
 	FreeOpenAIFast                       bool                              `json:"free_openai_fast"`
 	OpenAIExperimentalFeaturesEnabled    bool                              `json:"openai_experimental_features_enabled"`
+	ForceResponseModelMatch              bool                              `json:"force_response_model_match"`
 	CacheReadDeductionPercent            float64                           `json:"cache_read_deduction_percent"`
 	CacheReadAmplificationPercent        float64                           `json:"cache_read_amplification_percent"`
 	CacheReadAmplificationMinInputTokens int64                             `json:"cache_read_amplification_min_input_tokens"`
+	TransferCacheWriteToInput            bool                              `json:"transfer_cache_write_to_input"`
 	DefaultMappedModel                   string                            `json:"default_mapped_model,omitempty"`
 	MessagesDispatchModelConfig          OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
 	ModelAllowlist                       GroupModelAllowlist               `json:"model_allowlist,omitempty"`

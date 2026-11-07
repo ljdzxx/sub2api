@@ -82,6 +82,7 @@ const sourceGroup = {
   force_openai_fast: false,
   free_openai_fast: false,
   openai_experimental_features_enabled: false,
+  force_response_model_match: false,
   cache_read_deduction_percent: 0,
   cache_read_amplification_percent: 0,
   cache_read_amplification_min_input_tokens: 0,
@@ -297,7 +298,7 @@ describe("GroupsView Codex manifest binding", () => {
   });
 
   it("loads and saves fractional cache deduction in the OpenAI edit form", async () => {
-    listGroups.mockResolvedValue({ items: [{ ...sourceGroup, openai_experimental_features_enabled: true, cache_read_deduction_percent: 20.25, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000 }], total: 1, page: 1, page_size: 20, pages: 1 });
+    listGroups.mockResolvedValue({ items: [{ ...sourceGroup, openai_experimental_features_enabled: true, force_response_model_match: true, cache_read_deduction_percent: 20.25, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000, transfer_cache_write_to_input: true }], total: 1, page: 1, page_size: 20, pages: 1 });
     vi.mocked(adminAPI.groups.update).mockResolvedValue(sourceGroup);
     const wrapper = mountView();
     await flushPromises();
@@ -309,7 +310,7 @@ describe("GroupsView Codex manifest binding", () => {
     await input.setValue('15.75');
     await wrapper.get('form').trigger('submit');
     await flushPromises();
-    expect(adminAPI.groups.update).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ openai_experimental_features_enabled: true, cache_read_deduction_percent: 15.75, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000 }));
+    expect(adminAPI.groups.update).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ openai_experimental_features_enabled: true, force_response_model_match: true, cache_read_deduction_percent: 15.75, cache_read_amplification_percent: 20, cache_read_amplification_min_input_tokens: 10000, transfer_cache_write_to_input: true }));
     wrapper.unmount();
   });
 
@@ -325,9 +326,11 @@ describe("GroupsView Codex manifest binding", () => {
 
     await wrapper.get('[data-testid="edit-openai-experimental-features-enabled"]').trigger('click');
     await flushPromises();
+    expect(wrapper.find('[data-testid="edit-force-response-model-match"]').exists()).toBe(true);
     expect(wrapper.find('#editForm-cache-read-deduction').exists()).toBe(true);
     expect(wrapper.find('#editForm-cache-read-amplification').exists()).toBe(true);
     expect(wrapper.find('#editForm-cache-read-amplification-threshold').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="edit-transfer-cache-write-to-input"]').exists()).toBe(true);
 
     wrapper.unmount();
   });

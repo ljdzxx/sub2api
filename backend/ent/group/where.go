@@ -305,6 +305,11 @@ func OpenaiExperimentalFeaturesEnabled(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
 }
 
+// ForceResponseModelMatch applies equality check predicate on the "force_response_model_match" field. It's identical to ForceResponseModelMatchEQ.
+func ForceResponseModelMatch(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldForceResponseModelMatch, v))
+}
+
 // CacheReadDeductionPercent applies equality check predicate on the "cache_read_deduction_percent" field. It's identical to CacheReadDeductionPercentEQ.
 func CacheReadDeductionPercent(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
@@ -318,6 +323,11 @@ func CacheReadAmplificationPercent(v float64) predicate.Group {
 // CacheReadAmplificationMinInputTokens applies equality check predicate on the "cache_read_amplification_min_input_tokens" field. It's identical to CacheReadAmplificationMinInputTokensEQ.
 func CacheReadAmplificationMinInputTokens(v int64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// TransferCacheWriteToInput applies equality check predicate on the "transfer_cache_write_to_input" field. It's identical to TransferCacheWriteToInputEQ.
+func TransferCacheWriteToInput(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldTransferCacheWriteToInput, v))
 }
 
 // FreeOpenaiFast applies equality check predicate on the "free_openai_fast" field. It's identical to FreeOpenaiFastEQ.
@@ -2340,6 +2350,16 @@ func OpenaiExperimentalFeaturesEnabledNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
 }
 
+// ForceResponseModelMatchEQ applies the EQ predicate on the "force_response_model_match" field.
+func ForceResponseModelMatchEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldForceResponseModelMatch, v))
+}
+
+// ForceResponseModelMatchNEQ applies the NEQ predicate on the "force_response_model_match" field.
+func ForceResponseModelMatchNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldForceResponseModelMatch, v))
+}
+
 // CacheReadDeductionPercentEQ applies the EQ predicate on the "cache_read_deduction_percent" field.
 func CacheReadDeductionPercentEQ(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCacheReadDeductionPercent, v))
@@ -2458,6 +2478,16 @@ func CacheReadAmplificationMinInputTokensLT(v int64) predicate.Group {
 // CacheReadAmplificationMinInputTokensLTE applies the LTE predicate on the "cache_read_amplification_min_input_tokens" field.
 func CacheReadAmplificationMinInputTokensLTE(v int64) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldCacheReadAmplificationMinInputTokens, v))
+}
+
+// TransferCacheWriteToInputEQ applies the EQ predicate on the "transfer_cache_write_to_input" field.
+func TransferCacheWriteToInputEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldTransferCacheWriteToInput, v))
+}
+
+// TransferCacheWriteToInputNEQ applies the NEQ predicate on the "transfer_cache_write_to_input" field.
+func TransferCacheWriteToInputNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldTransferCacheWriteToInput, v))
 }
 
 // FreeOpenaiFastEQ applies the EQ predicate on the "free_openai_fast" field.

@@ -18,8 +18,8 @@ func TestGetByKeyForAuthCarriesGroupForceOpenAIFast(t *testing.T) {
 	group := mustCreateGroup(t, integrationEntClient, &service.Group{
 		Name: fmt.Sprintf("fast-proj-group-%d", suffix), Platform: service.PlatformOpenAI,
 		RateMultiplier: 1, ForceOpenAIFast: true, FreeOpenAIFast: true,
-		OpenAIExperimentalFeaturesEnabled: true, CacheReadDeductionPercent: 20.25,
-		CacheReadAmplificationPercent: 20, CacheReadAmplificationMinInputTokens: 10000,
+		OpenAIExperimentalFeaturesEnabled: true, ForceResponseModelMatch: true, CacheReadDeductionPercent: 20.25,
+		CacheReadAmplificationPercent: 20, CacheReadAmplificationMinInputTokens: 10000, TransferCacheWriteToInput: true,
 	})
 	user := mustCreateUser(t, integrationEntClient, &service.User{
 		Email: fmt.Sprintf("fast-proj-%d@example.com", suffix), Concurrency: 5,
@@ -46,7 +46,9 @@ func TestGetByKeyForAuthCarriesGroupForceOpenAIFast(t *testing.T) {
 	require.True(t, got.Group.ForceOpenAIFast)
 	require.True(t, got.Group.FreeOpenAIFast)
 	require.True(t, got.Group.OpenAIExperimentalFeaturesEnabled)
+	require.True(t, got.Group.ForceResponseModelMatch)
 	require.Equal(t, 20.25, got.Group.CacheReadDeductionPercent)
 	require.Equal(t, 20.0, got.Group.CacheReadAmplificationPercent)
 	require.EqualValues(t, 10000, got.Group.CacheReadAmplificationMinInputTokens)
+	require.True(t, got.Group.TransferCacheWriteToInput)
 }
