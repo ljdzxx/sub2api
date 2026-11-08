@@ -160,7 +160,11 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	if err != nil {
 		return nil, err
 	}
-	responsesResp := apicompat.ChatCompletionsResponseToResponses(ccResp, originalModel, customTools, functionTools, toolSearch, namespaceTools)
+	responseModel := originalModel
+	if targetModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, upstreamModel); shouldRewrite {
+		responseModel = targetModel
+	}
+	responsesResp := apicompat.ChatCompletionsResponseToResponses(ccResp, responseModel, customTools, functionTools, toolSearch, namespaceTools)
 	s.cacheReasoningItemsFromOutput(responsesResp.Output)
 
 	if s.responseHeaderFilter != nil {
@@ -200,7 +204,11 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	requestID := resp.Header.Get("x-request-id")
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
 
-	state := apicompat.NewChatCompletionsToResponsesStreamState(originalModel)
+	responseModel := originalModel
+	if targetModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, upstreamModel); shouldRewrite {
+		responseModel = targetModel
+	}
+	state := apicompat.NewChatCompletionsToResponsesStreamState(responseModel)
 	state.CustomTools = customTools
 	state.FunctionTools = functionTools
 	state.ToolSearchDeclared = toolSearch

@@ -6,6 +6,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/gin-gonic/gin"
 )
 
@@ -409,5 +411,67 @@ func TestResponsesBufferedFromNativeAnthropic_ToolArgumentsAreValidJSON(t *testi
 	}
 	if args := body.Output[0].Arguments; !json.Valid([]byte(args)) || args != `{"query":"status"}` {
 		t.Fatalf("expected valid tool arguments, got %q", args)
+	}
+}
+
+func TestResponsesFromNativeAnthropic_ForceResponseModelMatchAfterChannelMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const requestedModel = "gpt-public"
+	const channelMappedModel = "gpt-6-luna"
+	for _, stream := range []bool{false, true} {
+		name := "json"
+		if stream {
+			name = "sse"
+		}
+		t.Run(name, func(t *testing.T) {
+			svc := newNativeAnthropicHangTestService(5)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			group := &Group{
+				Platform:                          PlatformOpenAI,
+				OpenAIExperimentalFeaturesEnabled: true,
+				ForceResponseModelMatch:           true,
+			}
+			requestContext := context.WithValue(req.Context(), ctxkey.Group, group)
+			requestContext = context.WithValue(requestContext, ctxkey.Model, requestedModel)
+			c.Request = req.WithContext(requestContext)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"text/event-stream"}, "x-request-id": {"reserve-request"}},
+				Body:       io.NopCloser(strings.NewReader(miniAnthropicSSEStream())),
+			}
+
+			var result *OpenAIForwardResult
+			var err error
+			if stream {
+				result, err = svc.handleResponsesStreamingFromNativeAnthropic(
+					resp, c, channelMappedModel, channelMappedModel, channelMappedModel, nil, time.Now(), apicompat.ResponsesClientToolMapping{},
+				)
+			} else {
+				result, err = svc.handleResponsesBufferedFromNativeAnthropic(
+					resp, c, channelMappedModel, channelMappedModel, channelMappedModel, nil, time.Now(), apicompat.ResponsesClientToolMapping{},
+				)
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result == nil {
+				t.Fatal("expected result")
+			}
+			if result.Model != channelMappedModel || result.BillingModel != channelMappedModel || result.UpstreamModel != channelMappedModel {
+				t.Fatalf("client rewrite must not change forwarding result: %+v", result)
+			}
+			body := rec.Body.String()
+			if !strings.Contains(body, `"model":"`+requestedModel+`"`) {
+				t.Fatalf("expected requested model in response, got %q", body)
+			}
+			if strings.Contains(body, `"model":"`+channelMappedModel+`"`) {
+				t.Fatalf("channel-mapped model leaked to client: %q", body)
+			}
+			if stream && !strings.Contains(body, `"type":"response.completed"`) {
+				t.Fatalf("expected completed SSE stream, got %q", body)
+			}
+		})
 	}
 }
