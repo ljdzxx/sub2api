@@ -269,7 +269,11 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 	}
 
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)
-	ccResp := apicompat.ResponsesToChatCompletions(responsesResp, originalModel)
+	responseModel := originalModel
+	if targetModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, upstreamModel); shouldRewrite {
+		responseModel = targetModel
+	}
+	ccResp := apicompat.ResponsesToChatCompletions(responsesResp, responseModel)
 
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
@@ -320,9 +324,13 @@ func (s *OpenAIGatewayService) handleCCStreamingFromNativeAnthropic(
 	c.Writer.WriteHeader(http.StatusOK)
 
 	anthState := apicompat.NewAnthropicEventToResponsesState()
-	anthState.Model = originalModel
+	responseModel := originalModel
+	if targetModel, shouldRewrite := openAIResponseModelRewriteTarget(c, originalModel, upstreamModel); shouldRewrite {
+		responseModel = targetModel
+	}
+	anthState.Model = responseModel
 	ccState := apicompat.NewResponsesEventToChatState()
-	ccState.Model = originalModel
+	ccState.Model = responseModel
 
 	var usage ClaudeUsage
 	var firstTokenMs *int

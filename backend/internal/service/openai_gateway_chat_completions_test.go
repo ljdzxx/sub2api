@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -572,6 +573,45 @@ func structuredInputRetryTestAccount() *Account {
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://upstream.example"},
 		Extra:       map[string]any{openai_compat.ExtraKeyResponsesSupported: true},
+	}
+}
+
+func TestForwardAsChatCompletions_ForceMatchUsesPreChannelMappingModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, stream := range []bool{false, true} {
+		for _, masterEnabled := range []bool{false, true} {
+			name := fmt.Sprintf("stream=%v/master=%v", stream, masterEnabled)
+			t.Run(name, func(t *testing.T) {
+				const requestedModel = "gpt-public"
+				const channelMappedModel = "gpt-6-luna"
+				body := []byte(fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hello"}],"stream":%v}`, channelMappedModel, stream))
+				upstreamBody := `data: {"type":"response.completed","response":{"id":"resp_1","object":"response","model":"` + channelMappedModel + `","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}` + "\n\n"
+				upstream := &httpUpstreamRecorder{resp: &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": {"text/event-stream"}},
+					Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+				}}
+				svc := &OpenAIGatewayService{cfg: structuredInputRetryTestConfig(), httpUpstream: upstream}
+				rec := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(rec)
+				req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+				group := &Group{Platform: PlatformOpenAI, OpenAIExperimentalFeaturesEnabled: masterEnabled, ForceResponseModelMatch: true}
+				requestContext := context.WithValue(req.Context(), ctxkey.Group, group)
+				requestContext = context.WithValue(requestContext, ctxkey.Model, requestedModel)
+				c.Request = req.WithContext(requestContext)
+
+				result, err := svc.ForwardAsChatCompletions(context.Background(), c, structuredInputRetryTestAccount(), body, "", "")
+
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				require.Equal(t, channelMappedModel, gjson.GetBytes(upstream.lastBody, "model").String())
+				expectedModel := channelMappedModel
+				if masterEnabled {
+					expectedModel = requestedModel
+				}
+				require.Contains(t, rec.Body.String(), `"model":"`+expectedModel+`"`)
+			})
+		}
 	}
 }
 
