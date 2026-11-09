@@ -144,6 +144,19 @@ func TestCacheWriteTransferUpdatesJSONAndSSEUsage(t *testing.T) {
 	require.Contains(t, string(sseOut), `"cache_write_tokens":0`)
 }
 
+func TestCacheWriteTransferClearsProvisionalUsageWithoutInputTotal(t *testing.T) {
+	policy := OpenAICacheReadPolicy{TransferCacheWriteToInput: true}
+	tr := NewCacheReadPolicyWireTransformer(policy, false)
+
+	provisional := tr.Transform([]byte(`{"type":"response.output_text.done","usage":{"input_tokens_details":{"cache_write_tokens":300}}}`))
+	require.EqualValues(t, 0, gjson.GetBytes(provisional, "usage.input_tokens_details.cache_write_tokens").Int())
+
+	sse := []byte("event: response.output_text.done\n" +
+		`data: {"type":"response.output_text.done","usage":{"cache_creation_input_tokens":300}}` + "\n\n")
+	sseOut := NewCacheReadPolicyWireTransformer(policy, false).TransformSSEEvent(sse)
+	require.Contains(t, string(sseOut), `"cache_creation_input_tokens":0`)
+}
+
 func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
 	logs := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)

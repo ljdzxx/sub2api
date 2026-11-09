@@ -131,6 +131,17 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 				out = b
 			}
 		}
+		// Transferring cache-write tokens does not require the total input count.
+		// Clear any provisional cache-write detail before the incomplete-usage
+		// branch below; otherwise streaming providers that report cache creation
+		// ahead of input_tokens can leak the raw value to the downstream client.
+		if t.policy.TransferCacheWriteToInput {
+			for _, key := range cacheWritePaths {
+				if usage.Get(key).Exists() {
+					set(key, 0)
+				}
+			}
+		}
 		if !t.haveInput {
 			// A cache-only provisional report cannot be adjusted without its total.
 			// Suppress that detail until a complete cumulative usage is available.
@@ -142,13 +153,6 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			continue
 		}
 		effective := ApplyOpenAICacheReadPolicy(raw, t.policy)
-		if t.policy.TransferCacheWriteToInput {
-			for _, key := range cacheWritePaths {
-				if usage.Get(key).Exists() {
-					set(key, 0)
-				}
-			}
-		}
 		for _, key := range cachePaths {
 			if usage.Get(key).Exists() {
 				set(key, effective.CacheReadInputTokens)
