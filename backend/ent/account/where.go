@@ -120,6 +120,11 @@ func RateMultiplier(v float64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// OpenaiExperimentalFeaturesEnabled applies equality check predicate on the "openai_experimental_features_enabled" field. It's identical to OpenaiExperimentalFeaturesEnabledEQ.
+func OpenaiExperimentalFeaturesEnabled(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldStatus, v))
@@ -843,6 +848,16 @@ func RateMultiplierLT(v float64) predicate.Account {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Account {
 	return predicate.Account(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// OpenaiExperimentalFeaturesEnabledEQ applies the EQ predicate on the "openai_experimental_features_enabled" field.
+func OpenaiExperimentalFeaturesEnabledEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
+}
+
+// OpenaiExperimentalFeaturesEnabledNEQ applies the NEQ predicate on the "openai_experimental_features_enabled" field.
+func OpenaiExperimentalFeaturesEnabledNEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldOpenaiExperimentalFeaturesEnabled, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

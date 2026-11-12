@@ -25,6 +25,7 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -152,6 +153,8 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		SetExtra(normalizeJSONMap(account.Extra)).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
+		SetOpenaiExperimentalFeaturesEnabled(account.OpenAIExperimentalFeaturesEnabled).
+		SetOpenaiNormalInputCacheRules(account.OpenAINormalInputCacheRules).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
@@ -552,6 +555,8 @@ func (r *accountRepository) updateLockedAccount(
 		SetExtra(extra).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
+		SetOpenaiExperimentalFeaturesEnabled(account.OpenAIExperimentalFeaturesEnabled).
+		SetOpenaiNormalInputCacheRules(account.OpenAINormalInputCacheRules).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
@@ -3681,37 +3686,39 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 	rateMultiplier := m.RateMultiplier
 
 	return &service.Account{
-		ID:                      m.ID,
-		Name:                    m.Name,
-		Notes:                   m.Notes,
-		Platform:                m.Platform,
-		Type:                    m.Type,
-		Credentials:             copyJSONMap(m.Credentials),
-		Extra:                   copyJSONMap(m.Extra),
-		ProxyID:                 m.ProxyID,
-		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
-		Concurrency:             m.Concurrency,
-		Priority:                m.Priority,
-		RateMultiplier:          &rateMultiplier,
-		LoadFactor:              m.LoadFactor,
-		Status:                  m.Status,
-		ErrorMessage:            derefString(m.ErrorMessage),
-		LastUsedAt:              m.LastUsedAt,
-		ExpiresAt:               m.ExpiresAt,
-		AutoPauseOnExpired:      m.AutoPauseOnExpired,
-		CreatedAt:               m.CreatedAt,
-		UpdatedAt:               m.UpdatedAt,
-		Schedulable:             m.Schedulable,
-		RateLimitedAt:           m.RateLimitedAt,
-		RateLimitResetAt:        m.RateLimitResetAt,
-		OverloadUntil:           m.OverloadUntil,
-		TempUnschedulableUntil:  m.TempUnschedulableUntil,
-		TempUnschedulableReason: derefString(m.TempUnschedulableReason),
-		SessionWindowStart:      m.SessionWindowStart,
-		SessionWindowEnd:        m.SessionWindowEnd,
-		SessionWindowStatus:     derefString(m.SessionWindowStatus),
-		ParentAccountID:         m.ParentAccountID,
-		QuotaDimension:          string(m.QuotaDimension),
+		ID:                                m.ID,
+		Name:                              m.Name,
+		Notes:                             m.Notes,
+		Platform:                          m.Platform,
+		Type:                              m.Type,
+		Credentials:                       copyJSONMap(m.Credentials),
+		Extra:                             copyJSONMap(m.Extra),
+		ProxyID:                           m.ProxyID,
+		ProxyFallbackOriginID:             m.ProxyFallbackOriginID,
+		Concurrency:                       m.Concurrency,
+		Priority:                          m.Priority,
+		RateMultiplier:                    &rateMultiplier,
+		OpenAIExperimentalFeaturesEnabled: m.OpenaiExperimentalFeaturesEnabled,
+		OpenAINormalInputCacheRules:       append([]domain.OpenAINormalInputCacheRule(nil), m.OpenaiNormalInputCacheRules...),
+		LoadFactor:                        m.LoadFactor,
+		Status:                            m.Status,
+		ErrorMessage:                      derefString(m.ErrorMessage),
+		LastUsedAt:                        m.LastUsedAt,
+		ExpiresAt:                         m.ExpiresAt,
+		AutoPauseOnExpired:                m.AutoPauseOnExpired,
+		CreatedAt:                         m.CreatedAt,
+		UpdatedAt:                         m.UpdatedAt,
+		Schedulable:                       m.Schedulable,
+		RateLimitedAt:                     m.RateLimitedAt,
+		RateLimitResetAt:                  m.RateLimitResetAt,
+		OverloadUntil:                     m.OverloadUntil,
+		TempUnschedulableUntil:            m.TempUnschedulableUntil,
+		TempUnschedulableReason:           derefString(m.TempUnschedulableReason),
+		SessionWindowStart:                m.SessionWindowStart,
+		SessionWindowEnd:                  m.SessionWindowEnd,
+		SessionWindowStatus:               derefString(m.SessionWindowStatus),
+		ParentAccountID:                   m.ParentAccountID,
+		QuotaDimension:                    string(m.QuotaDimension),
 	}
 }
 

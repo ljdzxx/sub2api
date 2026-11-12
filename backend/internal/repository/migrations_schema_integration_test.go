@@ -53,6 +53,8 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "accounts", "rate_limit_reset_at", "timestamp with time zone", 0, true)
 	requireColumn(t, tx, "accounts", "overload_until", "timestamp with time zone", 0, true)
 	requireColumn(t, tx, "accounts", "session_window_status", "character varying", 20, true)
+	requireColumn(t, tx, "accounts", "openai_experimental_features_enabled", "boolean", 0, false)
+	requireColumn(t, tx, "accounts", "openai_normal_input_cache_rules", "jsonb", 0, false)
 	requireIndex(t, tx, "accounts", "idx_accounts_autopause_expiry_due")
 
 	// groups: OpenAI Live 与 Fast 强制策略都默认关闭，管理员显式开启后才生效。

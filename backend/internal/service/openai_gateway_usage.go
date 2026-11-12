@@ -182,8 +182,17 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	rawResult := *result
 	rawTokens := openAIUsageTokens(rawResult.Usage)
-	cacheReadPolicy := OpenAICacheReadPolicyForKey(apiKey)
-	result.Usage = ApplyOpenAICacheReadPolicy(rawResult.Usage, cacheReadPolicy)
+	usagePolicy := result.UsagePolicy
+	if usagePolicy.Group == (OpenAICacheReadPolicy{}) {
+		usagePolicy.Group = OpenAICacheReadPolicyForKey(apiKey)
+	}
+	if !usagePolicy.Account.Enabled && account != nil && account.OpenAIExperimentalFeaturesEnabled {
+		execution := NewOpenAIUsagePolicyExecution(apiKey)
+		execution.BindAccount(account)
+		usagePolicy = execution.Snapshot()
+	}
+	accountEffectiveUsage, effectiveUsage := usagePolicy.Apply(rawResult.Usage)
+	result.Usage = effectiveUsage
 
 	// OpenAI input_tokens 是总输入，包含缓存读取和缓存写入明细。
 	// 将三类 token 拆成互斥桶，避免缓存写入同时按普通输入和 cache_write 重复计费。
@@ -309,7 +318,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Resolve upstream accounting independently from the customer cache policy.
 	upstreamCost := cost.TotalCost
-	if cacheReadPolicy.HasAdjustments() {
+	if usagePolicy.HasAdjustments() {
 		rawCost, rawErr := s.calculateOpenAIRecordUsageCost(ctx, &rawResult, apiKey, billingModels,
 			multiplier, imageMultiplier, videoMultiplier, baseMultiplier, rawTokens, serviceTier,
 			longContextBillingGate, modelLongContextExempt, pricingAt)
@@ -398,7 +407,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	imageSizeBreakdown := cloneImageSizeBreakdown(result.ImageSizeBreakdown)
-	if result.Usage.ImageCacheReadTokens > 0 || (cacheReadPolicy.HasAdjustments() && rawResult.Usage.ImageCacheReadTokens > 0) {
+	if result.Usage.ImageCacheReadTokens > 0 || (usagePolicy.HasAdjustments() && rawResult.Usage.ImageCacheReadTokens > 0) {
 		if imageSizeBreakdown == nil {
 			imageSizeBreakdown = make(map[string]int)
 		}
@@ -507,12 +516,24 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.SubscriptionID = &subscription.ID
 	}
 
-	if cacheReadPolicy.HasAdjustments() {
-		usageLog.CacheReadAdjustment = &CacheReadAdjustment{Version: 2,
-			Percent:                     cacheReadPolicy.DeductionPercent,
-			AmplificationPercent:        cacheReadPolicy.AmplificationPercent,
-			AmplificationMinInputTokens: cacheReadPolicy.AmplificationMinInputTokens,
-			TransferCacheWriteToInput:   cacheReadPolicy.TransferCacheWriteToInput,
+	if usagePolicy.HasAdjustments() {
+		version := 2
+		var accountPolicy *OpenAINormalInputCacheSelection
+		var accountEffective *OpenAIUsage
+		if usagePolicy.Account.Enabled {
+			version = 3
+			selection := usagePolicy.Account
+			accountPolicy = &selection
+			intermediate := accountEffectiveUsage
+			accountEffective = &intermediate
+		}
+		usageLog.CacheReadAdjustment = &CacheReadAdjustment{Version: version,
+			Percent:                     usagePolicy.Group.DeductionPercent,
+			AmplificationPercent:        usagePolicy.Group.AmplificationPercent,
+			AmplificationMinInputTokens: usagePolicy.Group.AmplificationMinInputTokens,
+			TransferCacheWriteToInput:   usagePolicy.Group.TransferCacheWriteToInput,
+			AccountPolicy:               accountPolicy,
+			AccountEffective:            accountEffective,
 			Raw:                         rawResult.Usage, Effective: result.Usage, UpstreamCost: upstreamCost}
 		logger.L().Info("openai.cache_read_deduction", zap.String("component", "audit.cache_read_deduction"), zap.String("request_id", requestID),
 			zap.Int64("api_key_id", apiKey.ID), zap.Any("group_id", apiKey.GroupID),
@@ -529,7 +550,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Persist the raw fallback explicitly: SQL aggregates otherwise fall back to
 	// total_cost, which now represents customer effective usage.
-	if cacheReadPolicy.HasAdjustments() && usageLog.AccountStatsCost == nil {
+	if usagePolicy.HasAdjustments() && usageLog.AccountStatsCost == nil {
 		usageLog.AccountStatsCost = &upstreamCost
 	}
 

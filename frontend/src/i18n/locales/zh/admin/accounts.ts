@@ -781,6 +781,22 @@ export default {
       openai: {
         baseUrlHint: '留空使用官方 OpenAI API',
         apiKeyHint: '您的 OpenAI API Key',
+        experimentalUsagePolicy: {
+          title: 'OpenAI 实验性功能策略',
+          hint: '账号策略先执行；分组策略会基于账号调整后的用量继续执行。',
+          enabled: '启用账号级 OpenAI 实验性功能策略',
+          transferPercent: '普通输入转写缓存比例',
+          probabilityPercent: '触发概率',
+          addRule: '添加规则',
+          removeRule: '删除规则',
+          probabilityTotal: '触发概率合计：{total}%',
+          auditSelection: '账号命中：转写 {transfer}%（该档概率 {probability}%）',
+          auditCacheWrite: '账号处理前/后写缓存 Tokens',
+          rulesRequired: '启用策略时至少需要一条普通输入转写缓存规则。',
+          transferPercentInvalid: '转写缓存比例必须是 0 到 100 的整数。',
+          probabilityPercentInvalid: '触发概率必须是 1 到 100 的整数。',
+          probabilityTotalInvalid: '所有规则的触发概率之和必须严格等于 100%。'
+        },
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',

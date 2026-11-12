@@ -2221,6 +2221,12 @@
         </div>
       </div>
 
+      <OpenAIExperimentalUsagePolicyField
+        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-model:enabled="openAIExperimentalFeaturesEnabled"
+        v-model:rules="openAINormalInputCacheRules"
+      />
+
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'apikey'"
@@ -3412,6 +3418,7 @@ import type {
   OpenAICompactMode,
   OpenAIResponsesMode,
   OpenAIEndpointCapability,
+  OpenAINormalInputCacheRule,
   OllamaCloudUsageState,
   GrokMediaEligibilityMode,
   GrokMediaEligibilityState,
@@ -3428,6 +3435,11 @@ import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestId
 import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
 import { OPENAI_FAULT_FALLBACK_ONLY, DEFAULT_FAULT_FALLBACK_STATUS_CODES, formatFaultFallbackStatusCodes, parseFaultFallbackStatusCodes, formatFaultFallbackKeywords, parseFaultFallbackKeywords, getFaultFallbackMatchMode, withAccountFaultFallback, type FaultFallbackMatchMode } from '@/utils/accountFaultFallback'
 import OpenAIImageSizeTiersField from '@/components/account/OpenAIImageSizeTiersField.vue'
+import OpenAIExperimentalUsagePolicyField from '@/components/account/OpenAIExperimentalUsagePolicyField.vue'
+import {
+  cloneOpenAINormalInputCacheRules,
+  validateOpenAIExperimentalUsagePolicy
+} from '@/components/account/openaiExperimentalUsagePolicy'
 import {
   OPENAI_IMAGE_SIZE_TIERS,
   applyOpenAIImageSizeTiersToExtra,
@@ -4180,6 +4192,8 @@ const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
 const openAIImagesUrlToB64JsonEnabled = ref(false)
+const openAIExperimentalFeaturesEnabled = ref(false)
+const openAINormalInputCacheRules = ref<OpenAINormalInputCacheRule[]>([])
 const openAIImageSizeTiers = ref<OpenAIImageSizeTier[]>([...OPENAI_IMAGE_SIZE_TIERS])
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -4661,6 +4675,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	allowOverages.value = extra?.allow_overages === true
 	upstreamRequestIdHeader.value = readUpstreamRequestIdHeader(extra)
 	openAIImagesUrlToB64JsonEnabled.value = extra?.images_url_to_b64_json === true
+	openAIExperimentalFeaturesEnabled.value = newAccount.openai_experimental_features_enabled === true
+	openAINormalInputCacheRules.value = cloneOpenAINormalInputCacheRules(newAccount.openai_normal_input_cache_rules)
 	openAIImageSizeTiers.value = readOpenAIImageSizeTiers(extra)
 	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
 	autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
@@ -5633,6 +5649,19 @@ const persistGrokMediaEligibility = async (accountID: number, updatedAccount: Ac
 
 const submitUpdateAccount = async (accountID: number, updatePayload: Record<string, unknown>) => {
   if (props.account?.platform === 'openai' && props.account.type === 'apikey') {
+    const policyError = validateOpenAIExperimentalUsagePolicy(
+      openAIExperimentalFeaturesEnabled.value,
+      openAINormalInputCacheRules.value
+    )
+    if (policyError) {
+      appStore.showError(t(`admin.accounts.openai.experimentalUsagePolicy.${policyError}`))
+      return
+    }
+    updatePayload = {
+      ...updatePayload,
+      openai_experimental_features_enabled: openAIExperimentalFeaturesEnabled.value,
+      openai_normal_input_cache_rules: cloneOpenAINormalInputCacheRules(openAINormalInputCacheRules.value)
+    }
     const statusCodes = parseFaultFallbackStatusCodes(faultFallbackStatusCodes.value)
     if (statusCodes === null) {
       appStore.showError(t('admin.accounts.faultFallbackStatusCodesInvalid'))

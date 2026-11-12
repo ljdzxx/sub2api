@@ -154,6 +154,17 @@
             <div v-if="row.cache_read_adjustment.percent > 0">{{ t('admin.groups.cacheReadDeduction.title') }}: {{ row.cache_read_adjustment.percent }}</div>
             <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationTitle') }}: {{ row.cache_read_adjustment.amplification_percent }}</div>
             <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationThreshold') }}: {{ row.cache_read_adjustment.amplification_min_input_tokens ?? 0 }}</div>
+            <div v-if="row.cache_read_adjustment.account_policy">
+              {{ t('admin.accounts.openai.experimentalUsagePolicy.auditSelection', {
+                transfer: row.cache_read_adjustment.account_policy.transfer_percent,
+                probability: row.cache_read_adjustment.account_policy.probability_percent
+              }) }}
+            </div>
+            <div v-if="row.cache_read_adjustment.account_effective">
+              {{ t('admin.accounts.openai.experimentalUsagePolicy.auditCacheWrite') }}:
+              {{ row.cache_read_adjustment.raw.cache_creation_input_tokens ?? 0 }} →
+              {{ row.cache_read_adjustment.account_effective.cache_creation_input_tokens ?? 0 }}
+            </div>
             <div>{{ t('admin.groups.cacheReadDeduction.upstreamCost') }}: ${{ row.cache_read_adjustment.upstream_cost.toFixed(8) }}</div>
           </details>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->

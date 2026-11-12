@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -157,6 +158,32 @@ func TestCacheWriteTransferClearsProvisionalUsageWithoutInputTotal(t *testing.T)
 	require.Contains(t, string(sseOut), `"cache_creation_input_tokens":0`)
 }
 
+func TestAccountNormalInputCachePolicyUpdatesJSONAndAnthropicWireUsage(t *testing.T) {
+	account := &Account{
+		ID: 41, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		OpenAIExperimentalFeaturesEnabled: true,
+		OpenAINormalInputCacheRules:       []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 100}},
+	}
+	execution := NewOpenAIUsagePolicyExecution(nil)
+	execution.BindAccount(account)
+
+	jsonBody := []byte(`{"usage":{"input_tokens":1000,"input_tokens_details":{"cached_tokens":100,"cache_write_tokens":100}}}`)
+	jsonOut := NewOpenAIUsagePolicyWireTransformer(execution, false).Transform(jsonBody)
+	require.EqualValues(t, 1000, gjson.GetBytes(jsonOut, "usage.input_tokens").Int())
+	require.EqualValues(t, 100, gjson.GetBytes(jsonOut, "usage.input_tokens_details.cached_tokens").Int())
+	require.EqualValues(t, 500, gjson.GetBytes(jsonOut, "usage.input_tokens_details.cache_write_tokens").Int())
+
+	withoutCacheWrite := []byte(`{"usage":{"input_tokens":1000,"input_tokens_details":{"cached_tokens":100}}}`)
+	injected := NewOpenAIUsagePolicyWireTransformer(execution, false).Transform(withoutCacheWrite)
+	require.EqualValues(t, 450, gjson.GetBytes(injected, "usage.input_tokens_details.cache_write_tokens").Int())
+
+	anthropicBody := []byte(`{"type":"message_start","message":{"usage":{"input_tokens":800,"cache_read_input_tokens":100,"cache_creation_input_tokens":100}}}`)
+	anthropicOut := NewOpenAIUsagePolicyWireTransformer(execution, true).Transform(anthropicBody)
+	require.EqualValues(t, 400, gjson.GetBytes(anthropicOut, "message.usage.input_tokens").Int())
+	require.EqualValues(t, 100, gjson.GetBytes(anthropicOut, "message.usage.cache_read_input_tokens").Int())
+	require.EqualValues(t, 500, gjson.GetBytes(anthropicOut, "message.usage.cache_creation_input_tokens").Int())
+}
+
 func TestCacheReadDeductionRecordUsageKeepsUpstreamAccounting(t *testing.T) {
 	logs := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
@@ -246,6 +273,43 @@ func TestCacheWriteTransferRecordUsageKeepsRawUpstreamAccounting(t *testing.T) {
 	require.Equal(t, raw, logs.lastLog.CacheReadAdjustment.Raw)
 	require.Zero(t, logs.lastLog.CacheReadAdjustment.Effective.CacheCreationInputTokens)
 	require.InDelta(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, billing.lastCmd.AccountQuotaCost, 1e-8)
+}
+
+func TestAccountNormalInputCacheRecordUsageUsesCapturedSelectionAndRawUpstreamAccounting(t *testing.T) {
+	logs := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(logs, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	billing := &openAIRecordUsageBillingRepoStub{}
+	svc.usageBillingRepo = billing
+	groupID := int64(34)
+	user := &User{ID: 31}
+	key := &APIKey{ID: 32, User: user, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1}}
+	account := &Account{
+		ID: 33, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		OpenAIExperimentalFeaturesEnabled: true,
+		OpenAINormalInputCacheRules:       []domain.OpenAINormalInputCacheRule{{TransferPercent: 0, ProbabilityPercent: 50}, {TransferPercent: 50, ProbabilityPercent: 50}},
+		Extra:                             map[string]any{"quota_limit": 100.0},
+	}
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100, OutputTokens: 20}
+	selection := OpenAINormalInputCacheSelection{Enabled: true, AccountID: account.ID, TransferPercent: 50, ProbabilityPercent: 50}
+	result := &OpenAIForwardResult{
+		RequestID: "account-normal-input-cache-test", Model: "gpt-5.1", Usage: raw,
+		UsagePolicy: OpenAIUsagePolicySnapshot{Account: selection},
+	}
+
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{Result: result, APIKey: key, User: user, Account: account}))
+	require.Equal(t, raw, result.Usage)
+	require.Equal(t, 400, logs.lastLog.InputTokens)
+	require.Equal(t, 100, logs.lastLog.CacheReadTokens)
+	require.Equal(t, 500, logs.lastLog.CacheCreationTokens)
+	require.NotNil(t, logs.lastLog.CacheReadAdjustment)
+	require.Equal(t, 3, logs.lastLog.CacheReadAdjustment.Version)
+	require.Equal(t, raw, logs.lastLog.CacheReadAdjustment.Raw)
+	require.Equal(t, &selection, logs.lastLog.CacheReadAdjustment.AccountPolicy)
+	require.NotNil(t, logs.lastLog.CacheReadAdjustment.AccountEffective)
+	require.Equal(t, 500, logs.lastLog.CacheReadAdjustment.AccountEffective.CacheCreationInputTokens)
+	require.Equal(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, billing.lastCmd.AccountQuotaCost)
+	require.NotNil(t, logs.lastLog.AccountStatsCost)
+	require.Equal(t, logs.lastLog.CacheReadAdjustment.UpstreamCost, *logs.lastLog.AccountStatsCost)
 }
 
 func TestCacheReadPrivateErrorDetails(t *testing.T) {

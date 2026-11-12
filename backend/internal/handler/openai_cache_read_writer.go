@@ -12,15 +12,15 @@ import (
 // installCacheReadWriter leaves upstream bytes/usage untouched and transforms
 // only the final HTTP wire representation (including protocol bridge output).
 func installCacheReadWriter(c *gin.Context, key *service.APIKey) func() {
-	policy := service.OpenAICacheReadPolicyForKey(key)
-	if !policy.HasAdjustments() || strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+	execution := service.EnsureOpenAIUsagePolicyExecution(c, key)
+	if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
 		return func() {}
 	}
 	if _, exists := c.Writer.(*cacheReadResponseWriter); exists {
 		return func() {}
 	}
 	original := c.Writer
-	w := &cacheReadResponseWriter{ResponseWriter: original, transform: service.NewCacheReadPolicyWireTransformer(policy, strings.Contains(c.Request.URL.Path, "/messages"))}
+	w := &cacheReadResponseWriter{ResponseWriter: original, transform: service.NewOpenAIUsagePolicyWireTransformer(execution, strings.Contains(c.Request.URL.Path, "/messages"))}
 	c.Writer = w
 	return func() { w.finish(); c.Writer = original }
 }
@@ -45,6 +45,16 @@ func (w *cacheReadResponseWriter) Write(p []byte) (int, error) {
 	}
 	w.wrote = true
 	w.consumed += len(p)
+	// Images JSON keepalives are whitespace outside the final document. Send
+	// them immediately, but never flush whitespace from an incomplete JSON
+	// document: doing so would reorder bytes and bypass its usage adjustment.
+	if !strings.Contains(contentType, "event-stream") && len(w.pending) == 0 && len(bytes.Trim(p, " \t\r\n")) == 0 {
+		n, err := w.ResponseWriter.Write(p)
+		if err != nil {
+			w.writeErr = err
+		}
+		return n, err
+	}
 	w.pending = append(w.pending, p...)
 	if strings.Contains(contentType, "event-stream") {
 		for {

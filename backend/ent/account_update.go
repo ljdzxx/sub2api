@@ -10,12 +10,14 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // AccountUpdate is the builder for updating Account entities.
@@ -265,6 +267,32 @@ func (_u *AccountUpdate) SetNillableRateMultiplier(v *float64) *AccountUpdate {
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *AccountUpdate) AddRateMultiplier(v float64) *AccountUpdate {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_u *AccountUpdate) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountUpdate {
+	_u.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _u
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *AccountUpdate {
+	if v != nil {
+		_u.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _u
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (_u *AccountUpdate) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpdate {
+	_u.mutation.SetOpenaiNormalInputCacheRules(v)
+	return _u
+}
+
+// AppendOpenaiNormalInputCacheRules appends value to the "openai_normal_input_cache_rules" field.
+func (_u *AccountUpdate) AppendOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpdate {
+	_u.mutation.AppendOpenaiNormalInputCacheRules(v)
 	return _u
 }
 
@@ -868,6 +896,17 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(account.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.OpenaiNormalInputCacheRules(); ok {
+		_spec.SetField(account.FieldOpenaiNormalInputCacheRules, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedOpenaiNormalInputCacheRules(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, account.FieldOpenaiNormalInputCacheRules, value)
+		})
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)
 	}
@@ -1405,6 +1444,32 @@ func (_u *AccountUpdateOne) SetNillableRateMultiplier(v *float64) *AccountUpdate
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *AccountUpdateOne) AddRateMultiplier(v float64) *AccountUpdateOne {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_u *AccountUpdateOne) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountUpdateOne {
+	_u.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _u
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *AccountUpdateOne {
+	if v != nil {
+		_u.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _u
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (_u *AccountUpdateOne) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpdateOne {
+	_u.mutation.SetOpenaiNormalInputCacheRules(v)
+	return _u
+}
+
+// AppendOpenaiNormalInputCacheRules appends value to the "openai_normal_input_cache_rules" field.
+func (_u *AccountUpdateOne) AppendOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpdateOne {
+	_u.mutation.AppendOpenaiNormalInputCacheRules(v)
 	return _u
 }
 
@@ -2037,6 +2102,17 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(account.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.OpenaiNormalInputCacheRules(); ok {
+		_spec.SetField(account.FieldOpenaiNormalInputCacheRules, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedOpenaiNormalInputCacheRules(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, account.FieldOpenaiNormalInputCacheRules, value)
+		})
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)

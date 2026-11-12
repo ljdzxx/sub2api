@@ -10,14 +10,16 @@ import (
 // CacheReadAdjustment is persisted for admin audit only. Public usage DTOs must
 // never embed it. Raw contains total input, including both cache buckets.
 type CacheReadAdjustment struct {
-	Version                     int         `json:"version"`
-	Percent                     float64     `json:"percent"`
-	AmplificationPercent        float64     `json:"amplification_percent,omitempty"`
-	AmplificationMinInputTokens int64       `json:"amplification_min_input_tokens,omitempty"`
-	TransferCacheWriteToInput   bool        `json:"transfer_cache_write_to_input,omitempty"`
-	Raw                         OpenAIUsage `json:"raw"`
-	Effective                   OpenAIUsage `json:"effective"`
-	UpstreamCost                float64     `json:"upstream_cost"`
+	Version                     int                              `json:"version"`
+	Percent                     float64                          `json:"percent"`
+	AmplificationPercent        float64                          `json:"amplification_percent,omitempty"`
+	AmplificationMinInputTokens int64                            `json:"amplification_min_input_tokens,omitempty"`
+	TransferCacheWriteToInput   bool                             `json:"transfer_cache_write_to_input,omitempty"`
+	AccountPolicy               *OpenAINormalInputCacheSelection `json:"account_policy,omitempty"`
+	Raw                         OpenAIUsage                      `json:"raw"`
+	AccountEffective            *OpenAIUsage                     `json:"account_effective,omitempty"`
+	Effective                   OpenAIUsage                      `json:"effective"`
+	UpstreamCost                float64                          `json:"upstream_cost"`
 }
 
 type OpenAICacheReadPolicy struct {

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // Account is the model entity for the Account schema.
@@ -49,6 +50,10 @@ type Account struct {
 	Priority int `json:"priority,omitempty"`
 	// RateMultiplier holds the value of the "rate_multiplier" field.
 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
+	// 是否启用账号级 OpenAI 实验性功能策略
+	OpenaiExperimentalFeaturesEnabled bool `json:"openai_experimental_features_enabled,omitempty"`
+	// OpenAI API Key 普通输入转写缓存规则：转移百分比与触发概率
+	OpenaiNormalInputCacheRules []domain.OpenAINormalInputCacheRule `json:"openai_normal_input_cache_rules,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// ErrorMessage holds the value of the "error_message" field.
@@ -169,9 +174,9 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case account.FieldCredentials, account.FieldExtra:
+		case account.FieldCredentials, account.FieldExtra, account.FieldOpenaiNormalInputCacheRules:
 			values[i] = new([]byte)
-		case account.FieldAutoPauseOnExpired, account.FieldSchedulable:
+		case account.FieldOpenaiExperimentalFeaturesEnabled, account.FieldAutoPauseOnExpired, account.FieldSchedulable:
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
@@ -300,6 +305,20 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field rate_multiplier", values[i])
 			} else if value.Valid {
 				_m.RateMultiplier = value.Float64
+			}
+		case account.FieldOpenaiExperimentalFeaturesEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field openai_experimental_features_enabled", values[i])
+			} else if value.Valid {
+				_m.OpenaiExperimentalFeaturesEnabled = value.Bool
+			}
+		case account.FieldOpenaiNormalInputCacheRules:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field openai_normal_input_cache_rules", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.OpenaiNormalInputCacheRules); err != nil {
+					return fmt.Errorf("unmarshal field openai_normal_input_cache_rules: %w", err)
+				}
 			}
 		case account.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -529,6 +548,12 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rate_multiplier=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RateMultiplier))
+	builder.WriteString(", ")
+	builder.WriteString("openai_experimental_features_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OpenaiExperimentalFeaturesEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("openai_normal_input_cache_rules=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OpenaiNormalInputCacheRules))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

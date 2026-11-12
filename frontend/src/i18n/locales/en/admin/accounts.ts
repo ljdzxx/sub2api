@@ -657,6 +657,22 @@ export default {
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',
         apiKeyHint: 'Your OpenAI API Key',
+        experimentalUsagePolicy: {
+          title: 'OpenAI experimental feature policy',
+          hint: 'The account policy runs first; the group policy then uses the account-adjusted usage.',
+          enabled: 'Enable account-level OpenAI experimental feature policy',
+          transferPercent: 'Ordinary input to cache-write',
+          probabilityPercent: 'Trigger probability',
+          addRule: 'Add rule',
+          removeRule: 'Remove rule',
+          probabilityTotal: 'Total trigger probability: {total}%',
+          auditSelection: 'Account match: transfer {transfer}% (tier probability {probability}%)',
+          auditCacheWrite: 'Cache-write tokens before/after account policy',
+          rulesRequired: 'Add at least one ordinary-input cache-write rule while the policy is enabled.',
+          transferPercentInvalid: 'The cache-write transfer percentage must be an integer from 0 to 100.',
+          probabilityPercentInvalid: 'The trigger probability must be an integer from 1 to 100.',
+          probabilityTotalInvalid: 'Trigger probabilities must add up to exactly 100%.'
+        },
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',

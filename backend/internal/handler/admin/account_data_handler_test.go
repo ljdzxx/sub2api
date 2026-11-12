@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -37,14 +38,16 @@ type dataProxy struct {
 }
 
 type dataAccount struct {
-	Name        string         `json:"name"`
-	Platform    string         `json:"platform"`
-	Type        string         `json:"type"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
-	ProxyKey    *string        `json:"proxy_key"`
-	Concurrency int            `json:"concurrency"`
-	Priority    int            `json:"priority"`
+	Name                              string                              `json:"name"`
+	Platform                          string                              `json:"platform"`
+	Type                              string                              `json:"type"`
+	Credentials                       map[string]any                      `json:"credentials"`
+	Extra                             map[string]any                      `json:"extra"`
+	ProxyKey                          *string                             `json:"proxy_key"`
+	Concurrency                       int                                 `json:"concurrency"`
+	Priority                          int                                 `json:"priority"`
+	OpenAIExperimentalFeaturesEnabled bool                                `json:"openai_experimental_features_enabled"`
+	OpenAINormalInputCacheRules       []domain.OpenAINormalInputCacheRule `json:"openai_normal_input_cache_rules"`
 }
 
 func setupAccountDataRouter() (*gin.Engine, *stubAdminService) {
@@ -102,16 +105,20 @@ func TestExportDataIncludesSecrets(t *testing.T) {
 	}
 	adminSvc.accounts = []service.Account{
 		{
-			ID:          21,
-			Name:        "account",
-			Platform:    service.PlatformOpenAI,
-			Type:        service.AccountTypeOAuth,
-			Credentials: map[string]any{"token": "secret"},
-			Extra:       map[string]any{"note": "x"},
-			ProxyID:     &proxyID,
-			Concurrency: 3,
-			Priority:    50,
-			Status:      service.StatusDisabled,
+			ID:                                21,
+			Name:                              "account",
+			Platform:                          service.PlatformOpenAI,
+			Type:                              service.AccountTypeAPIKey,
+			Credentials:                       map[string]any{"token": "secret"},
+			Extra:                             map[string]any{"note": "x"},
+			ProxyID:                           &proxyID,
+			Concurrency:                       3,
+			Priority:                          50,
+			Status:                            service.StatusDisabled,
+			OpenAIExperimentalFeaturesEnabled: true,
+			OpenAINormalInputCacheRules: []domain.OpenAINormalInputCacheRule{
+				{TransferPercent: 50, ProbabilityPercent: 100},
+			},
 		},
 	}
 
@@ -129,6 +136,8 @@ func TestExportDataIncludesSecrets(t *testing.T) {
 	require.Equal(t, "pass", resp.Data.Proxies[0].Password)
 	require.Len(t, resp.Data.Accounts, 1)
 	require.Equal(t, "secret", resp.Data.Accounts[0].Credentials["token"])
+	require.True(t, resp.Data.Accounts[0].OpenAIExperimentalFeaturesEnabled)
+	require.Equal(t, []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 100}}, resp.Data.Accounts[0].OpenAINormalInputCacheRules)
 }
 
 func TestExportDataWithoutProxies(t *testing.T) {
@@ -293,13 +302,17 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 			},
 			"accounts": []map[string]any{
 				{
-					"name":        "acc",
-					"platform":    service.PlatformOpenAI,
-					"type":        service.AccountTypeOAuth,
-					"credentials": map[string]any{"token": "x"},
-					"proxy_key":   "socks5|1.2.3.4|1080|u|p",
-					"concurrency": 3,
-					"priority":    50,
+					"name":                                 "acc",
+					"platform":                             service.PlatformOpenAI,
+					"type":                                 service.AccountTypeAPIKey,
+					"credentials":                          map[string]any{"token": "x"},
+					"proxy_key":                            "socks5|1.2.3.4|1080|u|p",
+					"concurrency":                          3,
+					"priority":                             50,
+					"openai_experimental_features_enabled": true,
+					"openai_normal_input_cache_rules": []map[string]any{{
+						"transfer_percent": 50, "probability_percent": 100,
+					}},
 				},
 			},
 		},
@@ -316,4 +329,6 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 	require.Len(t, adminSvc.createdProxies, 0)
 	require.Len(t, adminSvc.createdAccounts, 1)
 	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
+	require.True(t, adminSvc.createdAccounts[0].OpenAIExperimentalFeaturesEnabled)
+	require.Equal(t, []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 100}}, adminSvc.createdAccounts[0].OpenAINormalInputCacheRules)
 }

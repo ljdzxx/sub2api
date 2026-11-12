@@ -1425,6 +1425,8 @@ export interface Account {
   parent_chatgpt_account_id?: string
 
   grok_model_diagnostics?: GrokModelDiagnostics
+  openai_experimental_features_enabled?: boolean
+  openai_normal_input_cache_rules?: OpenAINormalInputCacheRule[]
 }
 
 // The admin account list may return this compact shape when lite=1. Detail
@@ -1634,6 +1636,8 @@ export interface CreateAccountRequest {
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
+  openai_experimental_features_enabled?: boolean
+  openai_normal_input_cache_rules?: OpenAINormalInputCacheRule[]
   confirm_mixed_channel_risk?: boolean
 }
 
@@ -1655,7 +1659,14 @@ export interface UpdateAccountRequest {
   auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   upstream_billing_rate_sync_enabled?: boolean
+  openai_experimental_features_enabled?: boolean
+  openai_normal_input_cache_rules?: OpenAINormalInputCacheRule[]
   confirm_mixed_channel_risk?: boolean
+}
+
+export interface OpenAINormalInputCacheRule {
+  transfer_percent: number
+  probability_percent: number
 }
 
 export type GrokMediaEligibilityMode = 'auto' | 'enabled' | 'disabled'
@@ -1915,8 +1926,16 @@ export interface CacheReadAdjustment {
   percent: number
   amplification_percent?: number
   amplification_min_input_tokens?: number
+  transfer_cache_write_to_input?: boolean
+  account_policy?: {
+    enabled: boolean
+    account_id: number
+    transfer_percent: number
+    probability_percent: number
+  }
   raw: { input_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; image_cache_read_tokens?: number }
-  effective: { input_tokens: number; cache_read_input_tokens?: number; image_cache_read_tokens?: number }
+  account_effective?: { input_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; image_cache_read_tokens?: number }
+  effective: { input_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; image_cache_read_tokens?: number }
   upstream_cost: number
 }
 

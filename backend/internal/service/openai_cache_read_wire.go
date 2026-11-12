@@ -15,6 +15,9 @@ func newContextCacheReadTransformer(ctx context.Context) *CacheReadWireTransform
 	if ctx == nil {
 		return nil
 	}
+	if execution := openAIUsagePolicyExecutionFromContext(ctx); execution != nil {
+		return NewOpenAIUsagePolicyWireTransformer(execution, false)
+	}
 	group, _ := ctx.Value(ctxkey.Group).(*Group)
 	return NewCacheReadPolicyWireTransformer(OpenAICacheReadPolicyForKey(&APIKey{Group: group}), false)
 }
@@ -24,6 +27,7 @@ func newContextCacheReadTransformer(ctx context.Context) *CacheReadWireTransform
 // One instance belongs to one HTTP request or downstream WS write goroutine.
 type CacheReadWireTransformer struct {
 	policy     OpenAICacheReadPolicy
+	execution  *OpenAIUsagePolicyExecution
 	anthropic  bool
 	raw        OpenAIUsage
 	haveInput  bool
@@ -38,8 +42,19 @@ func NewCacheReadPolicyWireTransformer(policy OpenAICacheReadPolicy, anthropic b
 	return &CacheReadWireTransformer{policy: policy, anthropic: anthropic}
 }
 
+func NewOpenAIUsagePolicyWireTransformer(execution *OpenAIUsagePolicyExecution, anthropic bool) *CacheReadWireTransformer {
+	return &CacheReadWireTransformer{execution: execution, anthropic: anthropic}
+}
+
 func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
-	if t == nil || !t.policy.HasAdjustments() || !gjson.ValidBytes(body) {
+	if t == nil || !gjson.ValidBytes(body) {
+		return body
+	}
+	policy := OpenAIUsagePolicySnapshot{Group: t.policy}
+	if t.execution != nil {
+		policy = t.execution.Snapshot()
+	}
+	if !policy.HasAdjustments() {
 		return body
 	}
 	root := gjson.ParseBytes(body)
@@ -135,7 +150,7 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 		// Clear any provisional cache-write detail before the incomplete-usage
 		// branch below; otherwise streaming providers that report cache creation
 		// ahead of input_tokens can leak the raw value to the downstream client.
-		if t.policy.TransferCacheWriteToInput {
+		if policy.Group.TransferCacheWriteToInput {
 			for _, key := range cacheWritePaths {
 				if usage.Get(key).Exists() {
 					set(key, 0)
@@ -152,10 +167,24 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			del("prompt_tokens_details.cached_tokens_details")
 			continue
 		}
-		effective := ApplyOpenAICacheReadPolicy(raw, t.policy)
+		_, effective := policy.Apply(raw)
 		for _, key := range cachePaths {
 			if usage.Get(key).Exists() {
 				set(key, effective.CacheReadInputTokens)
+			}
+		}
+		cacheWritePresent := false
+		for _, key := range cacheWritePaths {
+			if usage.Get(key).Exists() {
+				cacheWritePresent = true
+				set(key, effective.CacheCreationInputTokens)
+			}
+		}
+		if !t.anthropic && input.Exists() && policy.Account.Enabled && !cacheWritePresent {
+			if usage.Get("prompt_tokens").Exists() {
+				set("prompt_tokens_details.cache_write_tokens", effective.CacheCreationInputTokens)
+			} else {
+				set("input_tokens_details.cache_write_tokens", effective.CacheCreationInputTokens)
 			}
 		}
 		if !t.anthropic && input.Exists() && effective.InputTokens != raw.InputTokens {
@@ -184,7 +213,7 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 		if t.anthropic {
 			set("input_tokens", max(effective.InputTokens-effective.CacheReadInputTokens-effective.CacheCreationInputTokens, 0))
 			set("cache_read_input_tokens", effective.CacheReadInputTokens)
-			if usage.Get("cache_creation_input_tokens").Exists() {
+			if usage.Get("cache_creation_input_tokens").Exists() || policy.Account.Enabled {
 				set("cache_creation_input_tokens", effective.CacheCreationInputTokens)
 			}
 		}

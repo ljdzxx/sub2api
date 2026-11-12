@@ -61,7 +61,13 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
-	return s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, defaultMappedModel, false)
+	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+	execution.BindAccount(account)
+	result, err := s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, defaultMappedModel, false)
+	if result != nil {
+		result.UsagePolicy = execution.Snapshot()
+	}
+	return result, err
 }
 
 func (s *OpenAIGatewayService) forwardAsChatCompletions(

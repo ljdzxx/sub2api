@@ -33,6 +33,23 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+	execution.BindAccount(account)
+	result, err := s.forwardAsAnthropic(ctx, c, account, body, promptCacheKey, defaultMappedModel)
+	if result != nil {
+		result.UsagePolicy = execution.Snapshot()
+	}
+	return result, err
+}
+
+func (s *OpenAIGatewayService) forwardAsAnthropic(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body []byte,
+	promptCacheKey string,
+	defaultMappedModel string,
+) (*OpenAIForwardResult, error) {
 	// 工具 Schema 清洗必须先于所有分流：下游每条路径（原生 Anthropic 直通、
 	// Chat Completions 转换、Responses 转换）都会把 tools 原样带给上游，而
 	// xAI / Moonshot 等严格校验方会因 input_schema 里的 required:null 或

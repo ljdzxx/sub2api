@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // AccountCreate is the builder for creating a Account entity.
@@ -192,6 +193,26 @@ func (_c *AccountCreate) SetNillableRateMultiplier(v *float64) *AccountCreate {
 	if v != nil {
 		_c.SetRateMultiplier(*v)
 	}
+	return _c
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (_c *AccountCreate) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountCreate {
+	_c.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	return _c
+}
+
+// SetNillableOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableOpenaiExperimentalFeaturesEnabled(v *bool) *AccountCreate {
+	if v != nil {
+		_c.SetOpenaiExperimentalFeaturesEnabled(*v)
+	}
+	return _c
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (_c *AccountCreate) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountCreate {
+	_c.mutation.SetOpenaiNormalInputCacheRules(v)
 	return _c
 }
 
@@ -565,6 +586,14 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); !ok {
+		v := account.DefaultOpenaiExperimentalFeaturesEnabled
+		_c.mutation.SetOpenaiExperimentalFeaturesEnabled(v)
+	}
+	if _, ok := _c.mutation.OpenaiNormalInputCacheRules(); !ok {
+		v := account.DefaultOpenaiNormalInputCacheRules
+		_c.mutation.SetOpenaiNormalInputCacheRules(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := account.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -630,6 +659,12 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Account.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); !ok {
+		return &ValidationError{Name: "openai_experimental_features_enabled", err: errors.New(`ent: missing required field "Account.openai_experimental_features_enabled"`)}
+	}
+	if _, ok := _c.mutation.OpenaiNormalInputCacheRules(); !ok {
+		return &ValidationError{Name: "openai_normal_input_cache_rules", err: errors.New(`ent: missing required field "Account.openai_normal_input_cache_rules"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Account.status"`)}
@@ -740,6 +775,14 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.OpenaiExperimentalFeaturesEnabled(); ok {
+		_spec.SetField(account.FieldOpenaiExperimentalFeaturesEnabled, field.TypeBool, value)
+		_node.OpenaiExperimentalFeaturesEnabled = value
+	}
+	if value, ok := _c.mutation.OpenaiNormalInputCacheRules(); ok {
+		_spec.SetField(account.FieldOpenaiNormalInputCacheRules, field.TypeJSON, value)
+		_node.OpenaiNormalInputCacheRules = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)
@@ -1164,6 +1207,30 @@ func (u *AccountUpsert) UpdateRateMultiplier() *AccountUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *AccountUpsert) AddRateMultiplier(v float64) *AccountUpsert {
 	u.Add(account.FieldRateMultiplier, v)
+	return u
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *AccountUpsert) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountUpsert {
+	u.Set(account.FieldOpenaiExperimentalFeaturesEnabled, v)
+	return u
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateOpenaiExperimentalFeaturesEnabled() *AccountUpsert {
+	u.SetExcluded(account.FieldOpenaiExperimentalFeaturesEnabled)
+	return u
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (u *AccountUpsert) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpsert {
+	u.Set(account.FieldOpenaiNormalInputCacheRules, v)
+	return u
+}
+
+// UpdateOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateOpenaiNormalInputCacheRules() *AccountUpsert {
+	u.SetExcluded(account.FieldOpenaiNormalInputCacheRules)
 	return u
 }
 
@@ -1739,6 +1806,34 @@ func (u *AccountUpsertOne) AddRateMultiplier(v float64) *AccountUpsertOne {
 func (u *AccountUpsertOne) UpdateRateMultiplier() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *AccountUpsertOne) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOpenaiExperimentalFeaturesEnabled(v)
+	})
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateOpenaiExperimentalFeaturesEnabled() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOpenaiExperimentalFeaturesEnabled()
+	})
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (u *AccountUpsertOne) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOpenaiNormalInputCacheRules(v)
+	})
+}
+
+// UpdateOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateOpenaiNormalInputCacheRules() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOpenaiNormalInputCacheRules()
 	})
 }
 
@@ -2524,6 +2619,34 @@ func (u *AccountUpsertBulk) AddRateMultiplier(v float64) *AccountUpsertBulk {
 func (u *AccountUpsertBulk) UpdateRateMultiplier() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (u *AccountUpsertBulk) SetOpenaiExperimentalFeaturesEnabled(v bool) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOpenaiExperimentalFeaturesEnabled(v)
+	})
+}
+
+// UpdateOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateOpenaiExperimentalFeaturesEnabled() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOpenaiExperimentalFeaturesEnabled()
+	})
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (u *AccountUpsertBulk) SetOpenaiNormalInputCacheRules(v []domain.OpenAINormalInputCacheRule) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOpenaiNormalInputCacheRules(v)
+	})
+}
+
+// UpdateOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateOpenaiNormalInputCacheRules() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOpenaiNormalInputCacheRules()
 	})
 }
 

@@ -2282,60 +2282,63 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
 type AccountMutation struct {
 	config
-	op                          Op
-	typ                         string
-	id                          *int64
-	created_at                  *time.Time
-	updated_at                  *time.Time
-	deleted_at                  *time.Time
-	name                        *string
-	notes                       *string
-	platform                    *string
-	_type                       *string
-	credentials                 *map[string]interface{}
-	extra                       *map[string]interface{}
-	proxy_fallback_origin_id    *int64
-	addproxy_fallback_origin_id *int64
-	concurrency                 *int
-	addconcurrency              *int
-	load_factor                 *int
-	addload_factor              *int
-	priority                    *int
-	addpriority                 *int
-	rate_multiplier             *float64
-	addrate_multiplier          *float64
-	status                      *string
-	error_message               *string
-	last_used_at                *time.Time
-	expires_at                  *time.Time
-	auto_pause_on_expired       *bool
-	schedulable                 *bool
-	rate_limited_at             *time.Time
-	rate_limit_reset_at         *time.Time
-	overload_until              *time.Time
-	temp_unschedulable_until    *time.Time
-	temp_unschedulable_reason   *string
-	session_window_start        *time.Time
-	session_window_end          *time.Time
-	session_window_status       *string
-	quota_dimension             *account.QuotaDimension
-	clearedFields               map[string]struct{}
-	groups                      map[int64]struct{}
-	removedgroups               map[int64]struct{}
-	clearedgroups               bool
-	proxy                       *int64
-	clearedproxy                bool
-	parent                      *int64
-	clearedparent               bool
-	children                    map[int64]struct{}
-	removedchildren             map[int64]struct{}
-	clearedchildren             bool
-	usage_logs                  map[int64]struct{}
-	removedusage_logs           map[int64]struct{}
-	clearedusage_logs           bool
-	done                        bool
-	oldValue                    func(context.Context) (*Account, error)
-	predicates                  []predicate.Account
+	op                                    Op
+	typ                                   string
+	id                                    *int64
+	created_at                            *time.Time
+	updated_at                            *time.Time
+	deleted_at                            *time.Time
+	name                                  *string
+	notes                                 *string
+	platform                              *string
+	_type                                 *string
+	credentials                           *map[string]interface{}
+	extra                                 *map[string]interface{}
+	proxy_fallback_origin_id              *int64
+	addproxy_fallback_origin_id           *int64
+	concurrency                           *int
+	addconcurrency                        *int
+	load_factor                           *int
+	addload_factor                        *int
+	priority                              *int
+	addpriority                           *int
+	rate_multiplier                       *float64
+	addrate_multiplier                    *float64
+	openai_experimental_features_enabled  *bool
+	openai_normal_input_cache_rules       *[]domain.OpenAINormalInputCacheRule
+	appendopenai_normal_input_cache_rules []domain.OpenAINormalInputCacheRule
+	status                                *string
+	error_message                         *string
+	last_used_at                          *time.Time
+	expires_at                            *time.Time
+	auto_pause_on_expired                 *bool
+	schedulable                           *bool
+	rate_limited_at                       *time.Time
+	rate_limit_reset_at                   *time.Time
+	overload_until                        *time.Time
+	temp_unschedulable_until              *time.Time
+	temp_unschedulable_reason             *string
+	session_window_start                  *time.Time
+	session_window_end                    *time.Time
+	session_window_status                 *string
+	quota_dimension                       *account.QuotaDimension
+	clearedFields                         map[string]struct{}
+	groups                                map[int64]struct{}
+	removedgroups                         map[int64]struct{}
+	clearedgroups                         bool
+	proxy                                 *int64
+	clearedproxy                          bool
+	parent                                *int64
+	clearedparent                         bool
+	children                              map[int64]struct{}
+	removedchildren                       map[int64]struct{}
+	clearedchildren                       bool
+	usage_logs                            map[int64]struct{}
+	removedusage_logs                     map[int64]struct{}
+	clearedusage_logs                     bool
+	done                                  bool
+	oldValue                              func(context.Context) (*Account, error)
+	predicates                            []predicate.Account
 }
 
 var _ ent.Mutation = (*AccountMutation)(nil)
@@ -3141,6 +3144,93 @@ func (m *AccountMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *AccountMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetOpenaiExperimentalFeaturesEnabled sets the "openai_experimental_features_enabled" field.
+func (m *AccountMutation) SetOpenaiExperimentalFeaturesEnabled(b bool) {
+	m.openai_experimental_features_enabled = &b
+}
+
+// OpenaiExperimentalFeaturesEnabled returns the value of the "openai_experimental_features_enabled" field in the mutation.
+func (m *AccountMutation) OpenaiExperimentalFeaturesEnabled() (r bool, exists bool) {
+	v := m.openai_experimental_features_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiExperimentalFeaturesEnabled returns the old "openai_experimental_features_enabled" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldOpenaiExperimentalFeaturesEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiExperimentalFeaturesEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiExperimentalFeaturesEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiExperimentalFeaturesEnabled: %w", err)
+	}
+	return oldValue.OpenaiExperimentalFeaturesEnabled, nil
+}
+
+// ResetOpenaiExperimentalFeaturesEnabled resets all changes to the "openai_experimental_features_enabled" field.
+func (m *AccountMutation) ResetOpenaiExperimentalFeaturesEnabled() {
+	m.openai_experimental_features_enabled = nil
+}
+
+// SetOpenaiNormalInputCacheRules sets the "openai_normal_input_cache_rules" field.
+func (m *AccountMutation) SetOpenaiNormalInputCacheRules(danicr []domain.OpenAINormalInputCacheRule) {
+	m.openai_normal_input_cache_rules = &danicr
+	m.appendopenai_normal_input_cache_rules = nil
+}
+
+// OpenaiNormalInputCacheRules returns the value of the "openai_normal_input_cache_rules" field in the mutation.
+func (m *AccountMutation) OpenaiNormalInputCacheRules() (r []domain.OpenAINormalInputCacheRule, exists bool) {
+	v := m.openai_normal_input_cache_rules
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiNormalInputCacheRules returns the old "openai_normal_input_cache_rules" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldOpenaiNormalInputCacheRules(ctx context.Context) (v []domain.OpenAINormalInputCacheRule, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiNormalInputCacheRules is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiNormalInputCacheRules requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiNormalInputCacheRules: %w", err)
+	}
+	return oldValue.OpenaiNormalInputCacheRules, nil
+}
+
+// AppendOpenaiNormalInputCacheRules adds danicr to the "openai_normal_input_cache_rules" field.
+func (m *AccountMutation) AppendOpenaiNormalInputCacheRules(danicr []domain.OpenAINormalInputCacheRule) {
+	m.appendopenai_normal_input_cache_rules = append(m.appendopenai_normal_input_cache_rules, danicr...)
+}
+
+// AppendedOpenaiNormalInputCacheRules returns the list of values that were appended to the "openai_normal_input_cache_rules" field in this mutation.
+func (m *AccountMutation) AppendedOpenaiNormalInputCacheRules() ([]domain.OpenAINormalInputCacheRule, bool) {
+	if len(m.appendopenai_normal_input_cache_rules) == 0 {
+		return nil, false
+	}
+	return m.appendopenai_normal_input_cache_rules, true
+}
+
+// ResetOpenaiNormalInputCacheRules resets all changes to the "openai_normal_input_cache_rules" field.
+func (m *AccountMutation) ResetOpenaiNormalInputCacheRules() {
+	m.openai_normal_input_cache_rules = nil
+	m.appendopenai_normal_input_cache_rules = nil
 }
 
 // SetStatus sets the "status" field.
@@ -4138,7 +4228,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 33)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4183,6 +4273,12 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
+	}
+	if m.openai_experimental_features_enabled != nil {
+		fields = append(fields, account.FieldOpenaiExperimentalFeaturesEnabled)
+	}
+	if m.openai_normal_input_cache_rules != nil {
+		fields = append(fields, account.FieldOpenaiNormalInputCacheRules)
 	}
 	if m.status != nil {
 		fields = append(fields, account.FieldStatus)
@@ -4270,6 +4366,10 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Priority()
 	case account.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case account.FieldOpenaiExperimentalFeaturesEnabled:
+		return m.OpenaiExperimentalFeaturesEnabled()
+	case account.FieldOpenaiNormalInputCacheRules:
+		return m.OpenaiNormalInputCacheRules()
 	case account.FieldStatus:
 		return m.Status()
 	case account.FieldErrorMessage:
@@ -4341,6 +4441,10 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPriority(ctx)
 	case account.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case account.FieldOpenaiExperimentalFeaturesEnabled:
+		return m.OldOpenaiExperimentalFeaturesEnabled(ctx)
+	case account.FieldOpenaiNormalInputCacheRules:
+		return m.OldOpenaiNormalInputCacheRules(ctx)
 	case account.FieldStatus:
 		return m.OldStatus(ctx)
 	case account.FieldErrorMessage:
@@ -4486,6 +4590,20 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case account.FieldOpenaiExperimentalFeaturesEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiExperimentalFeaturesEnabled(v)
+		return nil
+	case account.FieldOpenaiNormalInputCacheRules:
+		v, ok := value.([]domain.OpenAINormalInputCacheRule)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiNormalInputCacheRules(v)
 		return nil
 	case account.FieldStatus:
 		v, ok := value.(string)
@@ -4860,6 +4978,12 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case account.FieldOpenaiExperimentalFeaturesEnabled:
+		m.ResetOpenaiExperimentalFeaturesEnabled()
+		return nil
+	case account.FieldOpenaiNormalInputCacheRules:
+		m.ResetOpenaiNormalInputCacheRules()
 		return nil
 	case account.FieldStatus:
 		m.ResetStatus()

@@ -71,6 +71,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	firstClientMessage []byte,
 	hooks *OpenAIWSIngressHooks,
 ) (returnErr error) {
+	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+	execution.BindAccount(account)
+	ctx = context.WithValue(ctx, openAIUsagePolicyExecutionContextKey{}, execution)
 	if s == nil {
 		return errors.New("service is nil")
 	}
@@ -594,6 +597,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if err := hooks.BeforeTurn(turn); err != nil {
 					return err
 				}
+			}
+			if turn > 1 {
+				execution.BeginTurn(account)
 			}
 			if turnState != "" && c != nil && c.Request != nil {
 				c.Request.Header.Set(openAIWSTurnStateHeader, turnState)
@@ -1472,6 +1478,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if err := hooks.BeforeTurn(turn); err != nil {
 				return err
 			}
+		}
+		if turn > 1 && !skipBeforeTurn {
+			execution.BeginTurn(account)
 		}
 		skipBeforeTurn = false
 		// 剥离本会话已知失效的加密项，阻断同一失效密文随历史反复触发上游拒绝。

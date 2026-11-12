@@ -113,6 +113,14 @@ func (Account) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
 
+		field.Bool("openai_experimental_features_enabled").
+			Default(false).
+			Comment("是否启用账号级 OpenAI 实验性功能策略"),
+		field.JSON("openai_normal_input_cache_rules", []domain.OpenAINormalInputCacheRule{}).
+			Default([]domain.OpenAINormalInputCacheRule{}).
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+			Comment("OpenAI API Key 普通输入转写缓存规则：转移百分比与触发概率"),
+
 		// status: 账户状态，如 "active", "error", "disabled"
 		field.String("status").
 			MaxLen(20).

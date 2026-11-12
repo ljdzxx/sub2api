@@ -3641,6 +3641,12 @@
         </div>
       </div>
 
+      <OpenAIExperimentalUsagePolicyField
+        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        v-model:enabled="openAIExperimentalFeaturesEnabled"
+        v-model:rules="openAINormalInputCacheRules"
+      />
+
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
         v-if="form.platform === 'openai' && accountCategory === 'apikey'"
@@ -4165,6 +4171,7 @@ import type {
   OpenAICompactMode,
   OpenAIResponsesMode,
   OpenAIEndpointCapability,
+  OpenAINormalInputCacheRule,
   TempUnschedulableScope
 } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -4175,6 +4182,11 @@ import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestId
 import FaultFallbackOnlyField from '@/components/account/FaultFallbackOnlyField.vue'
 import { DEFAULT_FAULT_FALLBACK_STATUS_CODES, parseFaultFallbackStatusCodes, parseFaultFallbackKeywords, withAccountFaultFallback, type FaultFallbackMatchMode } from '@/utils/accountFaultFallback'
 import OpenAIImageSizeTiersField from '@/components/account/OpenAIImageSizeTiersField.vue'
+import OpenAIExperimentalUsagePolicyField from '@/components/account/OpenAIExperimentalUsagePolicyField.vue'
+import {
+  cloneOpenAINormalInputCacheRules,
+  validateOpenAIExperimentalUsagePolicy
+} from '@/components/account/openaiExperimentalUsagePolicy'
 import {
   OPENAI_IMAGE_SIZE_TIERS,
   applyOpenAIImageSizeTiersToExtra,
@@ -4734,6 +4746,8 @@ const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
 const openAIImagesUrlToB64JsonEnabled = ref(false)
+const openAIExperimentalFeaturesEnabled = ref(false)
+const openAINormalInputCacheRules = ref<OpenAINormalInputCacheRule[]>([])
 const openAIImageSizeTiers = ref<OpenAIImageSizeTier[]>([...OPENAI_IMAGE_SIZE_TIERS])
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -5694,6 +5708,8 @@ const resetForm = () => {
   headerOverrideEnabled.value = false
   headerOverrideRows.value = []
   openAIImagesUrlToB64JsonEnabled.value = false
+  openAIExperimentalFeaturesEnabled.value = false
+  openAINormalInputCacheRules.value = []
   openAIImageSizeTiers.value = [...OPENAI_IMAGE_SIZE_TIERS]
   grokOAuthCustomBaseUrlEnabled.value = false
   grokOAuthBaseUrl.value = ''
@@ -5883,6 +5899,19 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
 // Helper function to create account with mixed channel warning handling
 const doCreateAccount = async (payload: CreateAccountRequest) => {
   if (payload.platform === 'openai' && payload.type === 'apikey') {
+    const policyError = validateOpenAIExperimentalUsagePolicy(
+      openAIExperimentalFeaturesEnabled.value,
+      openAINormalInputCacheRules.value
+    )
+    if (policyError) {
+      appStore.showError(t(`admin.accounts.openai.experimentalUsagePolicy.${policyError}`))
+      return
+    }
+    payload = {
+      ...payload,
+      openai_experimental_features_enabled: openAIExperimentalFeaturesEnabled.value,
+      openai_normal_input_cache_rules: cloneOpenAINormalInputCacheRules(openAINormalInputCacheRules.value)
+    }
     const statusCodes = parseFaultFallbackStatusCodes(faultFallbackStatusCodes.value)
     if (statusCodes === null) {
       appStore.showError(t('admin.accounts.faultFallbackStatusCodesInvalid'))

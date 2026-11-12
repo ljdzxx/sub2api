@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -299,22 +300,24 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		proxyID = source.ProxyFallbackOriginID
 	}
 	input := &CreateAccountInput{
-		Name:                  duplicateAccountName(source.Name),
-		Notes:                 cloneAccountValuePointer(source.Notes),
-		Platform:              source.Platform,
-		Type:                  source.Type,
-		Credentials:           credentials,
-		Extra:                 extra,
-		ProxyID:               cloneAccountValuePointer(proxyID),
-		Concurrency:           source.Concurrency,
-		Priority:              source.Priority,
-		RateMultiplier:        cloneAccountValuePointer(source.RateMultiplier),
-		LoadFactor:            cloneAccountValuePointer(source.LoadFactor),
-		GroupIDs:              groupIDs,
-		ExpiresAt:             expiresAt,
-		AutoPauseOnExpired:    &autoPauseOnExpired,
-		SkipDefaultGroupBind:  true,
-		SkipMixedChannelCheck: true,
+		Name:                              duplicateAccountName(source.Name),
+		Notes:                             cloneAccountValuePointer(source.Notes),
+		Platform:                          source.Platform,
+		Type:                              source.Type,
+		Credentials:                       credentials,
+		Extra:                             extra,
+		ProxyID:                           cloneAccountValuePointer(proxyID),
+		Concurrency:                       source.Concurrency,
+		Priority:                          source.Priority,
+		RateMultiplier:                    cloneAccountValuePointer(source.RateMultiplier),
+		OpenAIExperimentalFeaturesEnabled: source.OpenAIExperimentalFeaturesEnabled,
+		OpenAINormalInputCacheRules:       append([]domain.OpenAINormalInputCacheRule(nil), source.OpenAINormalInputCacheRules...),
+		LoadFactor:                        cloneAccountValuePointer(source.LoadFactor),
+		GroupIDs:                          groupIDs,
+		ExpiresAt:                         expiresAt,
+		AutoPauseOnExpired:                &autoPauseOnExpired,
+		SkipDefaultGroupBind:              true,
+		SkipMixedChannelCheck:             true,
 	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
@@ -411,6 +414,9 @@ func normalizeOpenAILongContextBillingUpdateExtra(account *Account, input *Updat
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
+	if err := validateOpenAIAccountUsagePolicy(input.Platform, input.Type, input.OpenAIExperimentalFeaturesEnabled, input.OpenAINormalInputCacheRules); err != nil {
+		return nil, err
+	}
 	if err := validateOpenAIFaultFallbackExtra(input.Platform, input.Type, accountExtra); err != nil {
 		return nil, err
 	}
@@ -428,17 +434,19 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, OpenCodeGoUsageSnapshotExtraKey)
 	accountExtra = prepareCodexFingerprintExtraForCreate(input.Platform, input.Type, accountExtra)
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       accountExtra,
-		ProxyID:     input.ProxyID,
-		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:                              input.Name,
+		Notes:                             normalizeAccountNotes(input.Notes),
+		Platform:                          input.Platform,
+		Type:                              input.Type,
+		Credentials:                       input.Credentials,
+		Extra:                             accountExtra,
+		ProxyID:                           input.ProxyID,
+		Concurrency:                       normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:                          input.Priority,
+		OpenAIExperimentalFeaturesEnabled: input.OpenAIExperimentalFeaturesEnabled,
+		OpenAINormalInputCacheRules:       append([]domain.OpenAINormalInputCacheRule(nil), input.OpenAINormalInputCacheRules...),
+		Status:                            StatusActive,
+		Schedulable:                       true,
 	}
 	if input.ProbeEnabled != nil && *input.ProbeEnabled {
 		if !isUpstreamBillingProbeAccount(account) {
@@ -587,6 +595,21 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if account.Platform == PlatformTypeSafe && input.Type != "" && input.Type != AccountTypeAPIKey {
 		return nil, errors.New("typesafe accounts only support apikey credentials")
 	}
+	effectivePolicyType := account.Type
+	if input.Type != "" {
+		effectivePolicyType = input.Type
+	}
+	policyEnabled := account.OpenAIExperimentalFeaturesEnabled
+	if input.OpenAIExperimentalFeaturesEnabled != nil {
+		policyEnabled = *input.OpenAIExperimentalFeaturesEnabled
+	}
+	policyRules := append([]domain.OpenAINormalInputCacheRule(nil), account.OpenAINormalInputCacheRules...)
+	if input.OpenAINormalInputCacheRules != nil {
+		policyRules = append([]domain.OpenAINormalInputCacheRule(nil), (*input.OpenAINormalInputCacheRules)...)
+	}
+	if err := validateOpenAIAccountUsagePolicy(account.Platform, effectivePolicyType, policyEnabled, policyRules); err != nil {
+		return nil, err
+	}
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
 		normalizedExtra, err = normalizeOpenAILongContextBillingUpdateExtra(account, input)
@@ -651,6 +674,8 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if input.Type != "" {
 		account.Type = input.Type
 	}
+	account.OpenAIExperimentalFeaturesEnabled = policyEnabled
+	account.OpenAINormalInputCacheRules = policyRules
 	if input.Notes != nil {
 		account.Notes = normalizeAccountNotes(input.Notes)
 	}

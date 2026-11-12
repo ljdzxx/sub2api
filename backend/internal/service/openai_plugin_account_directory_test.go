@@ -99,6 +99,7 @@ func TestAccountReadableSnapshot_DenylistTripwire(t *testing.T) {
 		"ID": {}, "Name": {}, "Notes": {}, "Platform": {}, "Type": {}, "Extra": {},
 		"Proxy": {}, "ProxyID": {}, "ProxyFallbackOriginID": {}, "ProxyFallbackOriginName": {},
 		"Concurrency": {}, "Priority": {}, "RateMultiplier": {}, "LoadFactor": {},
+		"OpenAIExperimentalFeaturesEnabled": {}, "OpenAINormalInputCacheRules": {},
 		"Status": {}, "ErrorMessage": {}, "LastUsedAt": {}, "ExpiresAt": {},
 		"AutoPauseOnExpired": {}, "CreatedAt": {}, "UpdatedAt": {}, "Schedulable": {},
 		"RateLimitedAt": {}, "RateLimitResetAt": {}, "OverloadUntil": {},

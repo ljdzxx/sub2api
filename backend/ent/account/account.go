@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 const (
@@ -46,6 +47,10 @@ const (
 	FieldPriority = "priority"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldOpenaiExperimentalFeaturesEnabled holds the string denoting the openai_experimental_features_enabled field in the database.
+	FieldOpenaiExperimentalFeaturesEnabled = "openai_experimental_features_enabled"
+	// FieldOpenaiNormalInputCacheRules holds the string denoting the openai_normal_input_cache_rules field in the database.
+	FieldOpenaiNormalInputCacheRules = "openai_normal_input_cache_rules"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldErrorMessage holds the string denoting the error_message field in the database.
@@ -146,6 +151,8 @@ var Columns = []string{
 	FieldLoadFactor,
 	FieldPriority,
 	FieldRateMultiplier,
+	FieldOpenaiExperimentalFeaturesEnabled,
+	FieldOpenaiNormalInputCacheRules,
 	FieldStatus,
 	FieldErrorMessage,
 	FieldLastUsedAt,
@@ -210,6 +217,10 @@ var (
 	DefaultPriority int
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// DefaultOpenaiExperimentalFeaturesEnabled holds the default value on creation for the "openai_experimental_features_enabled" field.
+	DefaultOpenaiExperimentalFeaturesEnabled bool
+	// DefaultOpenaiNormalInputCacheRules holds the default value on creation for the "openai_normal_input_cache_rules" field.
+	DefaultOpenaiNormalInputCacheRules []domain.OpenAINormalInputCacheRule
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -319,6 +330,11 @@ func ByPriority(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByOpenaiExperimentalFeaturesEnabled orders the results by the openai_experimental_features_enabled field.
+func ByOpenaiExperimentalFeaturesEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOpenaiExperimentalFeaturesEnabled, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

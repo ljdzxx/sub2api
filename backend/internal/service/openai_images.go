@@ -687,6 +687,23 @@ func (s *OpenAIGatewayService) ForwardImages(
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+	execution.BindAccount(account)
+	result, err := s.forwardImages(ctx, c, account, body, parsed, channelMappedModel)
+	if result != nil {
+		result.UsagePolicy = execution.Snapshot()
+	}
+	return result, err
+}
+
+func (s *OpenAIGatewayService) forwardImages(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body []byte,
+	parsed *OpenAIImagesRequest,
+	channelMappedModel string,
+) (*OpenAIForwardResult, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}

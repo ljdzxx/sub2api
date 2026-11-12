@@ -24,6 +24,22 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 	body []byte,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+	execution.BindAccount(account)
+	result, err := s.forwardEmbeddings(ctx, c, account, body, defaultMappedModel)
+	if result != nil {
+		result.UsagePolicy = execution.Snapshot()
+	}
+	return result, err
+}
+
+func (s *OpenAIGatewayService) forwardEmbeddings(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body []byte,
+	defaultMappedModel string,
+) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 
 	originalModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())
