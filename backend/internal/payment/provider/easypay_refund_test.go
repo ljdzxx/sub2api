@@ -105,10 +105,10 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 		gotForms = append(gotForms, r.PostForm)
 		w.Header().Set("Content-Type", "application/json")
 		if len(gotForms) == 1 {
-			_, _ = w.Write([]byte(`{"code":0,"msg":"订单编号不存在！"}`))
+			_, _ = w.Write([]byte(`{"code":-1,"msg":"当前订单不存在！"}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"code":1,"msg":"ok"}`))
+		_, _ = w.Write([]byte(`{"code":0,"msg":"退款成功！退款金额¥1.50"}`))
 	}))
 	defer server.Close()
 
@@ -141,6 +141,55 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 	}
 }
 
+func TestEasyPayRefundSuccessResponseCodes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "numeric one", body: `{"code":1,"msg":"ok"}`},
+		{name: "string one", body: `{"code":"1","msg":"ok"}`},
+		{name: "numeric zero with refund success", body: `{"code":0,"msg":"退款成功！退款金额¥10.00"}`},
+		{name: "string zero with refund success", body: `{"code":"0","msg":"退款成功！退款金额¥10.00"}`},
+		{name: "zero with plain refund success", body: `{"code":0,"msg":"退款成功"}`},
+		{name: "zero with whitespace", body: `{"code":" 0 ","msg":" 退款成功！退款金额¥10.00 "}`},
+		{name: "zero with english success", body: `{"code":0,"msg":"SUCCESS"}`},
+		{name: "zero with ok", body: `{"code":0,"msg":"ok"}`},
+		{name: "zero without message", body: `{"code":0}`},
+		{name: "upstream refund response", body: `{"code":0,"refund_no":"refund-789","out_refund_no":"refund-789","trade_no":"trade-123","out_trade_no":"out-456","uid":1001,"money":"10.00","reducemoney":"10.00","msg":"退款成功！退款金额¥10.00"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			attempts := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				attempts++
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			provider := newTestEasyPay(t, server.URL)
+			resp, err := provider.Refund(context.Background(), payment.RefundRequest{
+				OrderID: "out-456",
+				TradeNo: "trade-123",
+				Amount:  "10.00",
+			})
+			if err != nil {
+				t.Fatalf("Refund returned error: %v", err)
+			}
+			if resp == nil || resp.Status != payment.ProviderStatusSuccess || resp.RefundID != "out-456" {
+				t.Fatalf("Refund response = %+v, want success with merchant order id", resp)
+			}
+			if attempts != 1 {
+				t.Fatalf("refund attempts = %d, want 1", attempts)
+			}
+		})
+	}
+}
+
 func TestEasyPayRefundResponseErrors(t *testing.T) {
 	t.Parallel()
 
@@ -154,6 +203,19 @@ func TestEasyPayRefundResponseErrors(t *testing.T) {
 		{name: "non json response", statusCode: http.StatusOK, body: "not json", want: "non-JSON response (HTTP 200): not json"},
 		{name: "non 2xx response", statusCode: http.StatusBadGateway, body: "bad gateway", want: "HTTP 502: bad gateway"},
 		{name: "empty response", statusCode: http.StatusOK, body: "", want: "empty response (HTTP 200): <empty>"},
+		{name: "upstream refund failure", statusCode: http.StatusOK, body: `{"code":-1,"msg":"退款失败：商户余额不足"}`, want: "failed (HTTP 200): 退款失败：商户余额不足"},
+		{name: "upstream refund disabled", statusCode: http.StatusOK, body: `{"code":-2,"msg":"商户未开启订单退款API接口"}`, want: "failed (HTTP 200): 商户未开启订单退款API接口"},
+		{name: "upstream invalid merchant key", statusCode: http.StatusOK, body: `{"code":-3,"msg":"商户密钥错误"}`, want: "failed (HTTP 200): 商户密钥错误"},
+		{name: "upstream self service refund disabled", statusCode: http.StatusOK, body: `{"code":-4,"msg":"未开启商户后台自助退款"}`, want: "failed (HTTP 200): 未开启商户后台自助退款"},
+		{name: "already refunded is not a new success", statusCode: http.StatusOK, body: `{"code":-1,"msg":"该订单已全额退款！"}`, want: "failed (HTTP 200): 该订单已全额退款！"},
+		{name: "missing code", statusCode: http.StatusOK, body: `{"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "null code", statusCode: http.StatusOK, body: `{"code":null,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "boolean code", statusCode: http.StatusOK, body: `{"code":false,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "negative code", statusCode: http.StatusOK, body: `{"code":-1,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "unknown code", statusCode: http.StatusOK, body: `{"code":2,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "fractional zero code", statusCode: http.StatusOK, body: `{"code":0.5,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "fractional one code", statusCode: http.StatusOK, body: `{"code":1.5,"msg":"退款成功"}`, want: "failed (HTTP 200)"},
+		{name: "http failure with success body", statusCode: http.StatusBadGateway, body: `{"code":0,"msg":"退款成功"}`, want: "HTTP 502"},
 	}
 
 	for _, tt := range tests {

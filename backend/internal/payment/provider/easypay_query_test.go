@@ -70,6 +70,16 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "refund success code does not confirm payment",
+			body:    `{"code":0,"status":1,"trade_status":"TRADE_SUCCESS","money":"12.34"}`,
+			wantErr: true,
+		},
+		{
+			name:    "fractional code does not confirm payment",
+			body:    `{"code":1.5,"status":1,"trade_status":"TRADE_SUCCESS","money":"12.34"}`,
+			wantErr: true,
+		},
+		{
 			name:    "explicit failure code wins over paid status fields",
 			body:    `{"code":-1,"msg":"签名错误","status":1,"trade_status":"TRADE_SUCCESS","money":"12.34"}`,
 			wantErr: true,

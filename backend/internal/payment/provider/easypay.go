@@ -24,16 +24,17 @@ import (
 
 // EasyPay constants.
 const (
-	easypayCodeSuccess     = 1
-	easypayStatusPaid      = 1
-	easypayHTTPTimeout     = 10 * time.Second
-	maxEasypayResponseSize = 1 << 20 // 1MB
-	maxEasypayErrorSummary = 512
-	easypayAmountTolerance = 0.005
-	tradeStatusSuccess     = "TRADE_SUCCESS"
-	signTypeMD5            = "MD5"
-	paymentModePopup       = "popup"
-	deviceMobile           = "mobile"
+	easypayCodeSuccess       = 1
+	easypayRefundCodeSuccess = 0
+	easypayStatusPaid        = 1
+	easypayHTTPTimeout       = 10 * time.Second
+	maxEasypayResponseSize   = 1 << 20 // 1MB
+	maxEasypayErrorSummary   = 512
+	easypayAmountTolerance   = 0.005
+	tradeStatusSuccess       = "TRADE_SUCCESS"
+	signTypeMD5              = "MD5"
+	paymentModePopup         = "popup"
+	deviceMobile             = "mobile"
 )
 
 // EasyPay implements payment.Provider for the EasyPay aggregation platform.
@@ -597,7 +598,9 @@ func parseEasyPayRefundResponse(status int, body []byte) error {
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("easypay refund non-JSON response (HTTP %d): %s", status, summary)
 	}
-	if !easyPayResponseCodeIsSuccess(resp.Code) {
+	// api.php?act=refund uses code=0, unlike payment creation and queries.
+	// Keep code=1 compatible with providers supported before this distinction.
+	if !easyPayResponseCodeMatches(resp.Code, easypayRefundCodeSuccess) && !easyPayResponseCodeIsSuccess(resp.Code) {
 		msg := strings.TrimSpace(resp.Msg)
 		if msg == "" {
 			msg = summary
@@ -608,12 +611,16 @@ func parseEasyPayRefundResponse(status int, body []byte) error {
 }
 
 func easyPayResponseCodeIsSuccess(code any) bool {
+	return easyPayResponseCodeMatches(code, easypayCodeSuccess)
+}
+
+func easyPayResponseCodeMatches(code any, expected int) bool {
 	switch v := code.(type) {
 	case float64:
-		return int(v) == easypayCodeSuccess
+		return v == float64(expected)
 	case string:
 		n, err := strconv.Atoi(strings.TrimSpace(v))
-		return err == nil && n == easypayCodeSuccess
+		return err == nil && n == expected
 	default:
 		return false
 	}
