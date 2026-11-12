@@ -158,6 +158,50 @@ func TestCacheWriteTransferClearsProvisionalUsageWithoutInputTotal(t *testing.T)
 	require.Contains(t, string(sseOut), `"cache_creation_input_tokens":0`)
 }
 
+func TestCacheWriteTTLPoliciesPreserveAccountingAndWireUsage(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 200, CacheCreationInputTokens: 300,
+		CacheCreation30mInputTokens: 100, CacheCreation12hInputTokens: 200}
+	tokens := openAIUsageTokens(raw)
+	require.Equal(t, 100, tokens.CacheCreation30mTokens)
+	require.Equal(t, 200, tokens.CacheCreation12hTokens)
+	require.Equal(t, raw, TransferOpenAICacheWriteToInput(raw, false))
+	effective := TransferOpenAICacheWriteToInput(raw, true)
+	require.Zero(t, effective.CacheCreationInputTokens)
+	require.Zero(t, effective.CacheCreation30mInputTokens)
+	require.Zero(t, effective.CacheCreation12hInputTokens)
+	require.Equal(t, 800, openAIUsageTokens(effective).InputTokens)
+	converted := TransferOpenAINormalInputToCacheWrite(raw, 50)
+	require.Equal(t, 550, converted.CacheCreationInputTokens)
+	require.Equal(t, 350, converted.CacheCreation30mInputTokens)
+	require.Equal(t, 200, converted.CacheCreation12hInputTokens)
+	require.Equal(t, 300, raw.CacheCreationInputTokens)
+
+	policy := OpenAICacheReadPolicy{TransferCacheWriteToInput: true}
+	for _, input := range []string{`"input_tokens":1000,`, ""} {
+		body := []byte(`{"usage":{` + input + `"input_tokens_details":{"cached_tokens":200,"cache_write_tokens":300,"cache_write_tokens_details":{"ttl_30m_tokens":100,"ttl_12h_tokens":200}}}}`)
+		out := NewCacheReadPolicyWireTransformer(policy, false).Transform(body)
+		require.Zero(t, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens").Int())
+		require.Zero(t, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens_details.ttl_30m_tokens").Int())
+		require.Zero(t, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens_details.ttl_12h_tokens").Int())
+		sse := append([]byte("data: "), body...)
+		sse = append(sse, '\n', '\n')
+		sseOut := NewCacheReadPolicyWireTransformer(policy, false).TransformSSEEvent(sse)
+		require.Contains(t, string(sseOut), `"ttl_30m_tokens":0`)
+		require.Contains(t, string(sseOut), `"ttl_12h_tokens":0`)
+	}
+
+	account := &Account{ID: 41, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		OpenAIExperimentalFeaturesEnabled: true,
+		OpenAINormalInputCacheRules:       []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 100}}}
+	execution := NewOpenAIUsagePolicyExecution(nil)
+	execution.BindAccount(account)
+	body := []byte(`{"usage":{"input_tokens":1000,"input_tokens_details":{"cached_tokens":200,"cache_write_tokens":300,"cache_write_tokens_details":{"ttl_30m_tokens":100,"ttl_12h_tokens":200}}}}`)
+	out := NewOpenAIUsagePolicyWireTransformer(execution, false).Transform(body)
+	require.EqualValues(t, 550, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens").Int())
+	require.EqualValues(t, 350, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens_details.ttl_30m_tokens").Int())
+	require.EqualValues(t, 200, gjson.GetBytes(out, "usage.input_tokens_details.cache_write_tokens_details.ttl_12h_tokens").Int())
+}
+
 func TestAccountNormalInputCachePolicyUpdatesJSONAndAnthropicWireUsage(t *testing.T) {
 	account := &Account{
 		ID: 41, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,

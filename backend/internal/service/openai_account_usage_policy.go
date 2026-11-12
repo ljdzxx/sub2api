@@ -196,5 +196,12 @@ func TransferOpenAINormalInputToCacheWrite(raw OpenAIUsage, percent int) OpenAIU
 	}
 	out := raw
 	out.CacheCreationInputTokens = saturatingAddNonNegative(max(raw.CacheCreationInputTokens, 0), transferred)
+	// Converted ordinary input uses the default short-write price. Preserve any
+	// valid upstream long-write bucket instead of invalidating its TTL split.
+	if raw.CacheCreationInputTokens > 0 && raw.CacheCreation30mInputTokens >= 0 &&
+		raw.CacheCreation30mInputTokens <= raw.CacheCreationInputTokens &&
+		raw.CacheCreation12hInputTokens == raw.CacheCreationInputTokens-raw.CacheCreation30mInputTokens {
+		out.CacheCreation30mInputTokens = out.CacheCreationInputTokens - raw.CacheCreation12hInputTokens
+	}
 	return out
 }

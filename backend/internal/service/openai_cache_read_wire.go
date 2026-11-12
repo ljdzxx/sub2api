@@ -123,6 +123,8 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			for _, key := range cacheWritePaths {
 				if usage.Get(key).Exists() {
 					t.raw.CacheCreationInputTokens = raw.CacheCreationInputTokens
+					t.raw.CacheCreation30mInputTokens = raw.CacheCreation30mInputTokens
+					t.raw.CacheCreation12hInputTokens = raw.CacheCreation12hInputTokens
 					break
 				}
 			}
@@ -156,6 +158,14 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 					set(key, 0)
 				}
 			}
+			for _, prefix := range []string{"input_tokens_details", "prompt_tokens_details"} {
+				for _, ttl := range []string{"ttl_30m_tokens", "ttl_12h_tokens"} {
+					key := prefix + ".cache_write_tokens_details." + ttl
+					if usage.Get(key).Exists() {
+						set(key, 0)
+					}
+				}
+			}
 		}
 		if !t.haveInput {
 			// A cache-only provisional report cannot be adjusted without its total.
@@ -168,6 +178,15 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 			continue
 		}
 		_, effective := policy.Apply(raw)
+		if effective.CacheCreationInputTokens != raw.CacheCreationInputTokens {
+			for _, prefix := range []string{"input_tokens_details", "prompt_tokens_details"} {
+				details := prefix + ".cache_write_tokens_details"
+				if usage.Get(details).IsObject() {
+					set(details+".ttl_30m_tokens", effective.CacheCreation30mInputTokens)
+					set(details+".ttl_12h_tokens", effective.CacheCreation12hInputTokens)
+				}
+			}
+		}
 		for _, key := range cachePaths {
 			if usage.Get(key).Exists() {
 				set(key, effective.CacheReadInputTokens)

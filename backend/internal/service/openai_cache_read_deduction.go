@@ -94,11 +94,13 @@ func ApplyOpenAICacheReadPolicy(raw OpenAIUsage, policy OpenAICacheReadPolicy) O
 // total input already includes cache creation, so clearing that bucket transfers
 // the same tokens to ordinary input without changing the total.
 func TransferOpenAICacheWriteToInput(raw OpenAIUsage, enabled bool) OpenAIUsage {
-	if !enabled || raw.CacheCreationInputTokens == 0 {
+	if !enabled {
 		return raw
 	}
 	out := raw
 	out.CacheCreationInputTokens = 0
+	out.CacheCreation30mInputTokens = 0
+	out.CacheCreation12hInputTokens = 0
 	return out
 }
 
@@ -169,6 +171,8 @@ func openAIUsageTokens(u OpenAIUsage) UsageTokens {
 		ImageInputTokens:     max(u.ImageInputTokens-u.ImageCacheReadTokens, 0),
 		ImageCacheReadTokens: u.ImageCacheReadTokens,
 		OutputTokens:         u.OutputTokens, CacheCreationTokens: u.CacheCreationInputTokens,
-		CacheReadTokens: u.CacheReadInputTokens, ImageOutputTokens: u.ImageOutputTokens,
+		CacheCreation30mTokens: u.CacheCreation30mInputTokens,
+		CacheCreation12hTokens: u.CacheCreation12hInputTokens,
+		CacheReadTokens:        u.CacheReadInputTokens, ImageOutputTokens: u.ImageOutputTokens,
 	}
 }
