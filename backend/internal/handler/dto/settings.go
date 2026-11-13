@@ -532,7 +532,8 @@ type OpenAIFastPolicyRule struct {
 
 // OpenAIFastPolicySettings OpenAI fast 策略配置 DTO
 type OpenAIFastPolicySettings struct {
-	Rules []OpenAIFastPolicyRule `json:"rules"`
+	APIKeyFastIgnoreUpstreamTier bool                   `json:"apikey_fast_ignore_upstream_tier"`
+	Rules                        []OpenAIFastPolicyRule `json:"rules"`
 }
 
 // EmailTemplateEventOption 描述可编辑的通知邮件事件。

@@ -1,9 +1,12 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,6 +67,84 @@ func TestSelectOpenAINormalInputCacheRuleUsesContiguousProbabilityRanges(t *test
 	}
 	_, ok := selectOpenAINormalInputCacheRule(rules, 100)
 	require.False(t, ok)
+}
+
+func TestSelectOpenAINormalInputCacheRuleNinetyPercent(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		rules []domain.OpenAINormalInputCacheRule
+	}{
+		{
+			name: "transfer first",
+			rules: []domain.OpenAINormalInputCacheRule{
+				{TransferPercent: 50, ProbabilityPercent: 90},
+				{TransferPercent: 0, ProbabilityPercent: 10},
+			},
+		},
+		{
+			name: "transfer last",
+			rules: []domain.OpenAINormalInputCacheRule{
+				{TransferPercent: 0, ProbabilityPercent: 10},
+				{TransferPercent: 50, ProbabilityPercent: 90},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			counts := make(map[int]int)
+			// Exhaust all possible IntN(100) outcomes without a flaky random test.
+			for roll := 0; roll < 100; roll++ {
+				rule, ok := selectOpenAINormalInputCacheRule(tc.rules, roll)
+				require.True(t, ok, "roll=%d", roll)
+				counts[rule.TransferPercent]++
+			}
+			require.Equal(t, map[int]int{0: 10, 50: 90}, counts)
+		})
+	}
+}
+
+func TestOpenAIUsagePolicyExecutionIsolatedAcrossHTTPRequests(t *testing.T) {
+	account := &Account{
+		ID: 42, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		OpenAIExperimentalFeaturesEnabled: true,
+		OpenAINormalInputCacheRules: []domain.OpenAINormalInputCacheRule{
+			{TransferPercent: 0, ProbabilityPercent: 10},
+			{TransferPercent: 50, ProbabilityPercent: 90},
+		},
+	}
+	var previous *OpenAIUsagePolicyExecution
+	draws, transfers := 0, 0
+	router := gin.New()
+	router.POST("/v1/responses", func(c *gin.Context) {
+		execution := EnsureOpenAIUsagePolicyExecution(c, nil)
+		require.NotSame(t, previous, execution, "Gin context reuse must not reuse a request's selection")
+		require.Same(t, execution, openAIUsagePolicyExecutionFromContext(c.Request.Context()))
+		previous = execution
+		execution.roll = func(n int) int {
+			require.Equal(t, 100, n)
+			roll := draws % n
+			draws++
+			return roll
+		}
+		execution.BindAccount(account)
+		selected := execution.Snapshot()
+		require.True(t, selected.Account.Enabled)
+		if selected.Account.TransferPercent > 0 {
+			transfers++
+		}
+		// Retries and result capture must retain both transfer and zero-transfer selections.
+		BindOpenAIUsagePolicyAccount(c, account)
+		result := &OpenAIForwardResult{}
+		CaptureOpenAIUsagePolicy(c, result)
+		require.Equal(t, selected, result.UsagePolicy)
+		c.Status(http.StatusNoContent)
+	})
+	for i := 0; i < 1000; i++ {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/v1/responses", nil))
+		require.Equal(t, http.StatusNoContent, recorder.Code)
+	}
+	require.Equal(t, 1000, draws, "exactly one draw per request, including retries")
+	require.Equal(t, 900, transfers)
 }
 
 func TestTransferOpenAINormalInputToCacheWritePreservesTotalAndReadCache(t *testing.T) {

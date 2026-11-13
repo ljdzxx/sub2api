@@ -2262,7 +2262,12 @@ func openAIGroupForcesFast(ctx context.Context, account *Account) bool {
 // 到了上游可识别值；passthrough（OpenAI 自动透传） / native /responses 等
 // 入口没有这一前置步骤，pass 路径下若不在此处归一化，"fast" 就会被原样
 // 透传到 OpenAI 上游导致 400/拒绝。把归一化收敛到本函数，所有入口行为一致。
-func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, account *Account, model string, body []byte) ([]byte, error) {
+func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, account *Account, model string, body []byte) (out []byte, err error) {
+	defer func() {
+		if err == nil {
+			updateOpenAIFastOverrideOutbound(ctx, out)
+		}
+	}()
 	if len(body) == 0 {
 		return body, nil
 	}

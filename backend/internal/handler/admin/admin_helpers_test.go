@@ -257,6 +257,12 @@ func TestOpsWSHelpers(t *testing.T) {
 // 写入路径会把 ServiceTier 的空字符串/空白/大小写归一化为
 // service.OpenAIFastTierAny ("all")，避免落盘时 "" 与 "all" 双语义。
 func TestOpenAIFastPolicySettingsFromDTO_NormalizesServiceTier(t *testing.T) {
+	t.Run("preserves API key fast override in both directions", func(t *testing.T) {
+		in := &dto.OpenAIFastPolicySettings{APIKeyFastIgnoreUpstreamTier: true, Rules: []dto.OpenAIFastPolicyRule{}}
+		out := openaiFastPolicySettingsFromDTO(in)
+		require.True(t, out.APIKeyFastIgnoreUpstreamTier)
+		require.Equal(t, in, openaiFastPolicySettingsToDTO(out))
+	})
 	t.Run("nil input returns nil", func(t *testing.T) {
 		require.Nil(t, openaiFastPolicySettingsFromDTO(nil))
 	})

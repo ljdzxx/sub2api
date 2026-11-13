@@ -20,6 +20,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var errSchedulerAccountUsagePolicyMissing = errors.New("scheduler account cache is missing OpenAI usage policy fields")
+
 const (
 	schedulerBucketSetKey          = "sched:buckets"
 	schedulerOutboxWatermarkKey    = "sched:outbox:watermark"
@@ -363,6 +365,10 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 			return nil, false, nil
 		}
 		account, err := decodeCachedAccount(val)
+		if errors.Is(err, errSchedulerAccountUsagePolicyMissing) {
+			c.dropSnapshotEntry(bucketKey)
+			return nil, false, nil
+		}
 		if err != nil {
 			return nil, false, err
 		}
@@ -759,6 +765,9 @@ func (c *schedulerCache) GetAccount(ctx context.Context, accountID int64) (*serv
 		return nil, nil
 	}
 	account, err := decodeCachedAccount(values[0])
+	if errors.Is(err, errSchedulerAccountUsagePolicyMissing) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -967,6 +976,16 @@ func decodeCachedAccount(val any) (*service.Account, error) {
 	var account service.Account
 	if err := json.Unmarshal(payload, &account); err != nil {
 		return nil, err
+	}
+	if account.IsOpenAIApiKey() {
+		// Old instances share these Redis keys but cannot serialize the account
+		// policy fields. A zero value from such a payload is unknown, not an
+		// explicitly disabled policy. Force DB fallback for both full accounts
+		// and metadata snapshots instead of silently bypassing usage adjustment.
+		fields := gjson.GetManyBytes(payload, "OpenAIExperimentalFeaturesEnabled", "OpenAINormalInputCacheRules")
+		if (fields[0].Type != gjson.True && fields[0].Type != gjson.False) || !fields[1].Exists() {
+			return nil, errSchedulerAccountUsagePolicyMissing
+		}
 	}
 	return &account, nil
 }

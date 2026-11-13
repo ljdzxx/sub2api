@@ -22,6 +22,7 @@ import (
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
 	execution.BindAccount(account)
+	ctx = s.prepareOpenAIFastOverride(ctx, c, account, body)
 	result, err := s.forward(ctx, c, account, body)
 	if result != nil {
 		result.UsagePolicy = execution.Snapshot()
@@ -791,6 +792,7 @@ func (s *OpenAIGatewayService) forward(ctx context.Context, c *gin.Context, acco
 			}
 		}
 	}
+	updateOpenAIFastOverrideOutbound(ctx, body)
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""

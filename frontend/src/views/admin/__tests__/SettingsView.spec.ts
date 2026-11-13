@@ -1391,6 +1391,36 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.text()).not.toContain("OpenAI 高级调度器");
   });
 
+  it("loads and saves the API Key Fast upstream tier override", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_fast_policy_settings: { rules: [], apikey_fast_ignore_upstream_tier: true },
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const toggle = wrapper.get('[data-testid="apikey-fast-ignore-upstream-tier"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    await toggle.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      openai_fast_policy_settings: { rules: [], apikey_fast_ignore_upstream_tier: false },
+    }));
+    wrapper.unmount();
+  });
+
+  it("defaults the API Key Fast upstream tier override to off", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse, openai_fast_policy_settings: { rules: [] },
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    expect((wrapper.get('[data-testid="apikey-fast-ignore-upstream-tier"]').element as HTMLInputElement).checked).toBe(false);
+    wrapper.unmount();
+  });
+
   it("summarizes target and other-model actions, then switches to all models", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,

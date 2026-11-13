@@ -54,6 +54,9 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 	if t.execution != nil {
 		policy = t.execution.Snapshot()
 	}
+	if policy.KeepFast && !t.anthropic {
+		body = rewriteOpenAIFastResponseTier(body)
+	}
 	if !policy.HasAdjustments() {
 		return body
 	}

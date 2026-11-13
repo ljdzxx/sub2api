@@ -1187,6 +1187,8 @@ export default {
         commonPatterns: 'Common patterns'
       },
       openaiFastPolicy: {
+        ignoreUpstreamTier: 'Ignore upstream tier for API Key Fast requests',
+        ignoreUpstreamTierHint: 'For OpenAI API Key channels only: when the client requests Fast/priority or the group forces Fast, and the outbound request remains Fast, keep priority for billing and downstream responses regardless of the upstream tier. Other tiers are unaffected. Disabled by default; existing WebSocket sessions must reconnect.',
         title: 'OpenAI Fast/Flex Policy',
         description: 'Intercept, filter, or pass OpenAI fast(priority), ultrafast, or flex requests based on the request body service_tier field. Applies to the OpenAI gateway only. "All tier values" includes explicitly sent tiers only.',
         empty: 'No rules configured. Click the button below to add one.',

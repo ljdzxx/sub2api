@@ -25,6 +25,8 @@ type OpenAINormalInputCacheSelection struct {
 type OpenAIUsagePolicySnapshot struct {
 	Account OpenAINormalInputCacheSelection
 	Group   OpenAICacheReadPolicy
+	// KeepFast is captured per request/WS turn; it does not adjust token counts.
+	KeepFast bool
 }
 
 func (s OpenAIUsagePolicySnapshot) HasAdjustments() bool {
@@ -40,10 +42,11 @@ func (s OpenAIUsagePolicySnapshot) Apply(raw OpenAIUsage) (OpenAIUsage, OpenAIUs
 }
 
 type OpenAIUsagePolicyExecution struct {
-	mu      sync.RWMutex
-	group   OpenAICacheReadPolicy
-	account OpenAINormalInputCacheSelection
-	roll    func(int) int
+	mu       sync.RWMutex
+	group    OpenAICacheReadPolicy
+	account  OpenAINormalInputCacheSelection
+	roll     func(int) int
+	keepFast bool
 }
 
 func NewOpenAIUsagePolicyExecution(key *APIKey) *OpenAIUsagePolicyExecution {
@@ -95,7 +98,16 @@ func (e *OpenAIUsagePolicyExecution) Snapshot() OpenAIUsagePolicySnapshot {
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return OpenAIUsagePolicySnapshot{Account: e.account, Group: e.group}
+	return OpenAIUsagePolicySnapshot{Account: e.account, Group: e.group, KeepFast: e.keepFast}
+}
+
+func (e *OpenAIUsagePolicyExecution) setKeepFast(keep bool) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	e.keepFast = keep
+	e.mu.Unlock()
 }
 
 func EnsureOpenAIUsagePolicyExecution(c *gin.Context, key *APIKey) *OpenAIUsagePolicyExecution {

@@ -718,7 +718,8 @@ type OpenAIFastPolicyRule struct {
 
 // OpenAIFastPolicySettings OpenAI fast 策略配置
 type OpenAIFastPolicySettings struct {
-	Rules []OpenAIFastPolicyRule `json:"rules"`
+	APIKeyFastIgnoreUpstreamTier bool                   `json:"apikey_fast_ignore_upstream_tier"`
+	Rules                        []OpenAIFastPolicyRule `json:"rules"`
 }
 
 // DefaultOpenAIFastPolicySettings 返回默认的 OpenAI fast 策略配置。

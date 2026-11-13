@@ -1,5 +1,7 @@
 # ray 分支：Linux 双实例 Docker Compose 部署
 
+**现有生产服务器连接、只读数据库/Redis 查询、实际部署位置与路由：参见 [AI 远程运维手册](../docs/ai-remote-ops.md)。**
+
 **旧服务器迁移到新服务器：请使用 [数据库迁移指南](db-transfer.md)，按 pg_dump/pg_restore 完成恢复后再执行 deploy.sh。**
 
 **已有生产数据库、希望只运行一个 `.sh` 管理 master/slave：请使用 [ops.sh 一键运维说明](OPS.md)。该入口接续原库，允许旧应用已停止，不创建 PostgreSQL/Redis，也不初始化空库。**
@@ -134,6 +136,8 @@ bash deploy.sh up slave
 
 ## 独立管理
 
+`stop/restart/logs/status` 按 Docker Compose 的项目和服务标签定位已有容器，直接调用 Docker，不读取 `.env`，也不要求安装用的 `ADMIN_PASSWORD` 或可用的 Compose 配置。缺少 `.env`、管理员初始密码为空或配置仍有占位符时，也能停止应用和查看日志；`restart` 仍会先检查现有 PostgreSQL/Redis 是否健康。`up/build/check` 等部署命令继续校验配置。
+
 ```bash
 # 只启动/重建所选应用，基础服务必须已健康
 bash deploy.sh up master
@@ -155,6 +159,8 @@ bash deploy.sh logs infra
 # 停止两个应用，保留数据库、Redis 和所有卷
 bash deploy.sh stop all
 ```
+
+如果服务器上的旧版 `deploy.sh stop master` 被 `ADMIN_PASSWORD is missing a value` 阻断，可以先对确认的 master 容器执行 `docker stop --timeout 60 sub2api-ray-master-master-1`。此命令不展开 Compose 配置；之后更新 `deploy.sh` 即可正常使用上述管理命令。
 
 改变某个应用镜像或应用环境变量后，使用 `up master` 或 `up slave` 应用配置。单实例命令只读取基础服务的健康状态，**不会自动调用 `infra-up`**。
 

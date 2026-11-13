@@ -1181,6 +1181,8 @@ export default {
         commonPatterns: '常用模式'
       },
       openaiFastPolicy: {
+        ignoreUpstreamTier: 'API Key Fast请求忽略上游返回',
+        ignoreUpstreamTierHint: '仅对 OpenAI API Key 渠道生效：客户端指定 Fast/priority 或分组强制 Fast，且最终仍以 Fast 请求上游时，忽略上游返回的服务档位，计费和下游响应均保留 priority。其他档位不受影响。默认关闭；已建立的 WebSocket 会话需重连。',
         title: 'OpenAI Fast/Flex 策略',
         description: '基于请求体 service_tier 字段拦截/过滤/透传 OpenAI fast(priority)、ultrafast 与 flex 请求；仅作用于 OpenAI 网关。“全部 tier 值”仅包含显式传入的 tier。',
         empty: '尚未配置任何规则。点击下方按钮新增。',

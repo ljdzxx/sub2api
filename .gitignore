@@ -129,6 +129,7 @@ scripts
 #openspec/
 code-reviews/
 AGENTS.md
+!/AGENTS.md
 backend/cmd/server/server
 deploy/docker-compose.override.yml
 .gocache/
@@ -150,6 +151,7 @@ docs/*
 !docs/codex-credits.md
 !docs/cache.html
 !docs/openai-cache-read-deduction.md
+!docs/ai-remote-ops.md
 !docs/legal/
 !docs/legal/*.md
 !docs/screenshots/

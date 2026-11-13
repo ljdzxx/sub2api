@@ -19,11 +19,12 @@ Usage: bash deploy.sh COMMAND [TARGET]
   stop master|slave|all     Stop apps only; retain infrastructure and volumes
   restart master|slave      Restart only the existing selected app
   logs master|slave|infra   Follow selected logs
-  status                    Show the three Compose projects
+  status                    Show containers in the three deployment projects
   check                     Validate all Compose definitions without printing secrets
   backup                    Save a PostgreSQL custom-format dump in backups/
 
 Individual up/restart commands require healthy infrastructure and never modify it.
+stop/restart/logs/status use existing container labels; no .env or Compose is required.
 RAY_WAIT_TIMEOUT=1200 bash deploy.sh up master  # extend startup wait if necessary
 USAGE
 }
@@ -72,11 +73,60 @@ app() {
 valid_role() { [[ "$1" == master || "$1" == slave ]] || die "Target must be master or slave: $1"; }
 valid_apps() { [[ "$1" == all ]] || valid_role "$1"; }
 
+# Existing-container operations must remain available even when deployment
+# secrets are absent or Compose cannot interpolate the installation config.
+existing_container_ids() {
+  docker ps --all --quiet \
+    --filter "label=com.docker.compose.project=$1" \
+    --filter "label=com.docker.compose.service=$2" \
+    --filter label=com.docker.compose.oneoff=False
+}
+
+existing_app_action() {
+  local action=$1 role=$2 ids
+  local -a containers=()
+  ids=$(existing_container_ids "sub2api-ray-$role" "$role")
+  if [[ -z $ids ]]; then
+    [[ $action == stop ]] || die "No existing $role container to $action"
+    printf 'No existing %s containers to stop.\n' "$role"
+    return
+  fi
+  mapfile -t containers <<< "$ids"
+  docker "$action" --timeout 60 "${containers[@]}"
+}
+
+existing_logs() (
+  local target=$1 service ids id pid
+  local -a containers=() pids=()
+  if [[ $target == infra ]]; then
+    for service in ray-postgres ray-redis; do
+      ids=$(existing_container_ids sub2api-ray-infra "$service")
+      [[ -n $ids ]] || die "No existing $service container for logs"
+      while IFS= read -r id; do containers+=("$id"); done <<< "$ids"
+    done
+  else
+    ids=$(existing_container_ids "sub2api-ray-$target" "$target")
+    [[ -n $ids ]] || die "No existing $target container for logs"
+    mapfile -t containers <<< "$ids"
+  fi
+  # Follow each container without creating Compose resources. Stop local log
+  # followers on exit/signals; the container processes themselves are untouched.
+  trap 'for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  for id in "${containers[@]}"; do
+    docker logs --follow --tail 100 "$id" &
+    pids+=("$!")
+  done
+  for pid in "${pids[@]}"; do wait "$pid"; done
+)
+
 require_infra() {
   local service id state
   for service in ray-postgres ray-redis; do
-    id=$(infra ps -q "$service")
+    id=$(existing_container_ids sub2api-ray-infra "$service")
     [[ -n "$id" ]] || die "$service is not running. Run: bash deploy.sh infra-up"
+    [[ $id != *$'\n'* ]] || die "Multiple $service containers found; refusing an ambiguous health check"
     state=$(docker inspect --format '{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' "$id")
     [[ "$state" == 'true healthy' ]] || die "$service is not healthy ($state). Check: bash deploy.sh logs infra"
   done
@@ -143,10 +193,26 @@ case "$command" in
   *) usage >&2; die "Unknown command: $command" ;;
 esac
 
+need docker
+case "$command" in
+  stop)
+    if [[ $target == all ]]; then existing_app_action stop master; existing_app_action stop slave
+    else existing_app_action stop "$target"; fi
+    exit 0 ;;
+  restart) require_infra; existing_app_action restart "$target"; exit 0 ;;
+  logs) existing_logs "$target"; exit 0 ;;
+  status)
+    for project in sub2api-ray-infra sub2api-ray-master sub2api-ray-slave; do
+      printf '%s\n' "$project"
+      docker ps --all --filter "label=com.docker.compose.project=$project" \
+        --filter label=com.docker.compose.oneoff=False
+    done
+    exit 0 ;;
+esac
+
 [[ -f "$ENV_FILE" ]] || die 'Missing .env. Run: bash deploy.sh init'
 if grep -q '__GENERATE_' "$ENV_FILE"; then die '.env still contains placeholders; generate real secret values first'; fi
 [[ "$WAIT_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die 'RAY_WAIT_TIMEOUT must be a positive integer'
-need docker
 docker compose version >/dev/null 2>&1 || die 'Docker Compose v2.20+ is required'
 # .env is parsed only by Compose. Never source it as shell code.
 case "$command" in
@@ -164,20 +230,6 @@ case "$command" in
       up_app master
       up_app slave
     else up_app "$target"; fi
-    ;;
-  stop)
-    if [[ "$target" == all ]]; then app master stop master; app slave stop slave
-    else app "$target" stop "$target"; fi
-    ;;
-  restart) require_infra; app "$target" restart "$target" ;;
-  logs)
-    if [[ "$target" == infra ]]; then infra logs -f --tail 100
-    else app "$target" logs -f --tail 100 "$target"; fi
-    ;;
-  status)
-    infra ps
-    app master ps master
-    app slave ps slave
     ;;
   backup) backup_db ;;
 esac

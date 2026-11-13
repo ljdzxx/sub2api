@@ -91,6 +91,11 @@ func ApplyOpenAIServiceTierBillingResolution(account *Account, result *OpenAIFor
 	if result == nil {
 		return ServiceTierBillingResolution{}
 	}
+	if result.UsagePolicy.KeepFast && account != nil && account.IsOpenAIApiKey() && !account.IsShadow() && isOpenAIFastTier(optionalStringValue(result.ServiceTier)) {
+		return ServiceTierBillingResolution{
+			Requested: OpenAIFastTierPriority, Observed: normalizeBillingServiceTier(result.UpstreamResponseServiceTier), Billing: OpenAIFastTierPriority,
+		}
+	}
 	resolution := ResolveOpenAIServiceTierBilling(account, optionalStringValue(result.ServiceTier), result.UpstreamResponseServiceTier)
 	if resolution.Downgraded {
 		billing := resolution.Billing

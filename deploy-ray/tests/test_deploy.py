@@ -17,12 +17,30 @@ DOCKER_STUB = r'''#!/usr/bin/env bash
 set -eu
 printf '%s\t' "$@" >> "$DOCKER_TRACE"
 printf '\n' >> "$DOCKER_TRACE"
+if [[ $1 == compose && ${MOCK_COMPOSE_UNAVAILABLE:-0} == 1 ]]; then
+  echo 'Compose configuration interpolation unavailable' >&2
+  exit 1
+fi
 case "$*" in
   'compose version') exit 0 ;;
   'image inspect '*) exit "${MOCK_IMAGE_MISSING:-0}" ;;
   'inspect '*) printf '%s\n' "${MOCK_INFRA_HEALTH:-true healthy}"; exit 0 ;;
   *' ps -q ray-postgres'|*' ps -q ray-redis')
     if [[ ${MOCK_MISSING_INFRA:-0} == 0 ]]; then printf 'infra-container\n'; fi
+    exit 0 ;;
+  'ps --all --quiet '*)
+    role=''
+    for arg in "$@"; do
+      case "$arg" in
+        label=com.docker.compose.service=*) role=${arg##*=} ;;
+      esac
+    done
+    if [[ $role == ray-postgres || $role == ray-redis ]]; then
+      [[ ${MOCK_MISSING_INFRA:-0} == 1 ]] || printf '%s-container\n' "$role"
+    elif [[ -n $role && ${MOCK_MISSING_APP:-0} == 0 ]]; then
+      printf '%s-container\n' "$role"
+      [[ ${MOCK_SCALED_APP:-0} == 0 ]] || printf '%s-container-2\n' "$role"
+    fi
     exit 0 ;;
   *' config --images master') printf 'sub2api-ray:master\n'; exit 0 ;;
   *' config --images slave') printf 'sub2api-ray:slave\n'; exit 0 ;;
@@ -98,8 +116,64 @@ class DeploymentTests(unittest.TestCase):
                 self.run_script(command, role)
                 mutations = self.mutations()
                 self.assertEqual(len(mutations), 1)
-                self.assertIn("sub2api-ray-" + role, mutations[0])
-                self.assertEqual(mutations[0][-2:], [command, role])
+                self.assertEqual(mutations[0], [command, "--timeout", "60", role + "-container"])
+                discovery = [c for c in self.calls() if c[:3] == ["ps", "--all", "--quiet"]]
+                self.assertTrue(any("label=com.docker.compose.project=sub2api-ray-" + role in c
+                                    and "label=com.docker.compose.service=" + role in c for c in discovery))
+                self.assertTrue(all("label=com.docker.compose.oneoff=False" in c for c in discovery))
+
+    def test_existing_container_commands_ignore_env_and_compose(self):
+        commands = (("stop", "master"), ("stop", "all"), ("restart", "slave"),
+                    ("logs", "master"), ("logs", "infra"), ("status",))
+        for content in (None, "ADMIN_PASSWORD=\n", "ADMIN_PASSWORD=__GENERATE_ADMIN__\n"):
+            if content is None:
+                self.env_file.unlink(missing_ok=True)
+            else:
+                self.env_file.write_text(content, encoding="utf-8")
+            for args in commands:
+                with self.subTest(env=content, command=args):
+                    self.trace.write_text("", encoding="utf-8")
+                    self.run_script(*args, MOCK_COMPOSE_UNAVAILABLE="1", RAY_WAIT_TIMEOUT="unused")
+                    self.assertFalse(any(call[0] == "compose" for call in self.calls()))
+                    if content is None:
+                        self.assertFalse(self.env_file.exists())
+                    else:
+                        self.assertEqual(self.env_file.read_text(encoding="utf-8"), content)
+
+    def test_restart_still_requires_healthy_existing_infrastructure(self):
+        for env in ({"MOCK_MISSING_INFRA": "1"}, {"MOCK_INFRA_HEALTH": "false healthy"},
+                    {"MOCK_INFRA_HEALTH": "true unhealthy"}):
+            self.trace.write_text("", encoding="utf-8")
+            self.run_script("restart", "slave", success=False, **env)
+            self.assertEqual(self.mutations(), [])
+
+    def test_stop_handles_absent_and_scaled_app_containers(self):
+        self.run_script("stop", "master", MOCK_MISSING_APP="1")
+        self.assertEqual(self.mutations(), [])
+        self.run_script("restart", "master", success=False, MOCK_MISSING_APP="1")
+        self.assertEqual(self.mutations(), [])
+        self.trace.write_text("", encoding="utf-8")
+        self.run_script("stop", "master", MOCK_SCALED_APP="1")
+        self.assertEqual(self.mutations(), [["stop", "--timeout", "60", "master-container", "master-container-2"]])
+
+    def test_logs_only_follow_requested_service_containers(self):
+        for target, expected in (("master", {"master-container"}),
+                                 ("slave", {"slave-container"}),
+                                 ("infra", {"ray-postgres-container", "ray-redis-container"})):
+            self.trace.write_text("", encoding="utf-8")
+            self.run_script("logs", target)
+            calls = [call for call in self.calls() if call[0] == "logs"]
+            self.assertEqual({call[-1] for call in calls}, expected)
+            self.assertTrue(all(call[1:4] == ["--follow", "--tail", "100"] for call in calls))
+            self.assertEqual(self.mutations(), [])
+
+    def test_deployment_commands_still_validate_env(self):
+        self.env_file.unlink()
+        self.run_script("up", "slave", success=False)
+        self.assertEqual(self.mutations(), [])
+        self.env_file.write_text("ADMIN_PASSWORD=__GENERATE_ADMIN__\n", encoding="utf-8")
+        self.run_script("check", success=False)
+        self.assertEqual(self.mutations(), [])
 
     def test_stop_all_keeps_shared_services_and_volumes(self):
         self.run_script("stop", "all")

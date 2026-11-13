@@ -1504,6 +1504,7 @@ export interface OpenAIFastPolicyRule {
  * OpenAI fast/flex policy settings interface.
  */
 export interface OpenAIFastPolicySettings {
+  apikey_fast_ignore_upstream_tier?: boolean;
   rules: OpenAIFastPolicyRule[];
 }
 

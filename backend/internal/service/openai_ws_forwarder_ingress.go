@@ -469,6 +469,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 		normalized = policyApplied
+		updateOpenAIWSFastOverride(ctx, account, trimmed, normalized)
 		ingressSessionOriginalModel = originalModel
 
 		return openAIWSClientPayload{

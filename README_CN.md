@@ -237,7 +237,9 @@ Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），�
 
 ## Codex Fast/Flex 策略说明
 
-管理员后台的 `系统设置 -> 网关服务 -> OpenAI Fast/Flex 策略` 只负责处理请求体中的 `service_tier`，不会修改 Codex 客户端的模型目录，也不会让 Codex UI 自动出现 Speed 或 `/fast` 选项。
+管理员后台的 `系统设置 -> 网关服务 -> OpenAI Fast/Flex 策略` 管理请求体中的 `service_tier` 及可选的 API Key Fast 响应档位覆盖，不会修改 Codex 客户端的模型目录，也不会让 Codex UI 自动出现 Speed 或 `/fast` 选项。
+
+`API Key Fast请求忽略上游返回` 默认关闭。开启后，仅对 OpenAI API Key 渠道中客户端指定 `fast`/`priority` 或分组开启强制 Fast、且最终仍以 `priority` 发往上游的请求生效：忽略上游响应档位对计费的降档作用，用量记录和下游 JSON/SSE/WebSocket 响应均保留 `priority`。上游原始档位仍供内部诊断使用。普通 Flex/Scale/Ultrafast 请求不受影响；仅由全局 `force_priority` 规则升级的非 Fast 请求也不适用。全局过滤/拦截规则仍然生效，OAuth/SetupToken 及其影子账号维持原有行为。已建立的 WebSocket 会话需要重连后使用新设置；分组免费 Fast 的客户优惠仍然有效。
 
 策略支持以下处理方式：
 

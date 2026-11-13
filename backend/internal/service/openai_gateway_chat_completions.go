@@ -63,6 +63,7 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 ) (*OpenAIForwardResult, error) {
 	execution := EnsureOpenAIUsagePolicyExecution(c, nil)
 	execution.BindAccount(account)
+	ctx = s.prepareOpenAIFastOverride(ctx, c, account, body)
 	result, err := s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, defaultMappedModel, false)
 	if result != nil {
 		result.UsagePolicy = execution.Snapshot()

@@ -1042,6 +1042,21 @@
               </p>
             </div>
             <div class="space-y-5 p-6">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.openaiFastPolicy.ignoreUpstreamTier") }}
+                  </h3>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.openaiFastPolicy.ignoreUpstreamTierHint") }}
+                  </p>
+                </div>
+                <Toggle
+                  v-model="openaiFastPolicyForm.apikey_fast_ignore_upstream_tier"
+                  :aria-label="t('admin.settings.openaiFastPolicy.ignoreUpstreamTier')"
+                  data-testid="apikey-fast-ignore-upstream-tier"
+                />
+              </div>
               <!-- Empty state -->
               <div
                 v-if="openaiFastPolicyForm.rules.length === 0"
@@ -9241,6 +9256,7 @@ const betaPolicyForm = reactive({
 
 // OpenAI Fast/Flex Policy 状态
 const openaiFastPolicyForm = reactive({
+  apikey_fast_ignore_upstream_tier: false,
   rules: [] as OpenAIFastPolicyRule[],
 });
 // 标记 openai_fast_policy_settings 是否已成功从后端加载，
@@ -11173,6 +11189,8 @@ async function loadSettings() {
       settings.openai_fast_policy_settings &&
       Array.isArray(settings.openai_fast_policy_settings.rules)
     ) {
+      openaiFastPolicyForm.apikey_fast_ignore_upstream_tier =
+        settings.openai_fast_policy_settings.apikey_fast_ignore_upstream_tier ?? false;
       openaiFastPolicyForm.rules =
         settings.openai_fast_policy_settings.rules.map((rule) => ({
           ...rule,
@@ -11774,6 +11792,7 @@ async function saveSettings() {
     // 否则省略整个字段，让后端保留既有规则（含默认值）。
     if (openaiFastPolicyLoaded.value) {
       payload.openai_fast_policy_settings = {
+        apikey_fast_ignore_upstream_tier: openaiFastPolicyForm.apikey_fast_ignore_upstream_tier,
         rules: openaiFastPolicyForm.rules.map((rule) => {
           const whitelist = (rule.model_whitelist || [])
             .map((p) => p.trim())
@@ -11876,6 +11895,8 @@ async function saveSettings() {
       updated.openai_fast_policy_settings &&
       Array.isArray(updated.openai_fast_policy_settings.rules)
     ) {
+      openaiFastPolicyForm.apikey_fast_ignore_upstream_tier =
+        updated.openai_fast_policy_settings.apikey_fast_ignore_upstream_tier ?? false;
       openaiFastPolicyForm.rules =
         updated.openai_fast_policy_settings.rules.map((rule) => ({
           ...rule,
