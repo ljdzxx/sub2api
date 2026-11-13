@@ -1,19 +1,6 @@
 x-app: &app
   restart: unless-stopped
   pull_policy: never
-  build:
-    context: ..
-    dockerfile: Dockerfile
-    args:
-      COMMIT: ${RAY_GIT_COMMIT:-ray-local}
-      DATE: ${RAY_BUILD_DATE:-}
-      NODE_IMAGE: ${NODE_IMAGE:-node:24-alpine}
-      GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.27.3-alpine}
-      ALPINE_IMAGE: ${ALPINE_IMAGE:-alpine:3.21}
-      POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:18-alpine}
-      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
-      GOSUMDB: ${GOSUMDB:-sum.golang.google.cn}
-      NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org}
   security_opt:
     - no-new-privileges:true
   stop_grace_period: 60s
@@ -73,7 +60,9 @@ x-app: &app
 services:
   master:
     <<: *app
-    image: ${MASTER_IMAGE:-sub2api-ray:master}
+    extends:
+      file: compose.build.yml
+      service: master
     hostname: sub2api-ray-master
     ports:
       - "${BIND_HOST:-0.0.0.0}:${MASTER_PORT:-8080}:8080"
@@ -82,7 +71,9 @@ services:
 
   slave:
     <<: *app
-    image: ${SLAVE_IMAGE:-sub2api-ray:slave}
+    extends:
+      file: compose.build.yml
+      service: slave
     hostname: sub2api-ray-slave
     ports:
       - "${BIND_HOST:-0.0.0.0}:${SLAVE_PORT:-8081}:8080"

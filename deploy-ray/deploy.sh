@@ -13,7 +13,7 @@ usage() {
   cat <<'USAGE'
 Usage: bash deploy.sh COMMAND [TARGET]
   init                      Create .env with random secrets (never overwrite)
-  build [master|slave|all]   Build the current checkout; default: all
+  build [master|slave|all]   Build the current checkout; no init needed; default: all
   infra-up                  Start/wait for shared PostgreSQL + Redis
   up [master|slave|all]      Start/update an app; all also starts infrastructure
   stop master|slave|all     Stop apps only; retain infrastructure and volumes
@@ -25,6 +25,7 @@ Usage: bash deploy.sh COMMAND [TARGET]
 
 Individual up/restart commands require healthy infrastructure and never modify it.
 stop/restart/logs/status use existing container labels; no .env or Compose is required.
+build uses optional .env image/build settings; runtime secrets are not required.
 RAY_WAIT_TIMEOUT=1200 bash deploy.sh up master  # extend startup wait if necessary
 USAGE
 }
@@ -68,6 +69,15 @@ app() {
   shift
   docker compose --project-name "sub2api-ray-$role" --env-file "$ENV_FILE" \
     -f "$DEPLOY_DIR/compose.app.yml" "$@"
+}
+
+build_app() {
+  local role=$1 env_file=$ENV_FILE
+  shift
+  # Explicit empty input prevents Compose loading an unrelated working-dir .env.
+  [[ -f "$env_file" ]] || env_file=/dev/null
+  docker compose --project-name "sub2api-ray-$role" --env-file "$env_file" \
+    -f "$DEPLOY_DIR/compose.build.yml" "$@"
 }
 
 valid_role() { [[ "$1" == master || "$1" == slave ]] || die "Target must be master or slave: $1"; }
@@ -151,14 +161,14 @@ build_apps() {
   RAY_GIT_COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || printf 'ray-local')
   RAY_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   if [[ "$target" == all ]]; then
-    app master build master
-    master_image=$(image_for master)
-    slave_image=$(image_for slave)
+    build_app master build master
+    master_image=$(build_app master config --images master)
+    slave_image=$(build_app slave config --images slave)
     if [[ "$master_image" != "$slave_image" ]]; then
       docker image tag "$master_image" "$slave_image"
     fi
   else
-    app "$target" build "$target"
+    build_app "$target" build "$target"
   fi
 }
 
@@ -210,11 +220,17 @@ case "$command" in
     exit 0 ;;
 esac
 
+docker compose version >/dev/null 2>&1 || die 'Docker Compose v2.20+ is required'
+# Build never loads the runtime Compose model or validates installation secrets.
+# .env is parsed only by Compose. Never source it as shell code.
+if [[ $command == build ]]; then
+  build_apps "${target:-all}"
+  exit 0
+fi
+
 [[ -f "$ENV_FILE" ]] || die 'Missing .env. Run: bash deploy.sh init'
 if grep -q '__GENERATE_' "$ENV_FILE"; then die '.env still contains placeholders; generate real secret values first'; fi
 [[ "$WAIT_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die 'RAY_WAIT_TIMEOUT must be a positive integer'
-docker compose version >/dev/null 2>&1 || die 'Docker Compose v2.20+ is required'
-# .env is parsed only by Compose. Never source it as shell code.
 case "$command" in
   check)
     infra config --quiet
@@ -222,7 +238,6 @@ case "$command" in
     app slave config --quiet slave
     printf 'Compose configuration is valid.\n'
     ;;
-  build) build_apps "${target:-all}" ;;
   infra-up) infra up -d --wait --wait-timeout "$WAIT_TIMEOUT" ;;
   up)
     if [[ "${target:-all}" == all ]]; then

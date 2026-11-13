@@ -212,6 +212,43 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(calls[0][-2:], ["build", "master"])
         self.assertEqual(calls[1], ["image", "tag", "sub2api-ray:master", "sub2api-ray:slave"])
 
+    def test_build_uses_only_build_model_without_runtime_secrets(self):
+        for content in (None, "ADMIN_PASSWORD=\n",
+                        (SOURCE / ".env.example").read_text(encoding="utf-8")):
+            if content is None:
+                self.env_file.unlink(missing_ok=True)
+            else:
+                self.env_file.write_text(content, encoding="utf-8")
+            for target in ("master", "slave", "all", None):
+                with self.subTest(env=content, target=target):
+                    self.trace.write_text("", encoding="utf-8")
+                    args = ("build",) if target is None else ("build", target)
+                    self.run_script(*args, RAY_WAIT_TIMEOUT="unused")
+                    calls = [c for c in self.calls() if c[:2] != ["compose", "version"]]
+                    compose_calls = [c for c in calls if c[0] == "compose"]
+                    self.assertTrue(compose_calls)
+                    for call in compose_calls:
+                        self.assertTrue(call[call.index("-f") + 1].endswith("/compose.build.yml"))
+                        env_file = call[call.index("--env-file") + 1]
+                        if content is None:
+                            self.assertEqual(env_file, "/dev/null")
+                        else:
+                            self.assertTrue(env_file.endswith("/deploy-ray/.env"))
+                    mutations = self.mutations()
+                    self.assertEqual(mutations[0][-2:], ["build", target if target in ("master", "slave") else "master"])
+                    self.assertEqual(len(mutations), 2 if target in (None, "all") else 1)
+                    self.assertTrue(all("build" in c or c[:2] == ["image", "tag"] for c in mutations))
+                    if content is None:
+                        self.assertFalse(self.env_file.exists())
+                    else:
+                        self.assertEqual(self.env_file.read_text(encoding="utf-8"), content)
+
+    def test_build_never_sources_env_as_shell(self):
+        marker = self.root / "build-should-not-exist"
+        self.env_file.write_text('PROBE=$(touch "' + marker.as_posix() + '")\n', encoding="utf-8")
+        self.run_script("build", "all")
+        self.assertFalse(marker.exists())
+
     def test_config_validation_never_sources_env_as_shell(self):
         marker = self.root / "should-not-exist"
         self.env_file.write_text('PROBE=$(touch "' + marker.as_posix() + '")\n', encoding="utf-8")

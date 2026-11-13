@@ -136,7 +136,11 @@ bash deploy.sh up slave
 
 ## 独立管理
 
-`stop/restart/logs/status` 按 Docker Compose 的项目和服务标签定位已有容器，直接调用 Docker，不读取 `.env`，也不要求安装用的 `ADMIN_PASSWORD` 或可用的 Compose 配置。缺少 `.env`、管理员初始密码为空或配置仍有占位符时，也能停止应用和查看日志；`restart` 仍会先检查现有 PostgreSQL/Redis 是否健康。`up/build/check` 等部署命令继续校验配置。
+`stop/restart/logs/status` 按 Docker Compose 的项目和服务标签定位已有容器，直接调用 Docker，不读取 `.env`，也不要求安装用的 `ADMIN_PASSWORD` 或可用的 Compose 配置。缺少 `.env`、管理员初始密码为空或配置仍有占位符时，也能停止应用和查看日志；`restart` 仍会先检查现有 PostgreSQL/Redis 是否健康。`up/check` 等部署命令继续校验运行配置。
+
+`build` 只读取 `compose.build.yml`，不需要先执行 `init`，也不要求 `ADMIN_PASSWORD`、数据库/Redis 密码或 JWT/TOTP 密钥。已有 `.env` 时，仍由 Compose 读取其中的镜像标签和构建参数；没有 `.env` 时使用默认值及已导出的环境变量，不会创建 `.env`。`compose.app.yml` 继承同一份构建定义，避免构建与启动使用不同镜像。
+
+旧版 `build` 若报 `ADMIN_PASSWORD is missing a value`，原因是它读取了包含必填运行密钥的 `compose.app.yml`，Compose 在执行构建前就校验失败。请同时更新 `deploy.sh`、`compose.app.yml` 和新增的 `compose.build.yml`，再执行 `bash deploy.sh build master`；不必为了构建而生成或补填管理员密码。
 
 ```bash
 # 只启动/重建所选应用，基础服务必须已健康
@@ -239,6 +243,7 @@ bash deploy.sh up slave
 ## 文件与验证
 
 - `compose.infra.yml`：共享 PostgreSQL、Redis、网络和持久化卷。
+- `compose.build.yml`：独立构建定义，只包含镜像标签、源码路径和构建参数，无运行密钥要求。
 - `compose.app.yml`：两个应用的公共配置、独立端口及独立数据卷。
 - `deploy.sh`：初始化、构建、独立启停、日志、健康检查、备份。
 - `tests/test_deploy.py`：使用 Docker 命令替身验证脚本不会误操作另一实例/基础服务，不创建真实容器。
