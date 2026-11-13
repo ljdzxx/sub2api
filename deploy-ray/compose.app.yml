@@ -34,7 +34,8 @@ x-app: &app
     JWT_EXPIRE_HOUR: ${JWT_EXPIRE_HOUR:-24}
     TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Run bash deploy.sh init first}
     ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
-    ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Run bash deploy.sh init first}
+    # Bootstrap only: existing users are preserved; empty DBs generate a password.
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     SETUP_MIGRATION_TIMEOUT_SECONDS: ${SETUP_MIGRATION_TIMEOUT_SECONDS:-600}
     TZ: ${TZ:-Asia/Shanghai}
     GEMINI_OAUTH_CLIENT_ID: ${GEMINI_OAUTH_CLIENT_ID:-}

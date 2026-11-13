@@ -75,6 +75,8 @@ curl -fsS http://127.0.0.1:8081/health
 
 两边使用同一个管理员账号。`ADMIN_EMAIL/ADMIN_PASSWORD` 用于空数据库初始化；修改环境变量不会重置已有管理员密码。
 
+`ADMIN_PASSWORD` 可以省略或留空，已有用户的数据库会跳过管理员初始化。空数据库未设置该密码时，程序会生成随机密码并在首次初始化日志中输出，请保存该密码。`init` 仍会为全新部署生成密码并写入 `.env`。
+
 ## 接入已有生产容器，只增加 8081
 
 如果当前已经有 `sub2api`（8080）、`sub2api-postgres`、`sub2api-redis`，使用以下流程。
@@ -141,6 +143,8 @@ bash deploy.sh up slave
 `build` 只读取 `compose.build.yml`，不需要先执行 `init`，也不要求 `ADMIN_PASSWORD`、数据库/Redis 密码或 JWT/TOTP 密钥。已有 `.env` 时，仍由 Compose 读取其中的镜像标签和构建参数；没有 `.env` 时使用默认值及已导出的环境变量，不会创建 `.env`。`compose.app.yml` 继承同一份构建定义，避免构建与启动使用不同镜像。
 
 旧版 `build` 若报 `ADMIN_PASSWORD is missing a value`，原因是它读取了包含必填运行密钥的 `compose.app.yml`，Compose 在执行构建前就校验失败。请同时更新 `deploy.sh`、`compose.app.yml` 和新增的 `compose.build.yml`，再执行 `bash deploy.sh build master`；不必为了构建而生成或补填管理员密码。
+
+旧版 `up master/slave` 若出现同一错误，将 `compose.app.yml` 中的 `ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Run bash deploy.sh init first}` 更新为 `ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}` 后重试即可，无需重新构建镜像。数据库/Redis 密码及 JWT/TOTP 密钥仍需提供原有值。
 
 ```bash
 # 只启动/重建所选应用，基础服务必须已健康
