@@ -30787,6 +30787,7 @@ type PaymentOrderMutation struct {
 	provider_instance_id     *string
 	provider_key             *string
 	provider_snapshot        *map[string]interface{}
+	pricing_snapshot         *map[string]interface{}
 	status                   *string
 	refund_amount            *float64
 	addrefund_amount         *float64
@@ -31977,6 +31978,55 @@ func (m *PaymentOrderMutation) ResetProviderSnapshot() {
 	delete(m.clearedFields, paymentorder.FieldProviderSnapshot)
 }
 
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) SetPricingSnapshot(value map[string]interface{}) {
+	m.pricing_snapshot = &value
+}
+
+// PricingSnapshot returns the value of the "pricing_snapshot" field in the mutation.
+func (m *PaymentOrderMutation) PricingSnapshot() (r map[string]interface{}, exists bool) {
+	v := m.pricing_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingSnapshot returns the old "pricing_snapshot" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldPricingSnapshot(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingSnapshot: %w", err)
+	}
+	return oldValue.PricingSnapshot, nil
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) ClearPricingSnapshot() {
+	m.pricing_snapshot = nil
+	m.clearedFields[paymentorder.FieldPricingSnapshot] = struct{}{}
+}
+
+// PricingSnapshotCleared returns if the "pricing_snapshot" field was cleared in this mutation.
+func (m *PaymentOrderMutation) PricingSnapshotCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldPricingSnapshot]
+	return ok
+}
+
+// ResetPricingSnapshot resets all changes to the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) ResetPricingSnapshot() {
+	m.pricing_snapshot = nil
+	delete(m.clearedFields, paymentorder.FieldPricingSnapshot)
+}
+
 // SetStatus sets the "status" field.
 func (m *PaymentOrderMutation) SetStatus(s string) {
 	m.status = &s
@@ -32836,7 +32886,7 @@ func (m *PaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 40)
+	fields := make([]string, 0, 41)
 	if m.user != nil {
 		fields = append(fields, paymentorder.FieldUserID)
 	}
@@ -32902,6 +32952,9 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.provider_snapshot != nil {
 		fields = append(fields, paymentorder.FieldProviderSnapshot)
+	}
+	if m.pricing_snapshot != nil {
+		fields = append(fields, paymentorder.FieldPricingSnapshot)
 	}
 	if m.status != nil {
 		fields = append(fields, paymentorder.FieldStatus)
@@ -33009,6 +33062,8 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.ProviderKey()
 	case paymentorder.FieldProviderSnapshot:
 		return m.ProviderSnapshot()
+	case paymentorder.FieldPricingSnapshot:
+		return m.PricingSnapshot()
 	case paymentorder.FieldStatus:
 		return m.Status()
 	case paymentorder.FieldRefundAmount:
@@ -33098,6 +33153,8 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldProviderKey(ctx)
 	case paymentorder.FieldProviderSnapshot:
 		return m.OldProviderSnapshot(ctx)
+	case paymentorder.FieldPricingSnapshot:
+		return m.OldPricingSnapshot(ctx)
 	case paymentorder.FieldStatus:
 		return m.OldStatus(ctx)
 	case paymentorder.FieldRefundAmount:
@@ -33296,6 +33353,13 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProviderSnapshot(v)
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingSnapshot(v)
 		return nil
 	case paymentorder.FieldStatus:
 		v, ok := value.(string)
@@ -33582,6 +33646,9 @@ func (m *PaymentOrderMutation) ClearedFields() []string {
 	if m.FieldCleared(paymentorder.FieldProviderSnapshot) {
 		fields = append(fields, paymentorder.FieldProviderSnapshot)
 	}
+	if m.FieldCleared(paymentorder.FieldPricingSnapshot) {
+		fields = append(fields, paymentorder.FieldPricingSnapshot)
+	}
 	if m.FieldCleared(paymentorder.FieldRefundReason) {
 		fields = append(fields, paymentorder.FieldRefundReason)
 	}
@@ -33655,6 +33722,9 @@ func (m *PaymentOrderMutation) ClearField(name string) error {
 		return nil
 	case paymentorder.FieldProviderSnapshot:
 		m.ClearProviderSnapshot()
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		m.ClearPricingSnapshot()
 		return nil
 	case paymentorder.FieldRefundReason:
 		m.ClearRefundReason()
@@ -33759,6 +33829,9 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case paymentorder.FieldProviderSnapshot:
 		m.ResetProviderSnapshot()
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		m.ResetPricingSnapshot()
 		return nil
 	case paymentorder.FieldStatus:
 		m.ResetStatus()
@@ -33907,6 +33980,7 @@ type PaymentProviderInstanceMutation struct {
 	sort_order        *int
 	addsort_order     *int
 	limits            *string
+	recharge_policy   *map[string]interface{}
 	refund_enabled    *bool
 	allow_user_refund *bool
 	created_at        *time.Time
@@ -34323,6 +34397,42 @@ func (m *PaymentProviderInstanceMutation) ResetLimits() {
 	m.limits = nil
 }
 
+// SetRechargePolicy sets the "recharge_policy" field.
+func (m *PaymentProviderInstanceMutation) SetRechargePolicy(value map[string]interface{}) {
+	m.recharge_policy = &value
+}
+
+// RechargePolicy returns the value of the "recharge_policy" field in the mutation.
+func (m *PaymentProviderInstanceMutation) RechargePolicy() (r map[string]interface{}, exists bool) {
+	v := m.recharge_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRechargePolicy returns the old "recharge_policy" field's value of the PaymentProviderInstance entity.
+// If the PaymentProviderInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentProviderInstanceMutation) OldRechargePolicy(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRechargePolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRechargePolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRechargePolicy: %w", err)
+	}
+	return oldValue.RechargePolicy, nil
+}
+
+// ResetRechargePolicy resets all changes to the "recharge_policy" field.
+func (m *PaymentProviderInstanceMutation) ResetRechargePolicy() {
+	m.recharge_policy = nil
+}
+
 // SetRefundEnabled sets the "refund_enabled" field.
 func (m *PaymentProviderInstanceMutation) SetRefundEnabled(b bool) {
 	m.refund_enabled = &b
@@ -34501,7 +34611,7 @@ func (m *PaymentProviderInstanceMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentProviderInstanceMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.provider_key != nil {
 		fields = append(fields, paymentproviderinstance.FieldProviderKey)
 	}
@@ -34525,6 +34635,9 @@ func (m *PaymentProviderInstanceMutation) Fields() []string {
 	}
 	if m.limits != nil {
 		fields = append(fields, paymentproviderinstance.FieldLimits)
+	}
+	if m.recharge_policy != nil {
+		fields = append(fields, paymentproviderinstance.FieldRechargePolicy)
 	}
 	if m.refund_enabled != nil {
 		fields = append(fields, paymentproviderinstance.FieldRefundEnabled)
@@ -34562,6 +34675,8 @@ func (m *PaymentProviderInstanceMutation) Field(name string) (ent.Value, bool) {
 		return m.SortOrder()
 	case paymentproviderinstance.FieldLimits:
 		return m.Limits()
+	case paymentproviderinstance.FieldRechargePolicy:
+		return m.RechargePolicy()
 	case paymentproviderinstance.FieldRefundEnabled:
 		return m.RefundEnabled()
 	case paymentproviderinstance.FieldAllowUserRefund:
@@ -34595,6 +34710,8 @@ func (m *PaymentProviderInstanceMutation) OldField(ctx context.Context, name str
 		return m.OldSortOrder(ctx)
 	case paymentproviderinstance.FieldLimits:
 		return m.OldLimits(ctx)
+	case paymentproviderinstance.FieldRechargePolicy:
+		return m.OldRechargePolicy(ctx)
 	case paymentproviderinstance.FieldRefundEnabled:
 		return m.OldRefundEnabled(ctx)
 	case paymentproviderinstance.FieldAllowUserRefund:
@@ -34667,6 +34784,13 @@ func (m *PaymentProviderInstanceMutation) SetField(name string, value ent.Value)
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLimits(v)
+		return nil
+	case paymentproviderinstance.FieldRechargePolicy:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRechargePolicy(v)
 		return nil
 	case paymentproviderinstance.FieldRefundEnabled:
 		v, ok := value.(bool)
@@ -34783,6 +34907,9 @@ func (m *PaymentProviderInstanceMutation) ResetField(name string) error {
 		return nil
 	case paymentproviderinstance.FieldLimits:
 		m.ResetLimits()
+		return nil
+	case paymentproviderinstance.FieldRechargePolicy:
+		m.ResetRechargePolicy()
 		return nil
 	case paymentproviderinstance.FieldRefundEnabled:
 		m.ResetRefundEnabled()

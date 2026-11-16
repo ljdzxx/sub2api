@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -33,6 +34,8 @@ type PaymentProviderInstance struct {
 	SortOrder int `json:"sort_order,omitempty"`
 	// Limits holds the value of the "limits" field.
 	Limits string `json:"limits,omitempty"`
+	// RechargePolicy holds the value of the "recharge_policy" field.
+	RechargePolicy map[string]interface{} `json:"recharge_policy,omitempty"`
 	// RefundEnabled holds the value of the "refund_enabled" field.
 	RefundEnabled bool `json:"refund_enabled,omitempty"`
 	// AllowUserRefund holds the value of the "allow_user_refund" field.
@@ -49,6 +52,8 @@ func (*PaymentProviderInstance) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case paymentproviderinstance.FieldRechargePolicy:
+			values[i] = new([]byte)
 		case paymentproviderinstance.FieldEnabled, paymentproviderinstance.FieldRefundEnabled, paymentproviderinstance.FieldAllowUserRefund:
 			values[i] = new(sql.NullBool)
 		case paymentproviderinstance.FieldID, paymentproviderinstance.FieldSortOrder:
@@ -125,6 +130,14 @@ func (_m *PaymentProviderInstance) assignValues(columns []string, values []any) 
 				return fmt.Errorf("unexpected type %T for field limits", values[i])
 			} else if value.Valid {
 				_m.Limits = value.String
+			}
+		case paymentproviderinstance.FieldRechargePolicy:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field recharge_policy", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.RechargePolicy); err != nil {
+					return fmt.Errorf("unmarshal field recharge_policy: %w", err)
+				}
 			}
 		case paymentproviderinstance.FieldRefundEnabled:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -209,6 +222,9 @@ func (_m *PaymentProviderInstance) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("limits=")
 	builder.WriteString(_m.Limits)
+	builder.WriteString(", ")
+	builder.WriteString("recharge_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RechargePolicy))
 	builder.WriteString(", ")
 	builder.WriteString("refund_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RefundEnabled))

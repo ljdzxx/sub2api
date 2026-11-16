@@ -159,8 +159,11 @@ onMounted(async () => {
       currency.value = normalizePaymentCurrency(res.data.currency)
     }
 
-    await paymentStore.fetchConfig()
-    const publishableKey = paymentStore.config?.stripe_publishable_key
+    let publishableKey = res.data.stripe_publishable_key || restored?.stripePublishableKey
+    if (!publishableKey && !res.data.provider_instance_id) {
+      await paymentStore.fetchConfig()
+      publishableKey = paymentStore.config?.stripe_publishable_key
+    }
     if (!publishableKey) { initError.value = t('payment.stripeNotConfigured'); return }
 
     const { loadStripe } = await import('@stripe/stripe-js/pure')

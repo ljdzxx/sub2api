@@ -71,24 +71,30 @@ func generateRandomString(n int) string {
 }
 
 type CreateOrderRequest struct {
-	UserID          int64
-	Amount          float64
-	PaymentType     string
-	OpenID          string
-	ClientIP        string
-	IsMobile        bool
-	IsWeChatBrowser bool
-	SrcHost         string
-	SrcURL          string
-	ReturnURL       string
-	PaymentSource   string
-	OrderType       string
-	PlanID          int64
-	Locale          string
+	UserID             int64
+	Amount             float64
+	PaymentType        string
+	ProviderInstanceID string
+	PricingRevision    string
+	pricingSnapshot    map[string]any
+	OpenID             string
+	ClientIP           string
+	IsMobile           bool
+	IsWeChatBrowser    bool
+	SrcHost            string
+	SrcURL             string
+	ReturnURL          string
+	PaymentSource      string
+	OrderType          string
+	PlanID             int64
+	Locale             string
 }
 
 type CreateOrderResponse struct {
 	OrderID                       int64                           `json:"order_id"`
+	ProviderInstanceID            string                          `json:"provider_instance_id,omitempty"`
+	ProviderName                  string                          `json:"provider_name,omitempty"`
+	StripePublishableKey          string                          `json:"stripe_publishable_key,omitempty"`
 	Amount                        float64                         `json:"amount"`
 	PayAmount                     float64                         `json:"pay_amount"`
 	FeeRate                       float64                         `json:"fee_rate"`

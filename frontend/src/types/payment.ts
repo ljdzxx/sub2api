@@ -31,6 +31,24 @@ export interface RechargeBonusTier {
   bonus_percent: number
 }
 
+export interface RechargePolicy {
+  mode: 'bonus' | 'discount'
+  tiers: RechargeBonusTier[]
+  notice: string
+}
+
+export interface PaymentOption extends MethodLimit {
+  id: string
+  provider_instance_id: string
+  provider_name: string
+  provider_key: string
+  payment_type: string
+  sort_order: number
+  recharge_policy: RechargePolicy
+  pricing_revision: string
+  stripe_publishable_key?: string
+}
+
 export interface PaymentConfig {
   payment_enabled: boolean
   min_amount: number
@@ -68,6 +86,9 @@ export interface MethodLimitsResponse {
 
 /** Response from /payment/checkout-info API — single call for the payment page */
 export interface CheckoutInfoResponse {
+  payment_options?: PaymentOption[]
+  min_amount?: number
+  max_amount?: number
   methods: Record<string, MethodLimit>
   global_min: number
   global_max: number
@@ -118,6 +139,8 @@ export interface PaymentOrder {
   refund_request_reason?: string
   plan_id?: number
   provider_instance_id?: string
+  provider_name?: string
+  stripe_publishable_key?: string
 }
 
 // ==================== Plans & Channels ====================
@@ -176,11 +199,14 @@ export interface ProviderInstance {
   allow_user_refund: boolean
   limits: string
   sort_order: number
+  recharge_policy?: RechargePolicy
 }
 
 // ==================== Request / Response ====================
 
 export interface CreateOrderRequest {
+  provider_instance_id?: string
+  pricing_revision?: string
   amount: number
   payment_type: string
   order_type: string
@@ -213,6 +239,9 @@ export interface WechatJSAPIPayload {
 }
 
 export interface CreateOrderResult {
+  provider_instance_id?: string
+  provider_name?: string
+  stripe_publishable_key?: string
   order_id: number
   amount: number
   pay_url?: string

@@ -9,6 +9,41 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('PaymentMethodSelector', () => {
+  it('prevents provider changes while an order is being submitted', async () => {
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: '12:wxpay', disabled: true,
+        methods: [{ id: '14:wxpay', provider_instance_id: '14', provider_name: 'Y Pay', type: 'wxpay', fee_rate: 0, available: true }],
+      },
+    })
+    expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.emitted('select')).toBeUndefined()
+  })
+
+  it('keeps same-type methods separate and emits the exact provider option', async () => {
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: '12:wxpay',
+        methods: [
+          { id: '12:wxpay', provider_instance_id: '12', provider_name: 'X Pay', type: 'wxpay', fee_rate: 0, available: true },
+          { id: '12:alipay', provider_instance_id: '12', provider_name: 'X Pay', type: 'alipay', fee_rate: 0, available: true },
+          { id: '14:wxpay', provider_instance_id: '14', provider_name: 'Y Pay', type: 'wxpay', fee_rate: 0, available: true },
+          { id: '14:alipay', provider_instance_id: '14', provider_name: 'Y Pay', type: 'alipay', fee_rate: 0, available: true },
+        ],
+      },
+    })
+    expect(wrapper.findAll('[data-testid="payment-method-grid"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('X Pay')
+    expect(wrapper.text()).toContain('Y Pay')
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(4)
+    expect(buttons[0]!.classes()).toContain('border-[#09BB07]')
+    expect(buttons[2]!.classes()).not.toContain('border-[#09BB07]')
+    await buttons[2]!.trigger('click')
+    expect(wrapper.emitted('select')).toEqual([['14:wxpay']])
+  })
+
   it('wraps large custom method collections without letting labels widen the selector', () => {
     const methods = Array.from({ length: 12 }, (_, index) => ({
       type: `custom_${index}`,

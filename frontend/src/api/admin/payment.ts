@@ -178,12 +178,16 @@ export const adminPaymentAPI = {
 
   /** Create a provider instance */
   createProvider(data: Partial<ProviderInstance>) {
-    return apiClient.post<ProviderInstance>('/admin/payment/providers', data)
+    return apiClient.post<{ id: number }>('/admin/payment/providers', data)
   },
 
   /** Update a provider instance */
   updateProvider(id: number, data: Partial<ProviderInstance>) {
-    return apiClient.put<ProviderInstance>(`/admin/payment/providers/${id}`, data)
+    return apiClient.put<{ id: number }>(`/admin/payment/providers/${id}`, data)
+  },
+
+  reorderProviders(ids: number[]) {
+    return apiClient.put('/admin/payment/providers/reorder', { ids })
   },
 
   /** Delete a provider instance */

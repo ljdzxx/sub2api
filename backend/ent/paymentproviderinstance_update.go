@@ -147,6 +147,12 @@ func (_u *PaymentProviderInstanceUpdate) SetNillableLimits(v *string) *PaymentPr
 	return _u
 }
 
+// SetRechargePolicy sets the "recharge_policy" field.
+func (_u *PaymentProviderInstanceUpdate) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceUpdate {
+	_u.mutation.SetRechargePolicy(v)
+	return _u
+}
+
 // SetRefundEnabled sets the "refund_enabled" field.
 func (_u *PaymentProviderInstanceUpdate) SetRefundEnabled(v bool) *PaymentProviderInstanceUpdate {
 	_u.mutation.SetRefundEnabled(v)
@@ -285,6 +291,9 @@ func (_u *PaymentProviderInstanceUpdate) sqlSave(ctx context.Context) (_node int
 	}
 	if value, ok := _u.mutation.Limits(); ok {
 		_spec.SetField(paymentproviderinstance.FieldLimits, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RechargePolicy(); ok {
+		_spec.SetField(paymentproviderinstance.FieldRechargePolicy, field.TypeJSON, value)
 	}
 	if value, ok := _u.mutation.RefundEnabled(); ok {
 		_spec.SetField(paymentproviderinstance.FieldRefundEnabled, field.TypeBool, value)
@@ -431,6 +440,12 @@ func (_u *PaymentProviderInstanceUpdateOne) SetNillableLimits(v *string) *Paymen
 	if v != nil {
 		_u.SetLimits(*v)
 	}
+	return _u
+}
+
+// SetRechargePolicy sets the "recharge_policy" field.
+func (_u *PaymentProviderInstanceUpdateOne) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceUpdateOne {
+	_u.mutation.SetRechargePolicy(v)
 	return _u
 }
 
@@ -602,6 +617,9 @@ func (_u *PaymentProviderInstanceUpdateOne) sqlSave(ctx context.Context) (_node 
 	}
 	if value, ok := _u.mutation.Limits(); ok {
 		_spec.SetField(paymentproviderinstance.FieldLimits, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RechargePolicy(); ok {
+		_spec.SetField(paymentproviderinstance.FieldRechargePolicy, field.TypeJSON, value)
 	}
 	if value, ok := _u.mutation.RefundEnabled(); ok {
 		_spec.SetField(paymentproviderinstance.FieldRefundEnabled, field.TypeBool, value)

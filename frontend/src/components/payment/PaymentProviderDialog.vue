@@ -5,7 +5,11 @@
     width="wide"
     @close="emit('close')"
   >
+    <div class="mb-4 flex gap-2 border-b border-gray-200 pb-3 dark:border-dark-700" role="tablist">
+      <button v-for="tab in dialogTabs" :key="tab.key" type="button" role="tab" :aria-selected="activeTab === tab.key" :class="['rounded-lg px-3 py-2 text-sm font-medium', activeTab === tab.key ? 'bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300' : 'text-gray-500']" @click="activeTab = tab.key">{{ tab.label }}</button>
+    </div>
     <form id="provider-form" @submit.prevent="handleSave" class="space-y-4">
+      <div v-show="activeTab === 'basic'" class="space-y-4">
       <!-- Name + Key -->
       <div class="grid grid-cols-2 gap-4">
         <div>
@@ -13,7 +17,7 @@
             {{ t('admin.settings.payment.providerName') }}
             <span class="text-red-500">*</span>
           </label>
-          <input v-model="form.name" type="text" class="input" required />
+          <input v-model="form.name" type="text" class="input" />
         </div>
         <div>
           <label class="input-label">
@@ -244,7 +248,12 @@
       </div>
 
       <!-- Per-type limits (collapsible) -->
-      <div v-if="limitableTypes.length" class="border-t border-gray-200 pt-4 dark:border-dark-700">
+      </div>
+      <div v-show="activeTab === 'policy'" class="space-y-3">
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.providerRechargePolicyHint') }}</p>
+        <RechargeBonusTierEditor v-model="policyTiers" v-model:mode="policyMode" v-model:notice="policyNotice" />
+      </div>
+      <div v-if="limitableTypes.length" v-show="activeTab === 'limits'" class="border-t border-gray-200 pt-4 dark:border-dark-700">
         <button type="button" @click="limitsExpanded = !limitsExpanded" class="flex w-full items-center justify-between">
           <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
             {{ t('admin.settings.payment.limitsTitle') }}
@@ -313,6 +322,8 @@ import Select from '@/components/common/Select.vue'
 import type { SelectOption } from '@/components/common/Select.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 import type { ProviderInstance } from '@/types/payment'
+import RechargeBonusTierEditor from '@/components/admin/settings/RechargeBonusTierEditor.vue'
+import { normalizeRechargeBonusMode, normalizeRechargeBonusTiers, sanitizeRechargeBonusTiersForSubmit, isRechargeBonusMinAmountValid, isRechargeBonusPercentValidForMode, isDuplicateRechargeBonusMinAmount, type RechargeBonusMode, type RechargeBonusTierDraft } from '@/utils/rechargeBonus'
 import type { EasyPayCustomMethod, TypeOption } from './providerConfig'
 import {
   PROVIDER_CONFIG_FIELDS,
@@ -376,10 +387,20 @@ const emit = defineEmits<{
     allow_user_refund: boolean
     config: Record<string, string>
     limits: string
+    recharge_policy: { mode: RechargeBonusMode; tiers: { min_amount: number; bonus_percent: number }[]; notice: string }
   }]
 }>()
 
 const { t } = useI18n()
+const activeTab = ref<'basic' | 'policy' | 'limits'>('basic')
+const dialogTabs = computed(() => [
+  { key: 'basic' as const, label: t('admin.settings.payment.providerBasicTab') },
+  { key: 'policy' as const, label: t('admin.settings.payment.rechargeBonus.label') },
+  { key: 'limits' as const, label: t('admin.settings.payment.limitsTitle') },
+])
+const policyTiers = ref<RechargeBonusTierDraft[]>([])
+const policyMode = ref<RechargeBonusMode>('bonus')
+const policyNotice = ref('')
 
 interface PaymentGuideItem {
   title: string
@@ -408,7 +429,7 @@ const config = reactive<Record<string, string>>({})
 const limits = reactive<Record<string, Record<string, number>>>({})
 const notifyBaseUrl = ref('')
 const returnBaseUrl = ref('')
-const limitsExpanded = ref(false)
+const limitsExpanded = ref(true)
 const visibleFields = reactive<Record<string, boolean>>({})
 const easyPayCustomMethods = reactive<EasyPayCustomMethod[]>([])
 
@@ -655,6 +676,13 @@ function serializeLimits(): string {
 }
 
 function handleSave() {
+  for (const [index, tier] of policyTiers.value.entries()) {
+    if (!isRechargeBonusMinAmountValid(tier.min_amount) || !isRechargeBonusPercentValidForMode(tier.bonus_percent, policyMode.value) || isDuplicateRechargeBonusMinAmount(policyTiers.value, index)) {
+      activeTab.value = 'policy'
+      emitValidationError(t('admin.settings.payment.invalidRechargePolicy'))
+      return
+    }
+  }
   // Validate required fields
   if (!form.name.trim()) {
     emitValidationError(t('admin.settings.payment.validationNameRequired'))
@@ -723,6 +751,7 @@ function handleSave() {
     allow_user_refund: form.refund_enabled ? form.allow_user_refund : false,
     config: filteredConfig,
     limits: serializeLimits(),
+    recharge_policy: { mode: policyMode.value, tiers: sanitizeRechargeBonusTiersForSubmit(policyTiers.value), notice: policyNotice.value },
   })
 }
 
@@ -784,6 +813,10 @@ function emitValidationError(msg: string) {
 
 // --- Public API for parent to call ---
 function reset(defaultKey: string) {
+  activeTab.value = 'basic'
+  policyTiers.value = []
+  policyMode.value = 'bonus'
+  policyNotice.value = ''
   form.name = ''
   form.provider_key = defaultKey
   form.supported_types = [...(PROVIDER_SUPPORTED_TYPES[defaultKey] || [])]
@@ -795,7 +828,11 @@ function reset(defaultKey: string) {
   applyDefaults()
 }
 
-function loadProvider(provider: ProviderInstance) {
+function loadProvider(provider: ProviderInstance, tab: 'basic' | 'policy' | 'limits' = 'basic') {
+  activeTab.value = tab
+  policyTiers.value = normalizeRechargeBonusTiers(provider.recharge_policy?.tiers)
+  policyMode.value = normalizeRechargeBonusMode(provider.recharge_policy?.mode)
+  policyNotice.value = provider.recharge_policy?.notice || ''
   form.name = provider.name
   form.provider_key = provider.provider_key
   form.supported_types = Array.isArray(provider.supported_types)

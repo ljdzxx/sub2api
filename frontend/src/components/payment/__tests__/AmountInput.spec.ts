@@ -15,6 +15,13 @@ function mountInput(value: number | null = null) {
 }
 
 describe('recharge amount input', () => {
+  it('clears the visible amount when changing provider currency resets the model', async () => {
+    const wrapper = mountInput(100)
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('100')
+    await wrapper.setProps({ modelValue: null, currency: 'USD' })
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('')
+  })
+
   it.each(['10abc', '10.555', '-10', '1e2'])('restores the accepted amount after rejecting %s', async (value) => {
     const wrapper = mountInput(10)
     const input = wrapper.get('input')

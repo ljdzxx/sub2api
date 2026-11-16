@@ -8,7 +8,7 @@
             {{ t('admin.settings.payment.rechargeBonus.label') }}
           </h2>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.settings.payment.rechargeBonus.hint') }}
+            {{ t('admin.settings.payment.rechargeBonus.providerHint') }}
           </p>
         </div>
         <button

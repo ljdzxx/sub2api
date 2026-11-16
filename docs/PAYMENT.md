@@ -26,7 +26,7 @@ Sub2API has a built-in payment system that enables user self-service top-up with
 | **WeChat Pay (Direct)** | Native QR, H5, MP/JSAPI Pay | Direct integration with WeChat Pay APIv3 with environment-aware routing |
 | **Stripe** | Card, Alipay, WeChat Pay, Link, etc. | International payments, multi-currency support |
 
-> Alipay/WeChat Pay direct and EasyPay can both exist as backend provider instances, but the frontend always exposes only two visible buttons: `Alipay` and `WeChat Pay`. Admins choose exactly one source for each visible method: direct or EasyPay. Direct channels connect to payment APIs directly with lower fees; EasyPay aggregates through third-party platforms with easier setup.
+> Multiple instances of the same provider type can be enabled together, including direct channels alongside EasyPay. Checkout groups methods by provider name, for example `X EasyPay: WeChat Pay / Alipay` and `Y EasyPay: WeChat Pay / Alipay`. Users select the exact provider and method; there is no single-source restriction per method.
 
 > **EasyPay Provider Recommendations**: Both options below are third-party aggregators compatible with the EasyPay protocol. Pick based on the funding channel and settlement currency you need:
 >
@@ -63,23 +63,17 @@ Configure the following in Admin Dashboard **Settings → Payment Settings**:
 | **Daily Limit** | Per-user daily cumulative limit (empty = unlimited) | - |
 | **Order Timeout** | Order timeout in minutes (minimum 1) | 30 |
 | **Max Pending Orders** | Maximum concurrent pending orders per user | 3 |
-| **Load Balance Strategy** | Strategy for selecting provider instances | Round Robin |
 
-### Frontend Visible Method Routing
+### Checkout Provider Selection
 
-The current payment UX keeps the frontend method list unified and does not expose provider brands directly:
+Checkout displays providers before payment methods and recharge amounts:
 
-- **Alipay**: when enabled, this button must be routed to either `Alipay (Direct)` or `EasyPay Alipay`
-- **WeChat Pay**: when enabled, this button must be routed to either `WeChat Pay (Direct)` or `EasyPay WeChat`
-- Each visible method can route to only one source at a time
-- If a visible method is enabled without a selected source, the frontend will not expose that method
+- Identically named methods remain separate under each provider. Orders bind to the selected instance.
+- Switching providers updates promotion tiers, Markdown notice, payable/credited previews, currency and limits. Changing currency clears the amount.
+- Unavailable or over-limit selections require the user to adjust the amount or choose another provider; there is no automatic failover.
+- Pricing changes refresh the quote and require confirmation again. Existing orders retain their original pricing.
 
-### Load Balance Strategies
-
-| Strategy | Description |
-|----------|-------------|
-| **Round Robin** | Distribute orders to instances in rotation |
-| **Least Amount** | Prefer instances with the lowest daily cumulative amount |
+Legacy load-balancing settings remain for compatibility but do not select providers in the new checkout.
 
 ### Cancel Rate Limiting
 
@@ -158,14 +152,19 @@ International payment platform supporting multiple payment methods and currencie
 
 ## Provider Instance Management
 
-You can create **multiple instances** of the same provider type for load balancing and risk control:
+See [Payment Provider Options API](PAYMENT_PROVIDER_OPTIONS_API.md) for request fields and upgrade compatibility.
 
-- **Multi-instance load balancing** — Distribute orders via round-robin or least-amount strategy
+You can create and enable **multiple instances** of the same provider type for explicit user selection:
+
+- **Provider groups** — Show each instance's name and payment methods independently
+- **Independent promotions** — Configure bonus / discount tiers and a Markdown notice in the instance's Recharge Promotion tab; subscriptions do not receive recharge promotions
 - **Independent limits** — Each instance can have its own min/max amount and daily limit
 - **Independent toggle** — Enable/disable individual instances without affecting others
 - **Refund control** — Enable or disable refunds per instance
 - **Payment methods** — Each instance can support a subset of payment methods
-- **Ordering** — Drag to reorder instances
+- **Ordering** — Drag or use move-up / move-down buttons; the saved order controls checkout display without a numeric sort field
+
+On upgrade, migration `254_payment_instance_recharge_policy.sql` copies the legacy global recharge promotion to existing instances once. Policies are independent afterward, and new instances start without promotions. Existing orders keep their original pricing. Disabling a provider blocks new orders without interrupting callbacks for existing orders.
 
 ### Instance Limit Configuration
 
@@ -177,7 +176,7 @@ Each instance supports these limits:
 | **Maximum Amount** | Maximum order amount accepted by this instance |
 | **Daily Limit** | Daily cumulative transaction limit for this instance |
 
-> During load balancing, instances that exceed their limits are automatically skipped.
+> Instance limits apply to the final payable amount including fees. Pending orders reserve daily instance capacity. A limit rejection never redirects the order to another provider.
 
 ---
 
@@ -223,7 +222,7 @@ User selects amount and payment method
        ▼
   Create Order (PENDING)
   ├─ Validate amount range, pending order count, daily limit
-  ├─ Load balance to select provider instance
+  ├─ Validate selected instance and pricing revision; freeze pricing snapshot
   └─ Call provider to get payment info
        │
        ▼

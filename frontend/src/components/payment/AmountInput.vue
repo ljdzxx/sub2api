@@ -10,6 +10,7 @@
           v-for="amt in filteredAmounts"
           :key="amt"
           type="button"
+          :disabled="disabled"
           :class="[
             'relative rounded-lg border-2 px-3 py-3 text-center font-medium transition-colors',
             modelValue === amt
@@ -51,14 +52,15 @@
     <!-- Custom Amount Input -->
     <div>
       <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {{ t('payment.customAmount') }}
+        {{ t(bonusMode === 'discount' ? 'payment.rechargeAmountBeforeDiscount' : 'payment.customAmount') }}
       </label>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500">
-          $
+          {{ currencySymbol }}
         </span>
         <input
           type="text"
+          :disabled="disabled"
           inputmode="decimal"
           :value="customText"
           :placeholder="placeholderText"
@@ -80,6 +82,7 @@ import { formatPaymentAmount } from './currency'
 const props = withDefaults(defineProps<{
   amounts?: number[]
   modelValue: number | null
+  disabled?: boolean
   min?: number
   max?: number
   /** 充值优惠阶梯（按 min_amount 升序）；为空时不显示价签与第二行 */
@@ -105,6 +108,11 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const currencySymbol = computed(() => {
+  if (!props.currency) return '$'
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: props.currency }).formatToParts(0).find(part => part.type === 'currency')?.value || props.currency
+})
 
 const customText = ref('')
 
@@ -180,9 +188,11 @@ function handleInput(e: Event) {
   }
 }
 
-watch(() => props.modelValue, (v) => {
-  if (v !== null && String(v) !== customText.value) {
-    customText.value = String(v)
+watch(() => props.modelValue, (value) => {
+  if (value === null) {
+    customText.value = ''
+  } else if (String(value) !== customText.value) {
+    customText.value = String(value)
   }
 }, { immediate: true })
 </script>

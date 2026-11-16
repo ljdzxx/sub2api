@@ -55,7 +55,32 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	}
 	feeRate := cfg.RechargeFeeRate
 	methodCurrency := payment.DefaultPaymentCurrency
-	if s.configService != nil {
+	requestedInstance, err := s.resolveRequestedPaymentInstance(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if requestedInstance != nil {
+		policy, err := instanceRechargePolicy(requestedInstance)
+		if err != nil {
+			return nil, err
+		}
+		methodCurrency = s.configService.pcInstancePaymentCurrency(requestedInstance)
+		revision := paymentInstancePricingRevision(requestedInstance, cfg, policy, methodCurrency)
+		if (req.ProviderInstanceID != "" && req.PricingRevision == "") || (req.PricingRevision != "" && req.PricingRevision != revision) {
+			return nil, infraerrors.Conflict("PAYMENT_PRICING_CHANGED", "payment pricing changed; review and confirm again")
+		}
+		req.ProviderInstanceID = strconv.FormatInt(requestedInstance.ID, 10)
+		req.PricingRevision = revision
+		cfg.RechargeBonusTiers = policy.Tiers
+		cfg.RechargeBonusMode = policy.Mode
+		cfg.RechargeBonusNotice = policy.Notice
+		req.pricingSnapshot = map[string]any{
+			"provider_instance_id": req.ProviderInstanceID, "provider_name": requestedInstance.Name,
+			"pricing_revision": revision, "input_amount": req.Amount, "currency": methodCurrency,
+			"recharge_policy": rechargePolicyMap(policy), "balance_recharge_multiplier": cfg.BalanceRechargeMultiplier,
+			"fee_rate": feeRate, "subscription_usd_to_cny_rate": cfg.SubscriptionUSDToCNYRate,
+		}
+	} else if s.configService != nil {
 		methodCurrency, err = s.configService.ValidateMethodCurrencyConsistency(ctx, req.PaymentType)
 		if err != nil {
 			return nil, err
@@ -78,7 +103,12 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
-	sel, err := s.selectCreateOrderInstance(ctx, req, cfg, payAmount)
+	var sel *payment.InstanceSelection
+	if requestedInstance != nil {
+		sel, err = s.selectPinnedPaymentInstance(ctx, requestedInstance, req, payAmount)
+	} else {
+		sel, err = s.selectCreateOrderInstance(ctx, req, cfg, payAmount)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +128,21 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
 		return nil, err
 	}
-	oauthResp, err := s.maybeBuildWeChatOAuthRequiredResponseForSelection(ctx, req, limitAmount, payAmount, feeRate, sel)
+	oauthResp, err := s.maybeBuildWeChatOAuthRequiredResponseForSelection(ctx, req, req.Amount, payAmount, feeRate, sel)
 	if err != nil {
 		return nil, err
 	}
 	if oauthResp != nil {
 		return oauthResp, nil
+	}
+	if req.pricingSnapshot != nil {
+		req.pricingSnapshot["credited_amount"] = orderAmount
+		req.pricingSnapshot["pay_base"] = limitAmount
+		req.pricingSnapshot["pay_amount"] = payAmount
+		req.pricingSnapshot["bonus_amount"] = bonusAmount
+		if req.OrderType == payment.OrderTypeBalance {
+			req.pricingSnapshot["matched_percent"] = quoteRechargeBonus(cfg, req.Amount, methodCurrency).Percent
+		}
 	}
 	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, bonusAmount, sel)
 	if err != nil {
@@ -165,6 +204,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	if req.pricingSnapshot != nil {
+		if err := s.validatePinnedPaymentInTx(ctx, tx, req, cfg, payAmount); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
@@ -216,6 +260,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	if providerSnapshot != nil {
 		b.SetProviderSnapshot(providerSnapshot)
+	}
+	if req.pricingSnapshot != nil {
+		b.SetPricingSnapshot(req.pricingSnapshot)
 	}
 	if plan != nil {
 		b.SetPlanID(plan.ID).SetSubscriptionGroupID(plan.GroupID).SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
@@ -743,27 +790,30 @@ func classifyCreatePaymentError(req CreateOrderRequest, providerKey string, err 
 
 func buildCreateOrderResponse(order *dbent.PaymentOrder, req CreateOrderRequest, payAmount float64, sel *payment.InstanceSelection, pr *payment.CreatePaymentResponse, resultType payment.CreatePaymentResultType) *CreateOrderResponse {
 	return &CreateOrderResponse{
-		OrderID:      order.ID,
-		Amount:       order.Amount,
-		PayAmount:    payAmount,
-		FeeRate:      order.FeeRate,
-		BonusAmount:  order.BonusAmount,
-		Status:       OrderStatusPending,
-		ResultType:   resultType,
-		PaymentType:  req.PaymentType,
-		OutTradeNo:   order.OutTradeNo,
-		PayURL:       pr.PayURL,
-		QRCode:       pr.QRCode,
-		ClientSecret: pr.ClientSecret,
-		IntentID:     pr.IntentID,
-		Currency:     pr.Currency,
-		CountryCode:  pr.CountryCode,
-		PaymentEnv:   pr.PaymentEnv,
-		OAuth:        pr.OAuth,
-		JSAPI:        pr.JSAPI,
-		JSAPIPayload: pr.JSAPI,
-		ExpiresAt:    order.ExpiresAt,
-		PaymentMode:  sel.PaymentMode,
+		OrderID:              order.ID,
+		ProviderInstanceID:   sel.InstanceID,
+		ProviderName:         psSnapshotStringValue(order.PricingSnapshot["provider_name"]),
+		StripePublishableKey: selectedStripePublishableKey(sel),
+		Amount:               order.Amount,
+		PayAmount:            payAmount,
+		FeeRate:              order.FeeRate,
+		BonusAmount:          order.BonusAmount,
+		Status:               OrderStatusPending,
+		ResultType:           resultType,
+		PaymentType:          req.PaymentType,
+		OutTradeNo:           order.OutTradeNo,
+		PayURL:               pr.PayURL,
+		QRCode:               pr.QRCode,
+		ClientSecret:         pr.ClientSecret,
+		IntentID:             pr.IntentID,
+		Currency:             pr.Currency,
+		CountryCode:          pr.CountryCode,
+		PaymentEnv:           pr.PaymentEnv,
+		OAuth:                pr.OAuth,
+		JSAPI:                pr.JSAPI,
+		JSAPIPayload:         pr.JSAPI,
+		ExpiresAt:            order.ExpiresAt,
+		PaymentMode:          sel.PaymentMode,
 	}
 }
 
@@ -774,6 +824,12 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	q := u.Query()
 	q.Set("payment_type", strings.TrimSpace(req.PaymentType))
+	if req.ProviderInstanceID != "" {
+		q.Set("provider_instance_id", req.ProviderInstanceID)
+	}
+	if req.PricingRevision != "" {
+		q.Set("pricing_revision", req.PricingRevision)
+	}
 	if req.Amount > 0 {
 		q.Set("amount", strconv.FormatFloat(req.Amount, 'f', -1, 64))
 	}

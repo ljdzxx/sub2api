@@ -98,6 +98,44 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
 
 describe('PaymentProviderDialog callback URLs', () => {
   it.each([
+    [{ min_amount: -1, bonus_percent: 10 }],
+    [{ min_amount: 100, bonus_percent: 100 }],
+    [{ min_amount: 100, bonus_percent: 10 }, { min_amount: 100, bonus_percent: 20 }],
+  ])('rejects invalid provider discount tiers %# without silently dropping them', async (...tiers) => {
+    const provider = providerFactory({
+      config: { apiKey: 'api-test', clientId: 'client-test', webhookSecret: 'webhook-test' },
+    })
+    const wrapper = mountDialog({ editing: provider })
+    ;(wrapper.vm as unknown as { loadProvider: (value: ProviderInstance, tab: string) => void }).loadProvider(provider, 'policy')
+    await nextTick()
+    const editor = wrapper.findComponent({ name: 'RechargeBonusTierEditor' })
+    editor.vm.$emit('update:mode', 'discount')
+    editor.vm.$emit('update:modelValue', tiers)
+    await nextTick()
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')).toBeUndefined()
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').text()).toContain('rechargeBonus.label')
+    wrapper.unmount()
+  })
+
+  it('edits the provider promotion without adding it to merchant credentials', async () => {
+    const provider = providerFactory({
+      recharge_policy: { mode: 'discount', tiers: [{ min_amount: 100, bonus_percent: 10 }], notice: '**Y promotion**' },
+      config: { apiKey: 'api-test', clientId: 'client-test', webhookSecret: 'webhook-test' },
+    })
+    const wrapper = mountDialog({ editing: provider })
+    ;(wrapper.vm as unknown as { loadProvider: (value: ProviderInstance, tab: string) => void }).loadProvider(provider, 'policy')
+    await nextTick()
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').text()).toContain('rechargeBonus.label')
+    expect((wrapper.get('[data-testid="recharge-bonus-notice-input"]').element as HTMLTextAreaElement).value).toBe('**Y promotion**')
+    await wrapper.get('[data-testid="recharge-bonus-tier-percent-input"]').setValue('15')
+    await wrapper.get('form').trigger('submit')
+    const payload = wrapper.emitted('save')?.[0]?.[0] as Record<string, unknown>
+    expect(payload).toEqual(expect.objectContaining({ recharge_policy: { mode: 'discount', tiers: [{ min_amount: 100, bonus_percent: 15 }], notice: '**Y promotion**' } }))
+    expect(payload.config).not.toHaveProperty('recharge_policy')
+  })
+
+  it.each([
     ['https://notify.example.com/', 'https://return.example.com///', 'https://notify.example.com', 'https://return.example.com'],
     [' https://notify.example.com/sub/ ', ' https://return.example.com/site/ ', 'https://notify.example.com/sub', 'https://return.example.com/site'],
     ['https://notify.example.com', 'https://return.example.com', 'https://notify.example.com', 'https://return.example.com'],

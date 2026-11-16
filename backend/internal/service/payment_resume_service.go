@@ -55,16 +55,18 @@ type ResumeTokenClaims struct {
 }
 
 type WeChatPaymentResumeClaims struct {
-	TokenType   string `json:"tk,omitempty"`
-	OpenID      string `json:"openid"`
-	PaymentType string `json:"pt,omitempty"`
-	Amount      string `json:"amt,omitempty"`
-	OrderType   string `json:"ot,omitempty"`
-	PlanID      int64  `json:"pid,omitempty"`
-	RedirectTo  string `json:"rd,omitempty"`
-	Scope       string `json:"scp,omitempty"`
-	IssuedAt    int64  `json:"iat"`
-	ExpiresAt   int64  `json:"exp,omitempty"`
+	ProviderInstanceID string `json:"pi,omitempty"`
+	PricingRevision    string `json:"pr,omitempty"`
+	TokenType          string `json:"tk,omitempty"`
+	OpenID             string `json:"openid"`
+	PaymentType        string `json:"pt,omitempty"`
+	Amount             string `json:"amt,omitempty"`
+	OrderType          string `json:"ot,omitempty"`
+	PlanID             int64  `json:"pid,omitempty"`
+	RedirectTo         string `json:"rd,omitempty"`
+	Scope              string `json:"scp,omitempty"`
+	IssuedAt           int64  `json:"iat"`
+	ExpiresAt          int64  `json:"exp,omitempty"`
 }
 
 type PaymentResumeService struct {

@@ -3,6 +3,8 @@ import type { SubscriptionPlan } from '@/types/payment'
 import { normalizeVisibleMethod } from '@/components/payment/paymentFlow'
 
 export interface ParsedWechatResumeRoute {
+  providerInstanceId?: string
+  pricingRevision?: string
   orderAmount: number
   orderType: 'balance' | 'subscription'
   paymentType: string
@@ -37,6 +39,8 @@ export function parseWechatResumeRoute(
   }
 
   const wechatResumeToken = readQueryString(query, 'wechat_resume_token')
+  const providerInstanceId = readQueryString(query, 'provider_instance_id') || undefined
+  const pricingRevision = readQueryString(query, 'pricing_revision') || undefined
   const paymentType = normalizeVisibleMethod(readQueryString(query, 'payment_type')) || 'wxpay'
   const planId = Number.parseInt(readQueryString(query, 'plan_id'), 10)
   const hasPlanId = Number.isFinite(planId) && planId > 0
@@ -46,6 +50,8 @@ export function parseWechatResumeRoute(
 
   if (wechatResumeToken) {
     return {
+      providerInstanceId,
+      pricingRevision,
       wechatResumeToken,
       paymentType,
       orderType,
@@ -67,6 +73,8 @@ export function parseWechatResumeRoute(
       : fallbackBalanceAmount)
 
   return {
+    providerInstanceId,
+    pricingRevision,
     openid,
     paymentType,
     orderType,
@@ -86,5 +94,7 @@ export function stripWechatResumeQuery(query: LocationQuery): LocationQueryRaw {
   delete nextQuery.amount
   delete nextQuery.order_type
   delete nextQuery.plan_id
+  delete nextQuery.provider_instance_id
+  delete nextQuery.pricing_revision
   return nextQuery
 }

@@ -32,7 +32,7 @@ func (s *PaymentConfigService) validateProviderConfig(providerKey string, config
 // --- Provider Instance CRUD ---
 
 func (s *PaymentConfigService) ListProviderInstances(ctx context.Context) ([]*dbent.PaymentProviderInstance, error) {
-	return s.entClient.PaymentProviderInstance.Query().Order(paymentproviderinstance.BySortOrder()).All(ctx)
+	return s.entClient.PaymentProviderInstance.Query().Order(paymentproviderinstance.BySortOrder(), paymentproviderinstance.ByID()).All(ctx)
 }
 
 // ProviderInstanceResponse is the API response for a provider instance.
@@ -48,12 +48,13 @@ type ProviderInstanceResponse struct {
 	AllowUserRefund bool              `json:"allow_user_refund"`
 	SortOrder       int               `json:"sort_order"`
 	PaymentMode     string            `json:"payment_mode"`
+	RechargePolicy  RechargePolicy    `json:"recharge_policy"`
 }
 
 // ListProviderInstancesWithConfig returns provider instances with decrypted config.
 func (s *PaymentConfigService) ListProviderInstancesWithConfig(ctx context.Context) ([]ProviderInstanceResponse, error) {
 	instances, err := s.entClient.PaymentProviderInstance.Query().
-		Order(paymentproviderinstance.BySortOrder()).All(ctx)
+		Order(paymentproviderinstance.BySortOrder(), paymentproviderinstance.ByID()).All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +69,10 @@ func (s *PaymentConfigService) ListProviderInstancesWithConfig(ctx context.Conte
 		resp.Config, err = s.decryptAndMaskConfig(inst.ProviderKey, inst.Config)
 		if err != nil {
 			return nil, fmt.Errorf("decrypt config for instance %d: %w", inst.ID, err)
+		}
+		resp.RechargePolicy, err = instanceRechargePolicy(inst)
+		if err != nil {
+			return nil, fmt.Errorf("read recharge policy for instance %d: %w", inst.ID, err)
 		}
 		result = append(result, resp)
 	}
@@ -182,6 +187,10 @@ var validProviderKeys = map[string]bool{
 }
 
 func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req CreateProviderInstanceRequest) (*dbent.PaymentProviderInstance, error) {
+	policy, err := normalizeRechargePolicy(req.RechargePolicy)
+	if err != nil {
+		return nil, err
+	}
 	typesStr := joinTypes(req.SupportedTypes)
 	if err := validateProviderRequest(req.ProviderKey, req.Name, typesStr); err != nil {
 		return nil, err
@@ -204,11 +213,21 @@ func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req C
 		return nil, err
 	}
 	allowUserRefund := req.AllowUserRefund && req.RefundEnabled
+	if req.SortOrder == 0 {
+		last, err := s.entClient.PaymentProviderInstance.Query().Order(dbent.Desc(paymentproviderinstance.FieldSortOrder)).First(ctx)
+		if err != nil && !dbent.IsNotFound(err) {
+			return nil, err
+		}
+		if last != nil {
+			req.SortOrder = last.SortOrder + 1
+		}
+	}
 	return s.entClient.PaymentProviderInstance.Create().
 		SetProviderKey(req.ProviderKey).SetName(req.Name).SetConfig(enc).
 		SetSupportedTypes(typesStr).SetEnabled(req.Enabled).SetPaymentMode(req.PaymentMode).
 		SetSortOrder(req.SortOrder).SetLimits(req.Limits).SetRefundEnabled(req.RefundEnabled).
 		SetAllowUserRefund(allowUserRefund).
+		SetRechargePolicy(rechargePolicyMap(policy)).
 		Save(ctx)
 }
 
@@ -337,16 +356,6 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 			}
 		}
 	}
-	if req.Enabled != nil && !*req.Enabled {
-		count, err := getPendingOrderCount()
-		if err != nil {
-			return nil, err
-		}
-		if count > 0 {
-			return nil, infraerrors.Conflict("PENDING_ORDERS", "instance has pending orders").
-				WithMetadata(map[string]string{"count": strconv.Itoa(count)})
-		}
-	}
 	configToValidate := mergedConfig
 	if configToValidate == nil {
 		configToValidate, err = s.decryptConfig(current.Config)
@@ -447,7 +456,43 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 	if req.PaymentMode != nil {
 		u.SetPaymentMode(*req.PaymentMode)
 	}
+	if req.RechargePolicy != nil {
+		policy, err := normalizeRechargePolicy(req.RechargePolicy)
+		if err != nil {
+			return nil, err
+		}
+		u.SetRechargePolicy(rechargePolicyMap(policy))
+	}
 	return u.Save(ctx)
+}
+
+func (s *PaymentConfigService) ReorderProviderInstances(ctx context.Context, ids []int64) error {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	count, err := tx.PaymentProviderInstance.Query().Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count != len(ids) {
+		return infraerrors.Conflict("PAYMENT_PROVIDERS_CHANGED", "provider list changed; reload and retry")
+	}
+	seen := make(map[int64]bool, len(ids))
+	for position, id := range ids {
+		if id <= 0 || seen[id] {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "duplicate or invalid provider id")
+		}
+		seen[id] = true
+		if _, err := tx.PaymentProviderInstance.UpdateOneID(id).SetSortOrder(position).Save(ctx); err != nil {
+			if dbent.IsNotFound(err) {
+				return infraerrors.Conflict("PAYMENT_PROVIDERS_CHANGED", "provider list changed; reload and retry")
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // GetUserRefundEligibleInstanceIDs returns provider instance IDs that allow user refund.

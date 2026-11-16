@@ -438,6 +438,18 @@ func (_u *PaymentOrderUpdate) ClearProviderSnapshot() *PaymentOrderUpdate {
 	return _u
 }
 
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (_u *PaymentOrderUpdate) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderUpdate {
+	_u.mutation.SetPricingSnapshot(v)
+	return _u
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (_u *PaymentOrderUpdate) ClearPricingSnapshot() *PaymentOrderUpdate {
+	_u.mutation.ClearPricingSnapshot()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PaymentOrderUpdate) SetStatus(v string) *PaymentOrderUpdate {
 	_u.mutation.SetStatus(v)
@@ -986,6 +998,12 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.ProviderSnapshotCleared() {
 		_spec.ClearField(paymentorder.FieldProviderSnapshot, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.PricingSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldPricingSnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.PricingSnapshotCleared() {
+		_spec.ClearField(paymentorder.FieldPricingSnapshot, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(paymentorder.FieldStatus, field.TypeString, value)
 	}
@@ -1525,6 +1543,18 @@ func (_u *PaymentOrderUpdateOne) SetProviderSnapshot(v map[string]interface{}) *
 // ClearProviderSnapshot clears the value of the "provider_snapshot" field.
 func (_u *PaymentOrderUpdateOne) ClearProviderSnapshot() *PaymentOrderUpdateOne {
 	_u.mutation.ClearProviderSnapshot()
+	return _u
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (_u *PaymentOrderUpdateOne) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderUpdateOne {
+	_u.mutation.SetPricingSnapshot(v)
+	return _u
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (_u *PaymentOrderUpdateOne) ClearPricingSnapshot() *PaymentOrderUpdateOne {
+	_u.mutation.ClearPricingSnapshot()
 	return _u
 }
 
@@ -2105,6 +2135,12 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if _u.mutation.ProviderSnapshotCleared() {
 		_spec.ClearField(paymentorder.FieldProviderSnapshot, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.PricingSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldPricingSnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.PricingSnapshotCleared() {
+		_spec.ClearField(paymentorder.FieldPricingSnapshot, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(paymentorder.FieldStatus, field.TypeString, value)

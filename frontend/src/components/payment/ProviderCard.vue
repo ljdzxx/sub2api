@@ -7,11 +7,11 @@
     :title="!enabled ? t('admin.settings.payment.typeDisabled') + ' — ' + t('admin.settings.payment.enableTypesFirst') : undefined"
   >
     <div :class="[
-      'flex items-center justify-between px-4 py-2.5',
+      'flex flex-wrap items-center justify-between gap-3 px-4 py-2.5',
       !enabled && 'pointer-events-none',
     ]">
       <!-- Left: icon + name + key badge + type badges -->
-      <div class="flex items-center gap-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-3">
         <div :class="[
           'rounded-md p-1.5',
           provider.enabled && enabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-dark-700',
@@ -43,7 +43,7 @@
       </div>
 
       <!-- Right: toggles + actions -->
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-4">
         <ToggleSwitch :label="t('common.enabled')" :checked="provider.enabled" @toggle="emit('toggleField', 'enabled')" />
         <ToggleSwitch :label="t('admin.settings.payment.refundEnabled')" :checked="provider.refund_enabled" @toggle="emit('toggleField', 'refund_enabled')" />
         <ToggleSwitch v-if="provider.refund_enabled" :label="t('admin.settings.payment.allowUserRefund')" :checked="provider.allow_user_refund" @toggle="emit('toggleField', 'allow_user_refund')" />
@@ -59,6 +59,10 @@
         </div>
       </div>
     </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-4 py-2 text-xs dark:border-dark-700">
+      <span class="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400" :title="policySummary">{{ t('admin.settings.payment.rechargeBonus.label') }}：{{ policySummary }}</span>
+      <button type="button" class="font-medium text-primary-600 hover:underline dark:text-primary-400" @click="emit('configurePolicy')">{{ t('admin.settings.payment.configureRechargePolicy') }}</button>
+    </div>
   </div>
 </template>
 
@@ -70,6 +74,7 @@ import ToggleSwitch from './ToggleSwitch.vue'
 import type { ProviderInstance } from '@/types/payment'
 import type { TypeOption } from './providerConfig'
 import { PAYMENT_MODE_QRCODE, PAYMENT_MODE_POPUP, PAYMENT_MODE_REDIRECT } from './providerConfig'
+import { formatRechargeBonusNumber } from '@/utils/rechargeBonus'
 
 const PROVIDER_KEY_LABELS: Record<string, string> = {
   easypay: 'admin.settings.payment.providerEasypay',
@@ -89,12 +94,22 @@ const emit = defineEmits<{
   toggleField: [field: 'enabled' | 'refund_enabled' | 'allow_user_refund']
   toggleType: [type: string]
   edit: []
+  configurePolicy: []
   delete: []
 }>()
 
 const { t } = useI18n()
 
 const keyLabel = computed(() => t(PROVIDER_KEY_LABELS[props.provider.provider_key] || props.provider.provider_key))
+
+const policySummary = computed(() => {
+  const policy = props.provider.recharge_policy
+  if (!policy?.tiers.length) return t('payment.providerNoPromotion')
+  return policy.tiers.map(tier => t(policy.mode === 'discount' ? 'payment.providerDiscountTier' : 'payment.providerBonusTier', {
+    amount: formatRechargeBonusNumber(tier.min_amount),
+    percent: formatRechargeBonusNumber(tier.bonus_percent),
+  })).join('；')
+})
 
 const modeLabel = computed(() => {
   if (props.provider.payment_mode === PAYMENT_MODE_QRCODE) return t('admin.settings.payment.modeQRCode')

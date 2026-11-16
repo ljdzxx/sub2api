@@ -32,6 +32,9 @@ export type PaymentLaunchKind =
   | 'unhandled'
 
 export interface PaymentRecoverySnapshot {
+  providerInstanceId?: string
+  providerName?: string
+  stripePublishableKey?: string
   orderId: number
   amount: number
   qrCode: string
@@ -77,6 +80,8 @@ export interface PaymentLaunchDecision {
 }
 
 export interface BuildCreateOrderPayloadInput {
+  providerInstanceId?: string
+  pricingRevision?: string
   amount: number
   paymentType: string
   orderType: OrderType
@@ -139,6 +144,8 @@ export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): Cr
   if (input.planId) {
     payload.plan_id = input.planId
   }
+  if (input.providerInstanceId) payload.provider_instance_id = input.providerInstanceId
+  if (input.pricingRevision) payload.pricing_revision = input.pricingRevision
   if (normalizedOrigin) {
     payload.return_url = `${normalizedOrigin}/payment/result`
   }
@@ -152,6 +159,9 @@ export function decidePaymentLaunch(
 ): PaymentLaunchDecision {
   const visibleMethod = normalizeVisibleMethod(context.visibleMethod) || context.visibleMethod
   const baseState = createPaymentRecoverySnapshot({
+    providerInstanceId: result.provider_instance_id,
+    providerName: result.provider_name,
+    stripePublishableKey: result.stripe_publishable_key,
     orderId: result.order_id,
     amount: result.amount,
     qrCode: result.qr_code || '',
@@ -297,6 +307,9 @@ export function readPaymentRecoverySnapshot(
       || typeof parsed.resumeToken !== 'string'
       || (parsed.alipayMobilePrecreateDeepLink != null && typeof parsed.alipayMobilePrecreateDeepLink !== 'boolean')
       || typeof parsed.createdAt !== 'number'
+      || (parsed.providerInstanceId != null && typeof parsed.providerInstanceId !== 'string')
+      || (parsed.providerName != null && typeof parsed.providerName !== 'string')
+      || (parsed.stripePublishableKey != null && typeof parsed.stripePublishableKey !== 'string')
     ) {
       return null
     }
@@ -311,6 +324,9 @@ export function readPaymentRecoverySnapshot(
     }
 
     return {
+      providerInstanceId: parsed.providerInstanceId,
+      providerName: parsed.providerName,
+      stripePublishableKey: parsed.stripePublishableKey,
       orderId: parsed.orderId,
       amount: parsed.amount,
       qrCode: parsed.qrCode,

@@ -1,5 +1,6 @@
 <template>
   <div class="space-y-4">
+    <p v-if="providerName" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ providerName }} · {{ t(`payment.methods.${paymentType}`, paymentType) }}</p>
     <!-- ═══ Terminal States: show result, user clicks to return ═══ -->
 
     <!-- Success -->
@@ -245,6 +246,7 @@ import {
 
 const props = defineProps<{
   orderId: number
+  providerName?: string
   amount?: number
   payAmount?: number
   qrCode: string

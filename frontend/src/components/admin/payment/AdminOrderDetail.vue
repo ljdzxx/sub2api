@@ -6,6 +6,7 @@
     @close="emit('close')"
   >
     <div v-if="order" class="space-y-4">
+      <p v-if="order.provider_name" class="text-sm font-medium text-gray-900 dark:text-white">{{ t('payment.paymentChannel') }}：{{ order.provider_name }} · {{ t(`payment.methods.${order.payment_type}`, order.payment_type) }}</p>
       <div class="grid grid-cols-2 gap-4">
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</p>

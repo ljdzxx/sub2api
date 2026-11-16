@@ -129,6 +129,25 @@ function mountView() {
 }
 
 describe('StripePaymentView', () => {
+  it('loads the selected order’s Stripe key instead of the first provider’s key', async () => {
+    getOrder.mockResolvedValue({ data: orderFactory({ stripe_publishable_key: 'pk_test_selected' }) })
+    writeSnapshot({ stripePublishableKey: 'pk_test_selected' })
+    mountView()
+    await flushPromises()
+    expect(loadStripe).toHaveBeenCalledWith('pk_test_selected')
+    expect(paymentStore.fetchConfig).not.toHaveBeenCalled()
+  })
+
+  it('never uses a different provider’s global key for a pinned order', async () => {
+    getOrder.mockResolvedValue({ data: orderFactory({ provider_instance_id: '14' }) })
+    writeSnapshot()
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('payment.stripeNotConfigured')
+    expect(loadStripe).not.toHaveBeenCalled()
+    expect(paymentStore.fetchConfig).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
     routeState.query = {
       order_id: '42',

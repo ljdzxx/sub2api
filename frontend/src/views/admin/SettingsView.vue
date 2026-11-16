@@ -8184,16 +8184,6 @@
                   </div>
                   <div>
                     <label class="input-label">{{
-                      t("admin.settings.payment.loadBalanceStrategy")
-                    }}</label>
-                    <Select
-                      v-model="form.payment_load_balance_strategy"
-                      :options="loadBalanceOptions"
-                      class="w-40"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
                       t("admin.settings.payment.cancelRateLimit")
                     }}</label>
                     <div class="flex items-center gap-2">
@@ -8426,14 +8416,6 @@
             </div>
           </div>
 
-          <!-- 充值优惠阶梯（独立卡片，与服务商管理同级） -->
-          <RechargeBonusTierEditor
-            v-if="form.payment_enabled"
-            v-model="form.payment_recharge_bonus_tiers"
-            v-model:mode="form.payment_recharge_bonus_mode"
-            v-model:notice="form.payment_recharge_bonus_notice"
-          />
-
           <!-- Provider Management -->
           <PaymentProviderList
             v-if="form.payment_enabled"
@@ -8446,6 +8428,7 @@
             @refresh="loadProviders"
             @create="openCreateProvider"
             @edit="openEditProvider"
+            @configure-policy="openProviderRechargePolicy"
             @delete="confirmDeleteProvider"
             @toggle-field="handleToggleField"
             @toggle-type="handleToggleType"
@@ -9010,14 +8993,6 @@ import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
-import RechargeBonusTierEditor from "@/components/admin/settings/RechargeBonusTierEditor.vue";
-import {
-  normalizeRechargeBonusMode,
-  normalizeRechargeBonusTiers,
-  sanitizeRechargeBonusTiersForSubmit,
-  type RechargeBonusMode,
-  type RechargeBonusTierDraft,
-} from "@/utils/rechargeBonus";
 import RegistrationEmailBlacklistEditor from "@/components/admin/settings/RegistrationEmailBlacklistEditor.vue";
 import OpenAIFastPolicyUserSelector from "@/views/admin/settings/OpenAIFastPolicyUserSelector.vue";
 import { useClipboard } from "@/composables/useClipboard";
@@ -9034,7 +9009,6 @@ import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiErro
 import { formatBalanceRechargeMultiplier } from "@/utils/rechargeBonus";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
-import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
 import {
   isRegistrationEmailSuffixDomainValid,
   normalizeRegistrationEmailSuffixDomain,
@@ -9738,10 +9712,6 @@ type SettingsForm = Omit<
   openai_advanced_scheduler_weight_upstream_cost: string;
   openai_advanced_scheduler_weight_previous_response: string;
   openai_advanced_scheduler_weight_session_sticky: string;
-  // 充值赠送阶梯编辑态：允许留空的行，提交时清洗为 RechargeBonusTier[]
-  payment_recharge_bonus_tiers: RechargeBonusTierDraft[];
-  payment_recharge_bonus_mode: RechargeBonusMode;
-  payment_recharge_bonus_notice: string;
   // 系统全局平台限额 map；form 内始终归一化为全部平台对象（模板非空绑定依赖此不变量）
   default_platform_quotas: DefaultPlatformQuotasMap;
   account_scheduling_thresholds: ReturnType<typeof normalizeAccountSchedulingThresholdsMap>;
@@ -9812,9 +9782,6 @@ const form = reactive<SettingsForm>({
   payment_balance_recharge_multiplier: 1,
   payment_subscription_usd_to_cny_rate: 0,
   payment_recharge_fee_rate: 0,
-  payment_recharge_bonus_tiers: [],
-  payment_recharge_bonus_mode: "bonus",
-  payment_recharge_bonus_notice: "",
   payment_enabled_types: [],
   payment_help_image_url: "",
   payment_help_text: "",
@@ -11085,13 +11052,6 @@ async function loadSettings() {
           }))
         : defaultLoginAgreementDocuments();
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(settings));
-    form.payment_recharge_bonus_tiers = normalizeRechargeBonusTiers(
-      settings.payment_recharge_bonus_tiers,
-    );
-    form.payment_recharge_bonus_mode = normalizeRechargeBonusMode(
-      settings.payment_recharge_bonus_mode,
-    );
-    form.payment_recharge_bonus_notice = settings.payment_recharge_bonus_notice || "";
     form.default_platform_quotas = normalizePlatformQuotasMap(settings.default_platform_quotas);
     form.account_scheduling_thresholds = normalizeAccountSchedulingThresholdsMap(
       settings.account_scheduling_thresholds,
@@ -11701,11 +11661,6 @@ async function saveSettings() {
       payment_subscription_usd_to_cny_rate:
         Number(form.payment_subscription_usd_to_cny_rate) || 0,
       payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
-      payment_recharge_bonus_tiers: sanitizeRechargeBonusTiersForSubmit(
-        form.payment_recharge_bonus_tiers,
-      ),
-      payment_recharge_bonus_mode: form.payment_recharge_bonus_mode,
-      payment_recharge_bonus_notice: form.payment_recharge_bonus_notice,
       payment_enabled_types: form.payment_enabled_types,
       payment_load_balance_strategy: form.payment_load_balance_strategy,
       payment_product_name_prefix: form.payment_product_name_prefix,
@@ -12618,17 +12573,6 @@ const enabledProviderKeyOptions = computed(() => {
   return providerKeyOptions.value.filter((opt) => enabled.includes(opt.value));
 });
 
-const loadBalanceOptions = computed(() => [
-  {
-    value: "round-robin",
-    label: t("admin.settings.payment.strategyRoundRobin"),
-  },
-  {
-    value: "least-amount",
-    label: t("admin.settings.payment.strategyLeastAmount"),
-  },
-]);
-
 const cancelRateLimitUnitOptions = computed(() => [
   {
     value: "minute",
@@ -12648,95 +12592,6 @@ const cancelRateLimitModeOptions = computed(() => [
     label: t("admin.settings.payment.cancelRateLimitWindowModeFixed"),
   },
 ]);
-
-type ProviderEnablementCandidate = Pick<
-  ProviderInstance,
-  "id" | "provider_key" | "supported_types" | "enabled" | "name"
->;
-
-function getProviderVisibleMethods(
-  provider: ProviderEnablementCandidate,
-): Array<"alipay" | "wxpay"> {
-  if (!provider.enabled) {
-    return [];
-  }
-
-  const supportedTypes = Array.isArray(provider.supported_types)
-    ? provider.supported_types
-    : [];
-  const methods = new Set<"alipay" | "wxpay">();
-  const addMethod = (type: string) => {
-    const method = normalizeVisibleMethod(type);
-    if (method === "alipay" || method === "wxpay") {
-      methods.add(method);
-    }
-  };
-
-  if (provider.provider_key === "alipay") {
-    if (supportedTypes.length === 0) {
-      methods.add("alipay");
-    } else {
-      supportedTypes.forEach((type) => {
-        if (normalizeVisibleMethod(type) === "alipay") {
-          methods.add("alipay");
-        }
-      });
-    }
-  } else if (provider.provider_key === "wxpay") {
-    if (supportedTypes.length === 0) {
-      methods.add("wxpay");
-    } else {
-      supportedTypes.forEach((type) => {
-        if (normalizeVisibleMethod(type) === "wxpay") {
-          methods.add("wxpay");
-        }
-      });
-    }
-  } else if (provider.provider_key === "easypay") {
-    supportedTypes.forEach(addMethod);
-  }
-
-  return Array.from(methods);
-}
-
-function findProviderEnablementConflict(
-  candidate: ProviderEnablementCandidate,
-): { method: "alipay" | "wxpay"; conflicting: ProviderInstance } | null {
-  const claimedMethods = getProviderVisibleMethods(candidate);
-  if (claimedMethods.length === 0) {
-    return null;
-  }
-
-  for (const other of providers.value) {
-    if (other.id === candidate.id || !other.enabled) {
-      continue;
-    }
-
-    const otherMethods = getProviderVisibleMethods(other);
-    const matchedMethod = claimedMethods.find((method) =>
-      otherMethods.includes(method),
-    );
-    if (matchedMethod) {
-      return {
-        method: matchedMethod,
-        conflicting: other,
-      };
-    }
-  }
-
-  return null;
-}
-
-function showProviderEnablementConflict(
-  conflict: { method: "alipay" | "wxpay"; conflicting: ProviderInstance },
-) {
-  appStore.showError(
-    t("admin.settings.payment.enableConflict", {
-      method: t(`payment.methods.${conflict.method}`),
-      provider: conflict.conflicting.name,
-    }),
-  );
-}
 
 async function loadProviders() {
   providersLoading.value = true;
@@ -12772,24 +12627,15 @@ function openEditProvider(provider: ProviderInstance) {
   showProviderDialog.value = true;
 }
 
+function openProviderRechargePolicy(provider: ProviderInstance) {
+  editingProvider.value = provider;
+  providerDialogRef.value?.loadProvider(provider, "policy");
+  showProviderDialog.value = true;
+}
+
 async function handleSaveProvider(payload: Partial<ProviderInstance>) {
   providerSaving.value = true;
   try {
-    const candidate: ProviderEnablementCandidate = {
-      id: editingProvider.value?.id ?? 0,
-      provider_key:
-        payload.provider_key ?? editingProvider.value?.provider_key ?? "",
-      supported_types:
-        payload.supported_types ?? editingProvider.value?.supported_types ?? [],
-      enabled: payload.enabled ?? editingProvider.value?.enabled ?? false,
-      name: payload.name ?? editingProvider.value?.name ?? "",
-    };
-    const conflict = findProviderEnablementConflict(candidate);
-    if (conflict) {
-      showProviderEnablementConflict(conflict);
-      return;
-    }
-
     if (editingProvider.value) {
       await adminAPI.payment.updateProvider(editingProvider.value.id, payload);
     } else {
@@ -12798,8 +12644,7 @@ async function handleSaveProvider(payload: Partial<ProviderInstance>) {
     showProviderDialog.value = false;
     // Reload full list (API returns decrypted/formatted data with correct sort order)
     await loadProviders();
-    // Auto-save settings so provider changes take effect immediately
-    await saveSettings();
+    appStore.showSuccess(t("common.saved"));
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
   } finally {
@@ -12815,20 +12660,6 @@ async function handleToggleField(
   if (field === "enabled") newValue = !provider.enabled;
   else if (field === "refund_enabled") newValue = !provider.refund_enabled;
   else newValue = !provider.allow_user_refund;
-
-  if (field === "enabled" && newValue) {
-    const conflict = findProviderEnablementConflict({
-      id: provider.id,
-      provider_key: provider.provider_key,
-      supported_types: provider.supported_types,
-      enabled: true,
-      name: provider.name,
-    });
-    if (conflict) {
-      showProviderEnablementConflict(conflict);
-      return;
-    }
-  }
 
   const payload: Record<string, boolean> = { [field]: newValue };
   // Cascade: turning off refund_enabled also turns off allow_user_refund
@@ -12850,17 +12681,6 @@ async function handleToggleType(provider: ProviderInstance, type: string) {
   const updated = currentTypes.includes(type)
     ? currentTypes.filter((t) => t !== type)
     : [...currentTypes, type];
-  const conflict = findProviderEnablementConflict({
-    id: provider.id,
-    provider_key: provider.provider_key,
-    supported_types: updated,
-    enabled: provider.enabled,
-    name: provider.name,
-  });
-  if (conflict) {
-    showProviderEnablementConflict(conflict);
-    return;
-  }
   try {
     await adminAPI.payment.updateProvider(provider.id, {
       supported_types: updated,
@@ -12879,18 +12699,16 @@ function confirmDeleteProvider(provider: ProviderInstance) {
 async function handleReorderProviders(
   updates: { id: number; sort_order: number }[],
 ) {
+  if (providersLoading.value) return;
+  providersLoading.value = true;
   try {
-    await Promise.all(
-      updates.map((u) =>
-        adminAPI.payment.updateProvider(u.id, {
-          sort_order: u.sort_order,
-        } as Partial<ProviderInstance>),
-      ),
-    );
+    await adminAPI.payment.reorderProviders(updates.map((update) => update.id));
     await loadProviders();
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    loadProviders();
+    await loadProviders();
+  } finally {
+    providersLoading.value = false;
   }
 }
 

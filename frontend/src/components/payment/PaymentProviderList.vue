@@ -10,6 +10,7 @@
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.settings.payment.providerManagementDesc') }}
           </p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.providerSortHint') }}</p>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -47,15 +48,20 @@
         v-if="providers.length"
         v-model="localProviders"
         :animation="200"
+        :disabled="loading"
         handle=".drag-handle"
         class="space-y-3"
         @end="onDragEnd"
       >
-        <div v-for="p in localProviders" :key="p.id" class="flex items-start gap-2">
-          <div class="drag-handle mt-3 flex cursor-grab items-center text-gray-300 hover:text-gray-500 active:cursor-grabbing dark:text-dark-600 dark:hover:text-dark-400">
+        <div v-for="(p, index) in localProviders" :key="p.id" class="flex items-start gap-2">
+          <div class="mt-3 flex flex-col items-center gap-1">
+          <div :title="t('admin.settings.payment.providerSortHint')" class="drag-handle flex cursor-grab items-center text-gray-400 hover:text-gray-500 active:cursor-grabbing dark:text-dark-500 dark:hover:text-dark-400">
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
             </svg>
+          </div>
+          <button type="button" :disabled="index === 0 || loading" :aria-label="t('admin.settings.payment.providerMoveUp')" class="rounded px-1 text-xs text-gray-500 disabled:opacity-30" @click="moveProvider(index, -1)">↑</button>
+          <button type="button" :disabled="index === localProviders.length - 1 || loading" :aria-label="t('admin.settings.payment.providerMoveDown')" class="rounded px-1 text-xs text-gray-500 disabled:opacity-30" @click="moveProvider(index, 1)">↓</button>
           </div>
           <div class="min-w-0 flex-1">
             <ProviderCard
@@ -65,6 +71,7 @@
               @toggle-field="(field) => emit('toggleField', p, field)"
               @toggle-type="(type) => emit('toggleType', p, type)"
               @edit="emit('edit', p)"
+              @configure-policy="emit('configurePolicy', p)"
               @delete="emit('delete', p)"
             />
           </div>
@@ -114,6 +121,7 @@ const emit = defineEmits<{
   refresh: []
   create: []
   edit: [provider: ProviderInstance]
+  configurePolicy: [provider: ProviderInstance]
   delete: [provider: ProviderInstance]
   toggleField: [provider: ProviderInstance, field: 'enabled' | 'refund_enabled' | 'allow_user_refund']
   toggleType: [provider: ProviderInstance, type: string]
@@ -134,6 +142,17 @@ function onDragEnd() {
     sort_order: idx,
   }))
   emit('reorder', updates)
+}
+
+function moveProvider(index: number, direction: number) {
+  const target = index + direction
+  if (target < 0 || target >= localProviders.value.length) return
+  const next = [...localProviders.value]
+  const [provider] = next.splice(index, 1)
+  if (!provider) return
+  next.splice(target, 0, provider)
+  localProviders.value = next
+  onDragEnd()
 }
 
 function isEnabled(providerKey: string): boolean {

@@ -159,6 +159,7 @@ type CreateProviderInstanceRequest struct {
 	Limits          string            `json:"limits"`
 	RefundEnabled   bool              `json:"refund_enabled"`
 	AllowUserRefund bool              `json:"allow_user_refund"`
+	RechargePolicy  *RechargePolicy   `json:"recharge_policy"`
 }
 
 type UpdateProviderInstanceRequest struct {
@@ -171,6 +172,7 @@ type UpdateProviderInstanceRequest struct {
 	Limits          *string           `json:"limits"`
 	RefundEnabled   *bool             `json:"refund_enabled"`
 	AllowUserRefund *bool             `json:"allow_user_refund"`
+	RechargePolicy  *RechargePolicy   `json:"recharge_policy"`
 }
 type CreatePlanRequest struct {
 	GroupID       int64    `json:"group_id"`

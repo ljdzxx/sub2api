@@ -32,6 +32,7 @@ const {
   updateProvider,
   createProvider,
   deleteProvider,
+  reorderProviders,
   fetchPublicSettings,
   adminSettingsFetch,
   showError,
@@ -73,6 +74,7 @@ const {
   updateProvider: vi.fn(),
   createProvider: vi.fn(),
   deleteProvider: vi.fn(),
+  reorderProviders: vi.fn(),
   fetchPublicSettings: vi.fn(),
   adminSettingsFetch: vi.fn(),
   showError: vi.fn(),
@@ -116,6 +118,7 @@ vi.mock("@/api", () => ({
       updateProvider,
       createProvider,
       deleteProvider,
+      reorderProviders,
     },
   },
 }));
@@ -1065,7 +1068,7 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
-  it("loads, edits, and saves recharge bonus tiers and the notice", async () => {
+  it("does not expose or resubmit legacy global recharge promotions", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
       payment_recharge_bonus_tiers: [
@@ -1079,65 +1082,18 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
     await openPaymentTab(wrapper);
 
-    // 回填按阈值升序，并渲染区间预览（首段为「不赠送」）
-    let rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows).toHaveLength(2);
-    const minValue = (row: (typeof rows)[number]) =>
-      (row.get('[data-testid="recharge-bonus-tier-min-input"]').element as HTMLInputElement).value;
-    expect(minValue(rows[0]!)).toBe("100");
-    expect(minValue(rows[1]!)).toBe("500");
-    expect(wrapper.get('[data-testid="recharge-bonus-tier-preview"]').text()).toContain(
-      "admin.settings.payment.rechargeBonus.previewRangeNone",
-    );
-
-    await wrapper.get('[data-testid="recharge-bonus-tier-add"]').trigger("click");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows).toHaveLength(3);
-    expect(rows[2]!.find('[data-testid="recharge-bonus-tier-incomplete"]').exists()).toBe(true);
-
-    // 与已有档位重复的阈值行内报错，改成新阈值后消失
-    await rows[2]!.get('[data-testid="recharge-bonus-tier-min-input"]').setValue("100");
-    await rows[2]!.get('[data-testid="recharge-bonus-tier-percent-input"]').setValue("25");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows[2]!.find('[data-testid="recharge-bonus-tier-error"]').exists()).toBe(true);
-    await rows[2]!.get('[data-testid="recharge-bonus-tier-min-input"]').setValue("1000");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows[2]!.find('[data-testid="recharge-bonus-tier-error"]').exists()).toBe(false);
-
-    // 切到折扣模式：百分比 ≥ 100 行内报错，改回 < 100 后消失
-    await wrapper.get('[data-testid="recharge-bonus-mode-discount"]').trigger("click");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    await rows[2]!.get('[data-testid="recharge-bonus-tier-percent-input"]').setValue("100");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows[2]!.get('[data-testid="recharge-bonus-tier-error"]').text()).toContain("invalidDiscountPercent");
-    await rows[2]!.get('[data-testid="recharge-bonus-tier-percent-input"]').setValue("25");
-    rows = wrapper.findAll('[data-testid="recharge-bonus-tier-row"]');
-    expect(rows[2]!.find('[data-testid="recharge-bonus-tier-error"]').exists()).toBe(false);
-    expect(wrapper.get('[data-testid="recharge-bonus-tier-preview"]').text()).toContain(
-      "admin.settings.payment.rechargeBonus.previewRangeDiscount",
-    );
-
-    const notice = wrapper.get('[data-testid="recharge-bonus-notice-input"]');
-    expect((notice.element as HTMLTextAreaElement).value).toBe("满 100 送 20%");
-    await notice.setValue("**新活动**");
+    expect(wrapper.find('[data-testid="recharge-bonus-tier-editor"]').exists()).toBe(false);
 
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payment_recharge_bonus_tiers: [
-          { min_amount: 100, bonus_percent: 20 },
-          { min_amount: 500, bonus_percent: 30 },
-          { min_amount: 1000, bonus_percent: 25 },
-        ],
-        payment_recharge_bonus_mode: "discount",
-        payment_recharge_bonus_notice: "**新活动**",
-      }),
-    );
+    const payload = updateSettings.mock.calls[0]?.[0];
+    expect(payload).not.toHaveProperty("payment_recharge_bonus_tiers");
+    expect(payload).not.toHaveProperty("payment_recharge_bonus_mode");
+    expect(payload).not.toHaveProperty("payment_recharge_bonus_notice");
   });
 
-  it("drops incomplete recharge bonus rows and submits an empty list when cleared", async () => {
+  it("keeps provider promotion editing separate from system settings", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
       payment_recharge_bonus_tiers: [{ min_amount: 100, bonus_percent: 20 }],
@@ -1147,16 +1103,12 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
     await openPaymentTab(wrapper);
 
-    await wrapper.get('[data-testid="recharge-bonus-tier-remove"]').trigger("click");
-    await wrapper.get('[data-testid="recharge-bonus-tier-add"]').trigger("click");
-    expect(wrapper.findAll('[data-testid="recharge-bonus-tier-row"]')).toHaveLength(1);
+    expect(wrapper.findAll('[data-testid="recharge-bonus-tier-row"]')).toHaveLength(0);
 
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ payment_recharge_bonus_tiers: [] }),
-    );
+    expect(updateProvider).not.toHaveBeenCalled();
   });
 
   it("links payment guidance to README sections instead of removed payment docs", async () => {
@@ -1377,6 +1329,30 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateProvider).toHaveBeenCalledWith(7, { enabled: true });
     expect(getProviders).toHaveBeenCalledTimes(2);
+  });
+
+  it("saves provider promotions and sorting independently from global settings", async () => {
+    const policy = { mode: "discount", tiers: [{ min_amount: 100, bonus_percent: 10 }], notice: "X promotion" };
+    const provider = { id: 7, provider_key: "easypay", name: "X", config: {}, supported_types: ["wxpay"], enabled: true, payment_mode: "popup", refund_enabled: false, allow_user_refund: false, limits: "", sort_order: 0, recharge_policy: policy };
+    getProviders.mockResolvedValue({ data: [provider] });
+    updateProvider.mockResolvedValue({ data: { id: 7 } });
+    reorderProviders.mockReset().mockResolvedValue({ data: { message: "saved" } });
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+    const list = wrapper.findComponent({ name: "PaymentProviderList" });
+    wrapper.findComponent({ name: "PaymentProviderDialog" }).vm.loadProvider = vi.fn();
+    list.vm.$emit("edit", provider);
+    await flushPromises();
+    wrapper.findComponent({ name: "PaymentProviderDialog" }).vm.$emit("save", { recharge_policy: policy });
+    await flushPromises();
+    expect(updateProvider).toHaveBeenCalledWith(7, { recharge_policy: policy });
+    expect(updateSettings).not.toHaveBeenCalled();
+    list.vm.$emit("reorder", [{ id: 7, sort_order: 0 }]);
+    await flushPromises();
+    expect(reorderProviders).toHaveBeenCalledWith([7]);
+    expect(updateSettings).not.toHaveBeenCalled();
+    wrapper.unmount();
   });
 
   it("renders advanced scheduler copy as local experimental gateway policy", async () => {

@@ -332,6 +332,19 @@ func TestGetWebhookProviderRejectsAmbiguousRegistryFallback(t *testing.T) {
 	require.Len(t, providers, 2)
 }
 
+func TestGetWebhookProvidersRetainsDisabledWxpayForEncryptedCallbacks(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	for _, enabled := range []bool{true, false} {
+		client.PaymentProviderInstance.Create().SetProviderKey(payment.TypeWxpay).SetName("WeChat").
+			SetConfig(encryptValidWebhookWxpayConfig(t, "callback")).SetSupportedTypes("wxpay").SetEnabled(enabled).SaveX(ctx)
+	}
+	svc := &PaymentService{entClient: client, loadBalancer: newWebhookProviderTestLoadBalancer(client)}
+	providers, err := svc.GetWebhookProviders(ctx, payment.TypeWxpay, "")
+	require.NoError(t, err)
+	require.Len(t, providers, 2)
+}
+
 func TestGetWebhookProvidersRejectAmbiguousFallbackForNonWxpay(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

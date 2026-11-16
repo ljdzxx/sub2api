@@ -52,7 +52,7 @@ func (s *PaymentService) GetWebhookProviders(ctx context.Context, providerKey, o
 				return []payment.Provider{prov}, nil
 			}
 			if strings.TrimSpace(providerKey) == payment.TypeWxpay {
-				return s.getEnabledWebhookProvidersByKey(ctx, providerKey)
+				return s.getWebhookProvidersByKey(ctx, providerKey)
 			}
 			if !s.webhookRegistryFallbackAllowed(ctx, providerKey) {
 				return nil, fmt.Errorf("webhook provider fallback is ambiguous for %s", providerKey)
@@ -67,7 +67,7 @@ func (s *PaymentService) GetWebhookProviders(ctx context.Context, providerKey, o
 	}
 
 	if strings.TrimSpace(providerKey) == payment.TypeWxpay {
-		return s.getEnabledWebhookProvidersByKey(ctx, providerKey)
+		return s.getWebhookProvidersByKey(ctx, providerKey)
 	}
 
 	if !s.webhookRegistryFallbackAllowed(ctx, providerKey) {
@@ -116,12 +116,11 @@ func psHasPinnedProviderInstance(order *dbent.PaymentOrder) bool {
 	return order != nil && (psOrderProviderSnapshot(order) != nil || (order.ProviderInstanceID != nil && strings.TrimSpace(*order.ProviderInstanceID) != ""))
 }
 
-func (s *PaymentService) getEnabledWebhookProvidersByKey(ctx context.Context, providerKey string) ([]payment.Provider, error) {
+func (s *PaymentService) getWebhookProvidersByKey(ctx context.Context, providerKey string) ([]payment.Provider, error) {
 	providerKey = strings.TrimSpace(providerKey)
 	instances, err := s.entClient.PaymentProviderInstance.Query().
 		Where(
 			paymentproviderinstance.ProviderKeyEQ(providerKey),
-			paymentproviderinstance.EnabledEQ(true),
 		).
 		Order(dbent.Asc(paymentproviderinstance.FieldSortOrder)).
 		All(ctx)

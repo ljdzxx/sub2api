@@ -66,7 +66,8 @@
         </div>
       </template>
 
-      <template #cell-payment_type="{ value }">
+      <template #cell-payment_type="{ value, row }">
+        <p v-if="row.provider_name" class="text-xs font-medium text-gray-900 dark:text-white">{{ row.provider_name }}</p>
         <span class="text-sm text-gray-700 dark:text-gray-300">
           {{ t('payment.methods.' + value, value) }}
         </span>

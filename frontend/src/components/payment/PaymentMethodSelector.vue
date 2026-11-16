@@ -1,27 +1,33 @@
 <template>
   <div>
     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-      {{ t('payment.paymentMethod') }}
+      {{ t(hasProviders ? 'payment.paymentChannel' : 'payment.paymentMethod') }}
     </label>
+    <div :class="hasProviders ? 'grid gap-3 sm:grid-cols-2' : ''">
+    <div v-for="group in methodGroups" :key="group.id" :class="hasProviders ? ['min-w-0 rounded-xl border p-4', group.methods.some(method => (method.id || method.type) === selected) ? 'border-primary-400 bg-primary-50/30 dark:border-primary-500 dark:bg-primary-950/20' : 'border-gray-200 dark:border-dark-600'] : ''">
+      <div v-if="hasProviders" class="mb-3">
+        <p class="font-semibold text-gray-900 dark:text-white">{{ group.name }}</p>
+        <p v-if="group.promotion" class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ group.promotion }}</p>
+      </div>
     <div
       data-testid="payment-method-grid"
-      class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+      :class="['grid grid-cols-2 gap-3', !hasProviders && 'sm:grid-cols-3 lg:grid-cols-4']"
     >
       <button
-        v-for="method in sortedMethods"
-        :key="method.type"
+        v-for="method in group.methods"
+        :key="method.id || method.type"
         type="button"
         :title="methodLabel(method)"
-        :disabled="!method.available"
+        :disabled="disabled || !method.available"
         :class="[
           'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
-            : selected === method.type
+            : selected === (method.id || method.type)
               ? methodSelectedClass(method.type)
               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
         ]"
-        @click="method.available && emit('select', method.type)"
+        @click="!disabled && method.available && emit('select', method.id || method.type)"
       >
         <span class="flex w-full min-w-0 items-center justify-center gap-2">
           <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-7 w-7 shrink-0 object-contain" />
@@ -39,6 +45,8 @@
         </span>
       </button>
     </div>
+    </div>
+    </div>
   </div>
 </template>
 
@@ -53,6 +61,10 @@ import airwallexIcon from '@/assets/icons/airwallex.svg'
 import paymentIcon from '@/assets/icons/payment.svg'
 
 export interface PaymentMethodOption {
+  id?: string
+  provider_instance_id?: string
+  provider_name?: string
+  promotion?: string
   type: string
   display_name?: string
   fee_rate: number
@@ -62,6 +74,7 @@ export interface PaymentMethodOption {
 const props = defineProps<{
   methods: PaymentMethodOption[]
   selected: string
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -79,12 +92,28 @@ const METHOD_ICONS: Record<string, string> = {
 }
 
 const sortedMethods = computed(() => {
+  if (hasProviders.value) return props.methods
   const order: readonly string[] = METHOD_ORDER
   return [...props.methods].sort((a, b) => {
     const ai = order.indexOf(a.type)
     const bi = order.indexOf(b.type)
     return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
   })
+})
+
+const hasProviders = computed(() => props.methods.some(method => method.provider_instance_id))
+const methodGroups = computed(() => {
+  const groups = new Map<string, { id: string; name: string; promotion?: string; methods: PaymentMethodOption[] }>()
+  for (const method of sortedMethods.value) {
+    const id = method.provider_instance_id || ''
+    let group = groups.get(id)
+    if (!group) {
+      group = { id, name: method.provider_name || '', promotion: method.promotion, methods: [] }
+      groups.set(id, group)
+    }
+    group.methods.push(method)
+  }
+  return [...groups.values()]
 })
 
 function methodIcon(type: string): string {

@@ -118,6 +118,12 @@ func (_c *PaymentProviderInstanceCreate) SetNillableLimits(v *string) *PaymentPr
 	return _c
 }
 
+// SetRechargePolicy sets the "recharge_policy" field.
+func (_c *PaymentProviderInstanceCreate) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceCreate {
+	_c.mutation.SetRechargePolicy(v)
+	return _c
+}
+
 // SetRefundEnabled sets the "refund_enabled" field.
 func (_c *PaymentProviderInstanceCreate) SetRefundEnabled(v bool) *PaymentProviderInstanceCreate {
 	_c.mutation.SetRefundEnabled(v)
@@ -233,6 +239,10 @@ func (_c *PaymentProviderInstanceCreate) defaults() {
 		v := paymentproviderinstance.DefaultLimits
 		_c.mutation.SetLimits(v)
 	}
+	if _, ok := _c.mutation.RechargePolicy(); !ok {
+		v := paymentproviderinstance.DefaultRechargePolicy()
+		_c.mutation.SetRechargePolicy(v)
+	}
 	if _, ok := _c.mutation.RefundEnabled(); !ok {
 		v := paymentproviderinstance.DefaultRefundEnabled
 		_c.mutation.SetRefundEnabled(v)
@@ -296,6 +306,9 @@ func (_c *PaymentProviderInstanceCreate) check() error {
 	}
 	if _, ok := _c.mutation.Limits(); !ok {
 		return &ValidationError{Name: "limits", err: errors.New(`ent: missing required field "PaymentProviderInstance.limits"`)}
+	}
+	if _, ok := _c.mutation.RechargePolicy(); !ok {
+		return &ValidationError{Name: "recharge_policy", err: errors.New(`ent: missing required field "PaymentProviderInstance.recharge_policy"`)}
 	}
 	if _, ok := _c.mutation.RefundEnabled(); !ok {
 		return &ValidationError{Name: "refund_enabled", err: errors.New(`ent: missing required field "PaymentProviderInstance.refund_enabled"`)}
@@ -367,6 +380,10 @@ func (_c *PaymentProviderInstanceCreate) createSpec() (*PaymentProviderInstance,
 	if value, ok := _c.mutation.Limits(); ok {
 		_spec.SetField(paymentproviderinstance.FieldLimits, field.TypeString, value)
 		_node.Limits = value
+	}
+	if value, ok := _c.mutation.RechargePolicy(); ok {
+		_spec.SetField(paymentproviderinstance.FieldRechargePolicy, field.TypeJSON, value)
+		_node.RechargePolicy = value
 	}
 	if value, ok := _c.mutation.RefundEnabled(); ok {
 		_spec.SetField(paymentproviderinstance.FieldRefundEnabled, field.TypeBool, value)
@@ -535,6 +552,18 @@ func (u *PaymentProviderInstanceUpsert) SetLimits(v string) *PaymentProviderInst
 // UpdateLimits sets the "limits" field to the value that was provided on create.
 func (u *PaymentProviderInstanceUpsert) UpdateLimits() *PaymentProviderInstanceUpsert {
 	u.SetExcluded(paymentproviderinstance.FieldLimits)
+	return u
+}
+
+// SetRechargePolicy sets the "recharge_policy" field.
+func (u *PaymentProviderInstanceUpsert) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceUpsert {
+	u.Set(paymentproviderinstance.FieldRechargePolicy, v)
+	return u
+}
+
+// UpdateRechargePolicy sets the "recharge_policy" field to the value that was provided on create.
+func (u *PaymentProviderInstanceUpsert) UpdateRechargePolicy() *PaymentProviderInstanceUpsert {
+	u.SetExcluded(paymentproviderinstance.FieldRechargePolicy)
 	return u
 }
 
@@ -735,6 +764,20 @@ func (u *PaymentProviderInstanceUpsertOne) SetLimits(v string) *PaymentProviderI
 func (u *PaymentProviderInstanceUpsertOne) UpdateLimits() *PaymentProviderInstanceUpsertOne {
 	return u.Update(func(s *PaymentProviderInstanceUpsert) {
 		s.UpdateLimits()
+	})
+}
+
+// SetRechargePolicy sets the "recharge_policy" field.
+func (u *PaymentProviderInstanceUpsertOne) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceUpsertOne {
+	return u.Update(func(s *PaymentProviderInstanceUpsert) {
+		s.SetRechargePolicy(v)
+	})
+}
+
+// UpdateRechargePolicy sets the "recharge_policy" field to the value that was provided on create.
+func (u *PaymentProviderInstanceUpsertOne) UpdateRechargePolicy() *PaymentProviderInstanceUpsertOne {
+	return u.Update(func(s *PaymentProviderInstanceUpsert) {
+		s.UpdateRechargePolicy()
 	})
 }
 
@@ -1107,6 +1150,20 @@ func (u *PaymentProviderInstanceUpsertBulk) SetLimits(v string) *PaymentProvider
 func (u *PaymentProviderInstanceUpsertBulk) UpdateLimits() *PaymentProviderInstanceUpsertBulk {
 	return u.Update(func(s *PaymentProviderInstanceUpsert) {
 		s.UpdateLimits()
+	})
+}
+
+// SetRechargePolicy sets the "recharge_policy" field.
+func (u *PaymentProviderInstanceUpsertBulk) SetRechargePolicy(v map[string]interface{}) *PaymentProviderInstanceUpsertBulk {
+	return u.Update(func(s *PaymentProviderInstanceUpsert) {
+		s.SetRechargePolicy(v)
+	})
+}
+
+// UpdateRechargePolicy sets the "recharge_policy" field to the value that was provided on create.
+func (u *PaymentProviderInstanceUpsertBulk) UpdateRechargePolicy() *PaymentProviderInstanceUpsertBulk {
+	return u.Update(func(s *PaymentProviderInstanceUpsert) {
+		s.UpdateRechargePolicy()
 	})
 }
 

@@ -4,10 +4,11 @@ import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
-import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
+import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan, PaymentOption } from '@/types/payment'
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -411,6 +412,154 @@ describe('PaymentView recharge rate preview', () => {
   })
 })
 
+describe('PaymentView provider selection and promotions', () => {
+  function option(id: string, overrides: Partial<PaymentOption> = {}): PaymentOption {
+    return {
+      id: `${id}:wxpay`, provider_instance_id: id, provider_name: id === '12' ? 'X Pay' : 'Y Pay', provider_key: 'easypay',
+      payment_type: 'wxpay', sort_order: Number(id), currency: 'CNY', single_min: 0, single_max: 0,
+      daily_limit: 0, daily_used: 0, daily_remaining: 0, fee_rate: 0, available: true,
+      pricing_revision: `revision-${id}`,
+      recharge_policy: { mode: 'bonus', tiers: [{ min_amount: 100, bonus_percent: 20 }], notice: 'X promotion' },
+      ...overrides,
+    }
+  }
+
+  async function mountProviders(options: PaymentOption[]) {
+    routeState.query = {}
+    routeState.path = '/purchase'
+    window.localStorage.clear()
+    createOrder.mockReset()
+    showWarning.mockReset()
+    showError.mockReset()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
+      payment_options: options, balance_recharge_multiplier: .14,
+      recharge_bonus_tiers: [{ min_amount: 0, bonus_percent: 999 }],
+    }))
+    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } } })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+    await flushPromises()
+    return wrapper
+  }
+
+  it('updates policy, notice, totals and request identity when changing providers', async () => {
+    const wrapper = await mountProviders([
+      option('12'),
+      option('14', { recharge_policy: { mode: 'discount', tiers: [{ min_amount: 100, bonus_percent: 10 }], notice: 'Y promotion' } }),
+    ])
+    expect(wrapper.get('[data-testid="recharge-bonus-notice"]').text()).toBe('X promotion')
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('$16.80')
+    wrapper.getComponent(PaymentMethodSelector).vm.$emit('select', '14:wxpay')
+    await flushPromises()
+    expect(wrapper.getComponent(AmountInput).props('modelValue')).toBe(100)
+    expect(wrapper.getComponent(AmountInput).props('bonusMode')).toBe('discount')
+    expect(wrapper.get('[data-testid="recharge-bonus-notice"]').text()).toBe('Y promotion')
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('$14.00')
+    expect(wrapper.get('[data-testid="recharge-discount-row"]').text()).toContain('10.00')
+    createOrder.mockRejectedValueOnce({ reason: 'PAYMENT_PRICING_CHANGED' })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    await submit.trigger('click')
+    await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, payment_type: 'wxpay', provider_instance_id: '14', pricing_revision: 'revision-14' }))
+    expect(createOrder).toHaveBeenCalledTimes(1)
+    expect(getCheckoutInfo).toHaveBeenCalledTimes(2)
+    expect(showError).toHaveBeenCalledWith('payment.pricingChanged')
+    wrapper.unmount()
+  })
+
+  it('checks each provider with its own discount and never auto-switches an explicit selection', async () => {
+    const wrapper = await mountProviders([
+      option('12', { single_max: 95 }),
+      option('14', { single_max: 95, recharge_policy: { mode: 'discount', tiers: [{ min_amount: 100, bonus_percent: 10 }], notice: '' } }),
+    ])
+    const selector = wrapper.getComponent(PaymentMethodSelector)
+    expect(selector.props('selected')).toBe('12:wxpay')
+    expect(selector.props('methods')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: '12:wxpay', available: false }),
+      expect.objectContaining({ id: '14:wxpay', available: true }),
+    ]))
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('clears a removed provider without automatically selecting a replacement', async () => {
+    const wrapper = await mountProviders([option('12'), option('14')])
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({ payment_options: [option('14')] }))
+    createOrder.mockRejectedValueOnce({ reason: 'PAYMENT_PROVIDER_UNAVAILABLE' })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    await submit.trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent(PaymentMethodSelector).props('selected')).toBe('')
+    expect(createOrder).toHaveBeenCalledTimes(1)
+    expect(submit.attributes('disabled')).toBeDefined()
+    expect(showError).toHaveBeenCalledWith('payment.providerUnavailable')
+    wrapper.unmount()
+  })
+
+  it('does not expose legacy methods when the instance options list is empty', async () => {
+    routeState.query = {}
+    window.localStorage.clear()
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({ payment_options: [] }))
+    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } } })
+    await flushPromises()
+    expect(wrapper.findComponent(PaymentMethodSelector).exists()).toBe(false)
+    expect(wrapper.text()).toContain('payment.notAvailable')
+    wrapper.unmount()
+  })
+
+  it('clears the amount on a currency change and does not inherit global promotions', async () => {
+    const wrapper = await mountProviders([
+      option('12'),
+      option('14', { currency: 'USD', recharge_policy: { mode: 'bonus', tiers: [], notice: '' } }),
+    ])
+    wrapper.getComponent(PaymentMethodSelector).vm.$emit('select', '14:wxpay')
+    await flushPromises()
+    expect(wrapper.getComponent(AmountInput).props('modelValue')).toBeNull()
+    expect(wrapper.getComponent(AmountInput).props('bonusTiers')).toEqual([])
+    expect(wrapper.find('[data-testid="recharge-bonus-notice"]').exists()).toBe(false)
+    expect(showWarning).toHaveBeenCalledWith('payment.providerCurrencyChanged')
+    wrapper.unmount()
+  })
+})
+
+describe('PaymentView mobile provider pinning', () => {
+  it('keeps QR fallback pinned to the original provider while a request is in flight', async () => {
+    const originalUserAgent = window.navigator.userAgent
+    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (iPhone)' })
+    routeState.query = {}
+    window.localStorage.clear()
+    const paymentOptions: PaymentOption[] = ['12', '14'].map(id => ({
+      id: `${id}:wxpay`, provider_instance_id: id, provider_name: `Provider ${id}`, provider_key: 'easypay',
+      payment_type: 'wxpay', sort_order: Number(id), currency: 'CNY', single_min: 0, single_max: 0,
+      daily_limit: 0, daily_used: 0, daily_remaining: 0, fee_rate: 0, available: true,
+      pricing_revision: `revision-${id}`, recharge_policy: { mode: 'bonus', tiers: [], notice: '' },
+    }))
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({ payment_options: paymentOptions }))
+    let rejectRequest!: (reason: unknown) => void
+    createOrder.mockReset().mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRequest = reject }))
+      .mockResolvedValueOnce({ order_id: 90, amount: 100, pay_amount: 100, qr_code: 'weixin://fallback', payment_type: 'wxpay', expires_at: '2099-01-01T00:10:00Z' })
+    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } } })
+    try {
+      await flushPromises()
+      wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+      await flushPromises()
+      const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+      await submit.trigger('click')
+      expect(wrapper.getComponent(PaymentMethodSelector).props('disabled')).toBe(true)
+      wrapper.getComponent(PaymentMethodSelector).vm.$emit('select', '14:wxpay')
+      await flushPromises()
+      rejectRequest({ reason: 'WECHAT_H5_NOT_AUTHORIZED' })
+      await flushPromises()
+      expect(createOrder).toHaveBeenCalledTimes(2)
+      expect(createOrder).toHaveBeenNthCalledWith(2, expect.objectContaining({ amount: 100, provider_instance_id: '12', pricing_revision: 'revision-12', is_mobile: false }))
+    } finally {
+      wrapper.unmount()
+      Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: originalUserAgent })
+    }
+  })
+})
+
 describe('PaymentView subscription confirmation amounts', () => {
   it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
     const wrapper = await mountSubscriptionConfirm({
@@ -779,6 +928,8 @@ describe('PaymentView WeChat JSAPI flow', () => {
       wechat_resume: '1',
       wechat_resume_token: 'resume-token-h5',
       payment_type: 'wxpay_direct',
+      provider_instance_id: '12',
+      pricing_revision: 'revision-12',
     }
     createOrder
       .mockRejectedValueOnce({ reason: 'WECHAT_H5_NOT_AUTHORIZED' })
@@ -813,6 +964,9 @@ describe('PaymentView WeChat JSAPI flow', () => {
       payment_type: 'wxpay',
       is_mobile: false,
       payment_source: 'hosted_redirect',
+      provider_instance_id: '12',
+      pricing_revision: 'revision-12',
+      wechat_resume_token: 'resume-token-h5',
     }))
     expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
     expect(showError).not.toHaveBeenCalled()

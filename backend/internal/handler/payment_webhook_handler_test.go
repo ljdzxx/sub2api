@@ -167,6 +167,18 @@ func TestExtractOutTradeNo(t *testing.T) {
 			want:        "sub2_456",
 		},
 		{
+			name:        "stripe payment intent instance lookup hint",
+			providerKey: payment.TypeStripe,
+			rawBody:     `{"type":"payment_intent.succeeded","data":{"object":{"metadata":{"orderId":"sub2_stripe_123"}}}}`,
+			want:        "sub2_stripe_123",
+		},
+		{
+			name:        "stripe event without order metadata",
+			providerKey: payment.TypeStripe,
+			rawBody:     `{"type":"customer.created","data":{"object":{"id":"cus_test"}}}`,
+			want:        "",
+		},
+		{
 			name:        "unknown provider",
 			providerKey: "wxpay",
 			rawBody:     "{}",

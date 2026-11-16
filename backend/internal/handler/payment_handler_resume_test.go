@@ -75,6 +75,19 @@ func TestApplyWeChatPaymentResumeClaimsRejectsPaymentTypeMismatch(t *testing.T) 
 	}
 }
 
+func TestApplyWeChatPaymentResumeClaimsBindsProviderAndPricing(t *testing.T) {
+	claims := &service.WeChatPaymentResumeClaims{OpenID: "openid", PaymentType: "wxpay", ProviderInstanceID: "12", PricingRevision: "revision-X"}
+	req := CreateOrderRequest{PaymentType: "wxpay"}
+	require.NoError(t, applyWeChatPaymentResumeClaims(&req, claims))
+	require.Equal(t, "12", req.ProviderInstanceID)
+	require.Equal(t, "revision-X", req.PricingRevision)
+	req.ProviderInstanceID = "14"
+	require.Error(t, applyWeChatPaymentResumeClaims(&req, claims))
+	req.ProviderInstanceID = "12"
+	req.PricingRevision = "revision-Y"
+	require.Error(t, applyWeChatPaymentResumeClaims(&req, claims))
+}
+
 func TestVerifyOrderPublicReturnsLegacyOrderState(t *testing.T) {
 	t.Parallel()
 

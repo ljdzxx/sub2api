@@ -127,6 +127,7 @@ func RegisterPaymentRoutes(
 		{
 			providers.GET("", adminPaymentHandler.ListProviders)
 			providers.POST("", adminPaymentHandler.CreateProvider)
+			providers.PUT("/reorder", adminPaymentHandler.ReorderProviders)
 			providers.PUT("/:id", adminPaymentHandler.UpdateProvider)
 			providers.DELETE("/:id", adminPaymentHandler.DeleteProvider)
 		}

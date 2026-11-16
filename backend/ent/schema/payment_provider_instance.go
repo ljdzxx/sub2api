@@ -51,6 +51,9 @@ func (PaymentProviderInstance) Fields() []ent.Field {
 		field.String("limits").
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
 			Default(""),
+		field.JSON("recharge_policy", map[string]any{}).
+			Default(func() map[string]any { return map[string]any{} }).
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Bool("refund_enabled").
 			Default(false),
 		field.Bool("allow_user_refund").

@@ -29,6 +29,8 @@ const (
 	FieldSortOrder = "sort_order"
 	// FieldLimits holds the string denoting the limits field in the database.
 	FieldLimits = "limits"
+	// FieldRechargePolicy holds the string denoting the recharge_policy field in the database.
+	FieldRechargePolicy = "recharge_policy"
 	// FieldRefundEnabled holds the string denoting the refund_enabled field in the database.
 	FieldRefundEnabled = "refund_enabled"
 	// FieldAllowUserRefund holds the string denoting the allow_user_refund field in the database.
@@ -52,6 +54,7 @@ var Columns = []string{
 	FieldPaymentMode,
 	FieldSortOrder,
 	FieldLimits,
+	FieldRechargePolicy,
 	FieldRefundEnabled,
 	FieldAllowUserRefund,
 	FieldCreatedAt,
@@ -89,6 +92,8 @@ var (
 	DefaultSortOrder int
 	// DefaultLimits holds the default value on creation for the "limits" field.
 	DefaultLimits string
+	// DefaultRechargePolicy holds the default value on creation for the "recharge_policy" field.
+	DefaultRechargePolicy func() map[string]interface{}
 	// DefaultRefundEnabled holds the default value on creation for the "refund_enabled" field.
 	DefaultRefundEnabled bool
 	// DefaultAllowUserRefund holds the default value on creation for the "allow_user_refund" field.
