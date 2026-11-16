@@ -208,3 +208,40 @@ func TestCacheReadWriterUsesBoundAccountNormalInputCacheSelection(t *testing.T) 
 		require.EqualValues(t, 500, gjson.Get(payload, "usage.input_tokens_details.cache_write_tokens").Int())
 	}
 }
+
+func TestCacheReadWriterCompletedIncludesCachedTokens(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		header  string
+		payload string
+		newline string
+	}{
+		{name: "typed payload", header: "event: response.completed\n", payload: `{"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":2}}}`},
+		{name: "event field only", header: "event: response.completed\n", payload: `{"response":{"usage":{"input_tokens":10,"output_tokens":2}}}`},
+		{name: "payload type wins", header: "event: response.in_progress\n", payload: `{"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":2}}}`},
+		{name: "CRLF framing", header: "event: response.completed\r\n", payload: `{"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":2}}}`, newline: "\r\n"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ginContext, _ := gin.CreateTestContext(recorder)
+			ginContext.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			finish := installCacheReadWriter(ginContext, &service.APIKey{})
+			defer finish()
+			ginContext.Header("Content-Type", "text/event-stream")
+			newline := testCase.newline
+			if newline == "" {
+				newline = "\n"
+			}
+			wire := testCase.header + "data: " + testCase.payload + newline + newline
+			for _, part := range []string{wire[:15], wire[15 : len(wire)-1], wire[len(wire)-1:]} {
+				_, err := ginContext.Writer.Write([]byte(part))
+				require.NoError(t, err)
+			}
+			payload := strings.TrimSuffix(strings.TrimPrefix(recorder.Body.String(), testCase.header+"data: "), newline+newline)
+			cached := gjson.Get(payload, "response.usage.input_tokens_details.cached_tokens")
+			require.True(t, cached.Exists(), recorder.Body.String())
+			require.Equal(t, gjson.Number, cached.Type)
+			require.Zero(t, cached.Int())
+		})
+	}
+}

@@ -31,6 +31,8 @@ OpenAI API Key 上游账号有独立的 `openai_experimental_features_enabled` �
 
 每个请求都以上游返回的原始 usage 为基础，先执行账号级普通输入转写缓存，再依次执行分组的缓存命中率扣减、读缓存放大、写缓存转移。分组策略基于账号调整后的 usage 执行。因此，分组开启“转移写缓存至普通输入”时，也会清零账号策略刚转出的写缓存；最终写缓存为 0 不等于账号概率未命中。
 
+Responses 的 `response.completed` 事件包含 `response.usage` 时，`response.usage.input_tokens_details.cached_tokens` 始终输出为数值；没有缓存命中或策略扣减后归零时返回 `0`，不省略字段。此兼容处理也适用于未启用实验策略的 HTTP/SSE 和 WebSocket 响应，仅作用于客户端输出，不改变上游用量记录；上游未提供 usage 时不会凭空生成用量。
+
 ## 缓存命中率扣减（百分点）
 
 技术字段为 `cache_read_deduction_percent`，范围 0–100，最多两位小数。设原始总输入为 T、原始读缓存为 C、扣减值为 D：

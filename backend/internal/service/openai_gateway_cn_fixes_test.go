@@ -124,6 +124,7 @@ func TestResponsesStreamingFromNativeAnthropic_NormalizesTerminalUsage(t *testin
 		wantCached        int
 		wantCacheCreation int
 	}{
+		{name: "no cache hit", startUsage: `"input_tokens":1200`, deltaUsage: `"output_tokens":30`, wantInput: 1200, wantOutput: 30},
 		{name: "full cache", startUsage: `"input_tokens":1200,"prompt_tokens":1200`, deltaUsage: `"input_tokens":0,"output_tokens":30,"prompt_tokens":1200,"cache_read_input_tokens":1200`, wantOutput: 30, wantCached: 1200},
 		{name: "partial cache", startUsage: `"input_tokens":1200,"prompt_tokens":1200`, deltaUsage: `"input_tokens":0,"output_tokens":30,"prompt_tokens":1200,"cache_read_input_tokens":800`, wantInput: 400, wantOutput: 30, wantCached: 800},
 		{name: "cache creation", startUsage: `"input_tokens":1200,"prompt_tokens":1200`, deltaUsage: `"input_tokens":0,"output_tokens":30,"prompt_tokens":1200,"cache_creation_input_tokens":800`, wantInput: 400, wantOutput: 30, wantCacheCreation: 800},
@@ -178,11 +179,8 @@ func TestResponsesStreamingFromNativeAnthropic_NormalizesTerminalUsage(t *testin
 				require.Equal(t, tt.wantOutput, completed.Response.Usage.OutputTokens)
 				require.Equal(t, completed.Response.Usage.InputTokens+tt.wantOutput, completed.Response.Usage.TotalTokens)
 				require.Equal(t, tt.wantCacheCreation, completed.Response.Usage.CacheCreationInputTokens)
-				if tt.wantCached == 0 {
-					require.Nil(t, completed.Response.Usage.InputTokensDetails)
-				} else {
-					require.Equal(t, tt.wantCached, completed.Response.Usage.InputTokensDetails.CachedTokens)
-				}
+				require.NotNil(t, completed.Response.Usage.InputTokensDetails)
+				require.Equal(t, tt.wantCached, completed.Response.Usage.InputTokensDetails.CachedTokens)
 			})
 		}
 	}

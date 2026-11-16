@@ -512,6 +512,14 @@ type ResponsesUsage struct {
 	OutputTokensDetails *ResponsesOutputTokensDetails `json:"output_tokens_details,omitempty"`
 }
 
+func (u ResponsesUsage) MarshalJSON() ([]byte, error) {
+	type responsesUsageAlias ResponsesUsage
+	if u.InputTokensDetails == nil {
+		u.InputTokensDetails = &ResponsesInputTokensDetails{}
+	}
+	return json.Marshal(responsesUsageAlias(u))
+}
+
 func (u *ResponsesUsage) UnmarshalJSON(data []byte) error {
 	type responsesUsageAlias ResponsesUsage
 	type cacheTokenPresence struct {
@@ -583,7 +591,7 @@ func (u *ResponsesUsage) UnmarshalJSON(data []byte) error {
 
 // ResponsesInputTokensDetails breaks down input token usage.
 type ResponsesInputTokensDetails struct {
-	CachedTokens        int `json:"cached_tokens,omitempty"`
+	CachedTokens        int `json:"cached_tokens"`
 	AudioTokens         int `json:"audio_tokens,omitempty"`
 	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
 	CacheWriteTokens    int `json:"cache_write_tokens,omitempty"`

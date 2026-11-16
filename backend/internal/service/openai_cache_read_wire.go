@@ -47,9 +47,29 @@ func NewOpenAIUsagePolicyWireTransformer(execution *OpenAIUsagePolicyExecution, 
 }
 
 func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
+	return t.transform(body, "")
+}
+
+func (t *CacheReadWireTransformer) transform(body []byte, eventType string) []byte {
 	if t == nil || !gjson.ValidBytes(body) {
 		return body
 	}
+	body = t.transformUsage(body)
+	if t.anthropic || effectiveOpenAISSEEventType(body, eventType) != "response.completed" {
+		return body
+	}
+	usage := gjson.GetBytes(body, "response.usage")
+	if !usage.IsObject() || usage.Get("input_tokens_details.cached_tokens").Type == gjson.Number {
+		return body
+	}
+	cachedTokens := openAICacheReadTokensFromUsage(usage)
+	if normalized, err := sjson.SetBytes(body, "response.usage.input_tokens_details.cached_tokens", cachedTokens); err == nil {
+		return normalized
+	}
+	return body
+}
+
+func (t *CacheReadWireTransformer) transformUsage(body []byte) []byte {
 	policy := OpenAIUsagePolicySnapshot{Group: t.policy}
 	if t.execution != nil {
 		policy = t.execution.Snapshot()
@@ -257,8 +277,12 @@ func (t *CacheReadWireTransformer) Transform(body []byte) []byte {
 func (t *CacheReadWireTransformer) TransformSSEEvent(event []byte) []byte {
 	lines := bytes.Split(event, []byte("\n"))
 	var data [][]byte
+	var eventType string
 	first := -1
 	for i, line := range lines {
+		if bytes.HasPrefix(line, []byte("event:")) {
+			eventType = strings.TrimSpace(string(line[len("event:"):]))
+		}
 		if bytes.HasPrefix(line, []byte("data:")) {
 			if first < 0 {
 				first = i
@@ -270,7 +294,7 @@ func (t *CacheReadWireTransformer) TransformSSEEvent(event []byte) []byte {
 		return event
 	}
 	payload := bytes.Join(data, []byte("\n"))
-	changed := t.Transform(payload)
+	changed := t.transform(payload, eventType)
 	if bytes.Equal(payload, changed) {
 		return event
 	}

@@ -323,6 +323,13 @@ func TestHandleResponsesStreamingResponse_NormalizesTerminalUsage(t *testing.T) 
 		wantCacheCreation int
 	}{
 		{
+			name:       "no cache hit",
+			startUsage: `"input_tokens":1200`,
+			deltaUsage: `"output_tokens":30`,
+			wantInput:  1200,
+			wantOutput: 30,
+		},
+		{
 			name:       "cache_read_input_tokens full cache",
 			startUsage: `"input_tokens":173306,"prompt_tokens":173306`,
 			deltaUsage: `"input_tokens":0,"output_tokens":8,"prompt_tokens":173306,"cache_read_input_tokens":173306`,
@@ -410,11 +417,8 @@ func TestHandleResponsesStreamingResponse_NormalizesTerminalUsage(t *testing.T) 
 				require.Equal(t, tt.wantOutput, completed.Response.Usage.OutputTokens)
 				require.Equal(t, completed.Response.Usage.InputTokens+tt.wantOutput, completed.Response.Usage.TotalTokens)
 				require.Equal(t, tt.wantCacheCreation, completed.Response.Usage.CacheCreationInputTokens)
-				if tt.wantCached == 0 {
-					require.Nil(t, completed.Response.Usage.InputTokensDetails)
-				} else {
-					require.Equal(t, tt.wantCached, completed.Response.Usage.InputTokensDetails.CachedTokens)
-				}
+				require.NotNil(t, completed.Response.Usage.InputTokensDetails)
+				require.Equal(t, tt.wantCached, completed.Response.Usage.InputTokensDetails.CachedTokens)
 			})
 		}
 	}
