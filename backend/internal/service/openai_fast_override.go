@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -18,6 +19,16 @@ func isOpenAIFastTier(tier string) bool {
 	default:
 		return false
 	}
+}
+
+// Fast override eligibility records the group's Fast flag before the outbound
+// Ultrafast gate and global tier policy run; the final outbound tier gates usage.
+func openAIGroupForcesFast(ctx context.Context, account *Account) bool {
+	if ctx == nil || account == nil || account.Platform != PlatformOpenAI {
+		return false
+	}
+	group, _ := ctx.Value(ctxkey.Group).(*Group)
+	return IsGroupContextValid(group) && groupSupportsOpenAIFast(group.Platform) && group.ForceOpenAIFast
 }
 
 func openAIFastOverrideEligible(ctx context.Context, account *Account, body []byte) bool {

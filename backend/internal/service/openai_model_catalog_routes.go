@@ -79,7 +79,7 @@ func (r *openAIModelCatalogRoutes) modelIDs(accounts []Account, group *Group) []
 	// Do not filter retirement before resolving the channel replacement.
 	mappedAccounts := make([]Account, 0, len(accounts))
 	for _, account := range accounts {
-		if !account.IsOpenAIPassthroughEnabled() {
+		if !account.IsOpenAIPassthroughEnabled() || account.IsOpenAIPassthroughModelFilterEnabled() {
 			mappedAccounts = append(mappedAccounts, account)
 		}
 	}
@@ -87,7 +87,8 @@ func (r *openAIModelCatalogRoutes) modelIDs(accounts []Account, group *Group) []
 	if len(source) == 0 {
 		for i := range accounts {
 			account := &accounts[i]
-			if account.IsOpenAI() && (account.IsOpenAIPassthroughEnabled() || len(account.GetModelMapping()) == 0) {
+			unrestrictedPassthrough := account.IsOpenAIPassthroughEnabled() && !account.IsOpenAIPassthroughModelFilterEnabled()
+			if account.IsOpenAI() && (unrestrictedPassthrough || len(account.GetModelMapping()) == 0) {
 				source = openai.DefaultModelIDs()
 				break
 			}

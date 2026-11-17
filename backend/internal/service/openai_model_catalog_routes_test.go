@@ -170,6 +170,35 @@ func TestChannelCatalogMappingOrderAndEligibility(t *testing.T) {
 	}
 }
 
+func TestChannelCatalogPassthroughFilterUsesChannelTarget(t *testing.T) {
+	group, account, channels, channel := channelCatalogFixture()
+	group.ModelAllowlist.Models = []string{"allowed-public", "denied-public"}
+	channel.ModelMapping[PlatformOpenAI] = map[string]string{
+		"allowed-public": "gpt-6-luna", "denied-public": "other-model",
+	}
+	channels.cache.Store(populateChannelCache([]Channel{channel}, map[int64]string{group.ID: PlatformOpenAI}))
+	account.Extra = map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true}
+	account.Credentials["model_mapping"] = map[string]any{"gpt-6-luna": "must-not-rewrite"}
+	routes := loadOpenAIModelCatalogRoutes(context.Background(), channels, group)
+	require.Equal(t, []string{"allowed-public"}, routes.modelIDs([]Account{account}, group))
+	for _, codex := range []bool{false, true} {
+		body := []byte(`{"data":[{"id":"gpt-6-luna","custom":42},{"id":"other-model"}]}`)
+		if codex {
+			body = []byte(`{"models":[{"slug":"gpt-6-luna","custom":42},{"slug":"other-model"}]}`)
+		}
+		projected, err := projectAccountModelsBody(body, &account, group, codex, routes)
+		require.NoError(t, err)
+		require.Equal(t, []string{"allowed-public"}, catalogRouteIDs(t, projected, codex))
+		require.Contains(t, string(projected), `"custom":42`)
+	}
+	group.ModelAllowlist.Enabled = false
+	account.Credentials["model_mapping"] = map[string]any{
+		"gpt-6-luna": "must-not-rewrite", "qwen3.8-max": "also-must-not-rewrite",
+	}
+	require.ElementsMatch(t, []string{"allowed-public", "gpt-6-luna", "qwen3.8-max"}, routes.modelIDs([]Account{account}, group),
+		"filtered passthrough accounts must contribute configured names even without a channel alias")
+}
+
 func TestChannelCatalogRetirementUsesFinalTarget(t *testing.T) {
 	group, account, channels, channel := channelCatalogFixture()
 	account.Type = AccountTypeOAuth

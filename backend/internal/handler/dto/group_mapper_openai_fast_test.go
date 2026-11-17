@@ -36,3 +36,18 @@ func TestGroupMapperExposesForceOpenAIFastOnlyToAdmins(t *testing.T) {
 	require.Contains(t, string(adminJSON), `"cache_read_amplification_min_input_tokens":10000`)
 	require.Contains(t, string(adminJSON), `"transfer_cache_write_to_input":true`)
 }
+
+func TestGroupMapperExposesForceOpenAIUltrafastOnlyToAdmins(t *testing.T) {
+	group := &service.Group{
+		ID: 7, Name: "ultrafast", Platform: service.PlatformOpenAI, Status: service.StatusActive, ForceOpenAIUltrafast: true,
+	}
+
+	userJSON, err := json.Marshal(GroupFromService(group))
+	require.NoError(t, err)
+	require.NotContains(t, string(userJSON), "force_openai_ultrafast")
+
+	adminJSON, err := json.Marshal(GroupFromServiceAdmin(group))
+	require.NoError(t, err)
+	require.Contains(t, string(adminJSON), `"force_openai_ultrafast":true`)
+	require.Contains(t, string(adminJSON), `"force_openai_fast":false`)
+}

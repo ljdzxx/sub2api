@@ -266,6 +266,9 @@ func TestUserUsageStatsUsesScopedFilters(t *testing.T) {
 			TotalCost:        0.10,
 			TotalActualCost:  0.08,
 			TotalAccountCost: &accountCost,
+			Endpoints: []usagestats.EndpointStat{{
+				Endpoint: "/v1/chat/completions", AccountCost: accountCost,
+			}},
 			UpstreamEndpoints: []usagestats.EndpointStat{{
 				Endpoint: "/v1/responses",
 			}},
@@ -292,6 +295,9 @@ func TestUserUsageStatsUsesScopedFilters(t *testing.T) {
 	require.NotContains(t, rec.Body.String(), "total_account_cost")
 	require.NotContains(t, rec.Body.String(), "upstream_endpoints")
 	require.NotContains(t, rec.Body.String(), "endpoint_paths")
+	require.NotContains(t, rec.Body.String(), `"account_cost"`)
+	require.Equal(t, accountCost, repo.stats.Endpoints[0].AccountCost, "public filtering must preserve shared statistics")
+	require.NotNil(t, repo.stats.TotalAccountCost)
 }
 
 func TestUserUsageDashboardModelsOmitsAccountCost(t *testing.T) {

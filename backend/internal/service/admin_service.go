@@ -295,6 +295,7 @@ type CreateGroupInput struct {
 	AllowMessagesDispatch                bool
 	AllowLive                            bool
 	ForceOpenAIFast                      bool
+	ForceOpenAIUltrafast                 bool
 	FreeOpenAIFast                       bool
 	OpenAIExperimentalFeaturesEnabled    bool
 	ForceResponseModelMatch              bool
@@ -384,6 +385,7 @@ type UpdateGroupInput struct {
 	AllowMessagesDispatch                *bool
 	AllowLive                            *bool
 	ForceOpenAIFast                      *bool
+	ForceOpenAIUltrafast                 *bool
 	FreeOpenAIFast                       *bool
 	OpenAIExperimentalFeaturesEnabled    *bool
 	ForceResponseModelMatch              *bool

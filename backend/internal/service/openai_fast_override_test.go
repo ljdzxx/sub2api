@@ -20,13 +20,16 @@ import (
 func TestAPIKeyFastOverrideEligibility(t *testing.T) {
 	for _, tc := range []struct {
 		name, tier, outbound, platform, accountType string
-		enabled, group, shadow, want                bool
+		enabled, group, ultrafast, shadow, want     bool
 	}{
 		{name: "fast", tier: "fast", outbound: "priority", enabled: true, want: true},
 		{name: "priority", tier: " Priority ", outbound: "priority", enabled: true, want: true},
 		{name: "disabled", tier: "fast", outbound: "priority"},
 		{name: "forced group", outbound: "priority", enabled: true, group: true, want: true},
 		{name: "group converts flex", tier: "flex", outbound: "priority", enabled: true, group: true, want: true},
+		{name: "ultrafast wins over group fast", outbound: "ultrafast", enabled: true, group: true, ultrafast: true},
+		{name: "unsupported ultrafast model falls back to group fast", outbound: "priority", enabled: true, group: true, ultrafast: true, want: true},
+		{name: "ultrafast only does not opt into fast override", outbound: "priority", enabled: true, ultrafast: true},
 		{name: "flex", tier: "flex", outbound: "flex", enabled: true},
 		{name: "scale", tier: "scale", outbound: "scale", enabled: true},
 		{name: "ultrafast", tier: "ultrafast", outbound: "ultrafast", enabled: true},
@@ -50,7 +53,7 @@ func TestAPIKeyFastOverrideEligibility(t *testing.T) {
 				id := int64(1)
 				account.ParentAccountID = &id
 			}
-			ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{ID: 1, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, ForceOpenAIFast: tc.group})
+			ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{ID: 1, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, ForceOpenAIFast: tc.group, ForceOpenAIUltrafast: tc.ultrafast})
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
 			svc := newOpenAIGatewayServiceWithSettings(t, &OpenAIFastPolicySettings{APIKeyFastIgnoreUpstreamTier: tc.enabled})
 			body := []byte(fmt.Sprintf(`{"service_tier":%q}`, tc.tier))
@@ -112,7 +115,7 @@ func TestAPIKeyFastOverrideResponseAndBilling(t *testing.T) {
 					if tc.observed != "" {
 						responseTier = fmt.Sprintf(`,"service_tier":%q`, tc.observed)
 					}
-					responseBody := fmt.Sprintf(`{"id":"resp_fast","object":"response","status":"completed","model":"gpt-5.4","output":[],"usage":{"input_tokens":100,"output_tokens":50}%s}`, responseTier)
+					responseBody := fmt.Sprintf(`{"id":"resp_fast","object":"response","status":"completed","model":"gpt-5.4","output":[],"usage":{"input_tokens":100,"output_tokens":50,"input_tokens_details":{"cached_tokens":0}}%s}`, responseTier)
 					contentType := "application/json"
 					if stream || route == "chat_responses" {
 						contentType = "text/event-stream"

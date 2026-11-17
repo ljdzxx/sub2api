@@ -136,6 +136,8 @@ const (
 	FieldCacheReadAmplificationMinInputTokens = "cache_read_amplification_min_input_tokens"
 	// FieldTransferCacheWriteToInput holds the string denoting the transfer_cache_write_to_input field in the database.
 	FieldTransferCacheWriteToInput = "transfer_cache_write_to_input"
+	// FieldForceOpenaiUltrafast holds the string denoting the force_openai_ultrafast field in the database.
+	FieldForceOpenaiUltrafast = "force_openai_ultrafast"
 	// FieldFreeOpenaiFast holds the string denoting the free_openai_fast field in the database.
 	FieldFreeOpenaiFast = "free_openai_fast"
 	// FieldRequireOauthOnly holds the string denoting the require_oauth_only field in the database.
@@ -299,6 +301,7 @@ var Columns = []string{
 	FieldCacheReadAmplificationPercent,
 	FieldCacheReadAmplificationMinInputTokens,
 	FieldTransferCacheWriteToInput,
+	FieldForceOpenaiUltrafast,
 	FieldFreeOpenaiFast,
 	FieldRequireOauthOnly,
 	FieldRequirePrivacySet,
@@ -446,6 +449,8 @@ var (
 	CacheReadAmplificationMinInputTokensValidator func(int64) error
 	// DefaultTransferCacheWriteToInput holds the default value on creation for the "transfer_cache_write_to_input" field.
 	DefaultTransferCacheWriteToInput bool
+	// DefaultForceOpenaiUltrafast holds the default value on creation for the "force_openai_ultrafast" field.
+	DefaultForceOpenaiUltrafast bool
 	// DefaultFreeOpenaiFast holds the default value on creation for the "free_openai_fast" field.
 	DefaultFreeOpenaiFast bool
 	// DefaultRequireOauthOnly holds the default value on creation for the "require_oauth_only" field.
@@ -763,6 +768,11 @@ func ByCacheReadAmplificationMinInputTokens(opts ...sql.OrderTermOption) OrderOp
 // ByTransferCacheWriteToInput orders the results by the transfer_cache_write_to_input field.
 func ByTransferCacheWriteToInput(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTransferCacheWriteToInput, opts...).ToFunc()
+}
+
+// ByForceOpenaiUltrafast orders the results by the force_openai_ultrafast field.
+func ByForceOpenaiUltrafast(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldForceOpenaiUltrafast, opts...).ToFunc()
 }
 
 // ByFreeOpenaiFast orders the results by the free_openai_fast field.

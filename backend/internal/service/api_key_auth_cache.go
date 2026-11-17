@@ -108,6 +108,7 @@ type APIKeyAuthGroupSnapshot struct {
 	AllowMessagesDispatch                bool                              `json:"allow_messages_dispatch"`
 	AllowLive                            bool                              `json:"allow_live"`
 	ForceOpenAIFast                      bool                              `json:"force_openai_fast"`
+	ForceOpenAIUltrafast                 bool                              `json:"force_openai_ultrafast"`
 	FreeOpenAIFast                       bool                              `json:"free_openai_fast"`
 	OpenAIExperimentalFeaturesEnabled    bool                              `json:"openai_experimental_features_enabled"`
 	ForceResponseModelMatch              bool                              `json:"force_response_model_match"`

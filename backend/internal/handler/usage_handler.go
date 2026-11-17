@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -421,6 +422,10 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	publicStats.CacheReadAudit = nil
 	publicStats.UpstreamEndpoints = nil
 	publicStats.EndpointPaths = nil
+	publicStats.Endpoints = slices.Clone(stats.Endpoints)
+	for i := range publicStats.Endpoints {
+		publicStats.Endpoints[i].AccountCost = 0
+	}
 
 	response.Success(c, &publicStats)
 }

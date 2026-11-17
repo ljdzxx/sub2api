@@ -960,6 +960,7 @@ func TestAPIContracts(t *testing.T) {
 					"claude_code_client_version_synced": "",
 					"claude_code_version_auto_sync_enabled": true,
 					"openai_fast_policy_settings": {
+						"apikey_fast_ignore_upstream_tier": false,
 						"rules": []
 					},
 					"custom_menu_items": [],
@@ -1284,6 +1285,7 @@ func TestAPIContracts(t *testing.T) {
 					"claude_code_client_version_synced": "",
 					"claude_code_version_auto_sync_enabled": true,
 					"openai_fast_policy_settings": {
+						"apikey_fast_ignore_upstream_tier": false,
 						"rules": []
 					},
 					"payment_enabled": false,
@@ -2044,6 +2046,10 @@ func (s *stubAccountRepo) ClearAntigravityQuotaScopes(ctx context.Context, id in
 }
 
 func (s *stubAccountRepo) ClearModelRateLimits(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) ClearModelRateLimit(ctx context.Context, id int64, scope string) error {
 	return errors.New("not implemented")
 }
 

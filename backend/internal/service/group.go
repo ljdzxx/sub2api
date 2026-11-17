@@ -103,6 +103,7 @@ type Group struct {
 	AllowMessagesDispatch                bool
 	AllowLive                            bool
 	ForceOpenAIFast                      bool // 强制 OpenAI 网关请求使用 service_tier=priority
+	ForceOpenAIUltrafast                 bool // 对支持 Ultrafast 的模型强制 service_tier=ultrafast，优先于 ForceOpenAIFast
 	FreeOpenAIFast                       bool // OpenAI Fast 请求按 Standard 价格向用户计费
 	OpenAIExperimentalFeaturesEnabled    bool // 是否启用 OpenAI 实验性功能策略
 	ForceResponseModelMatch              bool // 强制响应 model 与客户端请求模型一致

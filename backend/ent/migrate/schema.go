@@ -965,6 +965,7 @@ var (
 		{Name: "cache_read_amplification_percent", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(5,2)"}},
 		{Name: "cache_read_amplification_min_input_tokens", Type: field.TypeInt64, Default: 0},
 		{Name: "transfer_cache_write_to_input", Type: field.TypeBool, Default: false},
+		{Name: "force_openai_ultrafast", Type: field.TypeBool, Default: false},
 		{Name: "free_openai_fast", Type: field.TypeBool, Default: false},
 		{Name: "require_oauth_only", Type: field.TypeBool, Default: false},
 		{Name: "require_privacy_set", Type: field.TypeBool, Default: false},
