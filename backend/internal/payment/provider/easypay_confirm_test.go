@@ -60,6 +60,7 @@ func TestEasyPayConfirmNotification(t *testing.T) {
 		notifyTrade string
 		wantErr     string
 		wantTradeNo string
+		wantAmount  float64
 	}{
 		{
 			name:        "paid with matching amount and trade_no",
@@ -85,16 +86,17 @@ func TestEasyPayConfirmNotification(t *testing.T) {
 			wantErr:     "订单号不存在",
 		},
 		{
-			name:        "amount mismatch",
-			body:        `{"code":1,"trade_no":"2026101600001","money":"0.01","status":1}`,
+			name:        "query reports a different receipt",
+			body:        `{"code":1,"trade_no":"2026101600001","money":"10.59","status":1}`,
 			notifyTrade: "2026101600001",
-			wantErr:     "amount mismatch",
+			wantTradeNo: "2026101600001",
+			wantAmount:  10.59,
 		},
 		{
 			name:        "missing upstream amount",
 			body:        `{"code":1,"trade_no":"2026101600001","status":1}`,
 			notifyTrade: "2026101600001",
-			wantErr:     "amount mismatch",
+			wantErr:     "invalid upstream amount",
 		},
 		{
 			name:        "trade_no conflict",
@@ -145,6 +147,9 @@ func TestEasyPayConfirmNotification(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("ConfirmNotification returned error: %v", err)
+			}
+			if tt.wantAmount != 0 && (n.QueriedAmount == nil || *n.QueriedAmount != tt.wantAmount || n.Amount != 10) {
+				t.Fatalf("expected separate notification and query amounts, got %+v", n)
 			}
 			if n.TradeNo != tt.wantTradeNo {
 				t.Fatalf("trade_no = %q, want %q", n.TradeNo, tt.wantTradeNo)

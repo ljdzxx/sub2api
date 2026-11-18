@@ -3,6 +3,7 @@ package service
 import (
 	"math"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/shopspring/decimal"
 )
@@ -30,6 +31,27 @@ func calculateCreditedBalance(paymentAmount, multiplier float64) float64 {
 		Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).
 		Round(2).
 		InexactFloat64()
+}
+
+// easyPaySettledBalance converts only the excess receipt at the order's
+// recharge multiplier. The quoted balance already includes its promotion.
+func easyPaySettledBalance(o *dbent.PaymentOrder, expected, paid float64) float64 {
+	multiplier, ok := o.PricingSnapshot["balance_recharge_multiplier"].(float64)
+	if !ok {
+		// Legacy orders retain the paid principal and fee-inclusive price.
+		// Reverse the rounded-up fee to recover the pre-fee payment base.
+		base := decimal.NewFromFloat(expected)
+		if o.FeeRate > 0 {
+			feeFactor := decimal.NewFromInt(1).Add(decimal.NewFromFloat(o.FeeRate).Shift(-2))
+			base = base.Div(feeFactor).Truncate(2)
+		}
+		if base.IsPositive() {
+			multiplier = decimal.NewFromFloat(paymentOrderAmountWithoutBonus(o)).Div(base).InexactFloat64()
+		}
+	}
+	extra := decimal.NewFromFloat(paid).Sub(decimal.NewFromFloat(expected))
+	credit := extra.Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).Round(8)
+	return decimal.NewFromFloat(o.Amount).Add(credit).InexactFloat64()
 }
 
 func calculateGatewayRefundAmount(orderAmount, payAmount, refundAmount float64, currency string) float64 {

@@ -44,9 +44,9 @@ func (PaymentOrder) Fields() []ent.Field {
 
 		// 金额信息
 		field.Float("amount").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(26,8)"}),
 		field.Float("pay_amount").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(26,8)"}),
 		field.Float("fee_rate").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0),
@@ -113,7 +113,7 @@ func (PaymentOrder) Fields() []ent.Field {
 
 		// 退款信息
 		field.Float("refund_amount").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(26,8)"}).
 			Default(0),
 		field.String("refund_reason").
 			Optional().

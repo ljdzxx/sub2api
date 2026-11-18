@@ -30,7 +30,6 @@ const (
 	easypayHTTPTimeout       = 10 * time.Second
 	maxEasypayResponseSize   = 1 << 20 // 1MB
 	maxEasypayErrorSummary   = 512
-	easypayAmountTolerance   = 0.005
 	tradeStatusSuccess       = "TRADE_SUCCESS"
 	signTypeMD5              = "MD5"
 	paymentModePopup         = "popup"
@@ -427,8 +426,8 @@ func (e *EasyPay) ConfirmNotification(ctx context.Context, n *payment.PaymentNot
 		return fmt.Errorf("easypay confirm: upstream reports order %s as not paid", n.OrderID)
 	}
 	queriedAmount, err := strconv.ParseFloat(result.money, 64)
-	if err != nil || math.Abs(queriedAmount-n.Amount) > easypayAmountTolerance {
-		return fmt.Errorf("easypay confirm: amount mismatch: notified %v, upstream %q", n.Amount, result.money)
+	if err != nil || queriedAmount <= 0 || math.IsNaN(queriedAmount) || math.IsInf(queriedAmount, 0) {
+		return fmt.Errorf("easypay confirm: invalid upstream amount %q", result.money)
 	}
 	if result.tradeNo != "" {
 		if n.TradeNo != "" && n.TradeNo != result.tradeNo {
@@ -436,6 +435,7 @@ func (e *EasyPay) ConfirmNotification(ctx context.Context, n *payment.PaymentNot
 		}
 		n.TradeNo = result.tradeNo
 	}
+	n.QueriedAmount = &queriedAmount
 	return nil
 }
 

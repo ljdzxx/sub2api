@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect"
+	"github.com/shopspring/decimal"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -47,14 +48,14 @@ func (s *PaymentService) HandlePaymentNotification(ctx context.Context, n *payme
 		// Fallback only for true legacy "sub2_N" DB-ID payloads when the
 		// current out_trade_no lookup genuinely did not find an order.
 		if oid, ok := parseLegacyPaymentOrderID(n.OrderID, err); ok {
-			return s.confirmPayment(ctx, oid, n.TradeNo, n.Amount, pk, n.Metadata)
+			return s.confirmPayment(ctx, oid, n, pk)
 		}
 		if dbent.IsNotFound(err) {
 			return fmt.Errorf("%w: out_trade_no=%s", ErrOrderNotFound, n.OrderID)
 		}
 		return fmt.Errorf("lookup order failed for out_trade_no %s: %w", n.OrderID, err)
 	}
-	return s.confirmPayment(ctx, order.ID, n.TradeNo, n.Amount, pk, n.Metadata)
+	return s.confirmPayment(ctx, order.ID, n, pk)
 }
 
 // ConfirmNotificationUpstream asks providers that implement
@@ -103,7 +104,8 @@ func parseLegacyPaymentOrderID(orderID string, lookupErr error) (int64, bool) {
 	return oid, true
 }
 
-func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo string, paid float64, pk string, metadata map[string]string) error {
+func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, n *payment.PaymentNotification, pk string) error {
+	tradeNo := n.TradeNo
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		slog.Error("order not found", "orderID", oid)
@@ -122,26 +124,54 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		})
 		return fmt.Errorf("provider mismatch: expected %s, got %s", expectedProviderKey, pk)
 	}
-	if err := validateProviderNotificationMetadata(o, pk, metadata); err != nil {
+	if err := validateProviderNotificationMetadata(o, pk, n.Metadata); err != nil {
 		s.writeAuditLog(ctx, o.ID, "PAYMENT_PROVIDER_METADATA_MISMATCH", pk, map[string]any{
 			"detail":  err.Error(),
 			"tradeNo": tradeNo,
 		})
 		return err
 	}
+	expected := o.PayAmount
+	easyPay := pk == payment.TypeEasyPay
+	if easyPay {
+		// pay_amount on a settled order is the actual receipt. Replays must
+		// still be checked against the quote used for the first settlement.
+		if quoted, ok := o.PricingSnapshot["pay_amount"].(float64); ok {
+			expected = quoted
+		}
+	}
+	paid := n.Amount
+	if err := s.validateSettlementAmount(ctx, o, pk, tradeNo, expected, paid); err != nil {
+		return err
+	}
+	if easyPay && n.QueriedAmount != nil {
+		paid = *n.QueriedAmount
+		if err := s.validateSettlementAmount(ctx, o, pk, tradeNo, expected, paid); err != nil {
+			return err
+		}
+	}
+	return s.toPaid(ctx, o, tradeNo, expected, paid, pk)
+}
+
+func (s *PaymentService) validateSettlementAmount(ctx context.Context, o *dbent.PaymentOrder, pk, tradeNo string, expected, paid float64) error {
 	if !isValidProviderAmount(paid) {
 		s.writeAuditLog(ctx, o.ID, "PAYMENT_INVALID_AMOUNT", pk, map[string]any{
-			"expected": o.PayAmount,
+			"expected": expected,
 			"paid":     paid,
 			"tradeNo":  tradeNo,
 		})
 		return fmt.Errorf("invalid paid amount from provider: %v", paid)
 	}
-	if math.Abs(paid-o.PayAmount) > paymentAmountToleranceForCurrency(PaymentOrderCurrency(o)) {
-		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": o.PayAmount, "paid": paid, "tradeNo": tradeNo})
-		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(o.PayAmount, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
+	matches := math.Abs(paid-expected) <= paymentAmountToleranceForCurrency(PaymentOrderCurrency(o))
+	if pk == payment.TypeEasyPay {
+		matches = isValidProviderAmount(expected) && paid >= expected &&
+			decimal.NewFromFloat(paid).Sub(decimal.NewFromFloat(expected)).LessThan(decimal.NewFromInt(1))
 	}
-	return s.toPaid(ctx, o, tradeNo, paid, pk)
+	if !matches {
+		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": expected, "paid": paid, "tradeNo": tradeNo})
+		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(expected, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
+	}
+	return nil
 }
 
 func paymentAmountToleranceForCurrency(currency string) float64 {
@@ -175,11 +205,11 @@ func expectedNotificationProviderKey(registry *payment.Registry, orderPaymentTyp
 	return strings.TrimSpace(orderPaymentType)
 }
 
-func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, paid float64, pk string) error {
+func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, expected, paid float64, pk string) error {
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
-	c, err := s.entClient.PaymentOrder.Update().Where(
+	update := s.entClient.PaymentOrder.Update().Where(
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
@@ -189,7 +219,21 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 				paymentorder.UpdatedAtGTE(grace),
 			),
 		),
-	).SetStatus(OrderStatusPaid).SetPayAmount(paid).SetPaymentTradeNo(tradeNo).SetPaidAt(now).ClearFailedAt().ClearFailedReason().Save(ctx)
+	).SetStatus(OrderStatusPaid).SetPayAmount(paid).SetPaymentTradeNo(tradeNo).SetPaidAt(now).ClearFailedAt().ClearFailedReason()
+	if pk == payment.TypeEasyPay && paid > expected {
+		if o.OrderType == payment.OrderTypeBalance {
+			update.SetAmount(easyPaySettledBalance(o, expected, paid))
+		}
+		// Preserve the quote for replays of orders created without a snapshot.
+		if _, ok := o.PricingSnapshot["pay_amount"]; !ok {
+			if o.PricingSnapshot == nil {
+				o.PricingSnapshot = make(map[string]any)
+			}
+			o.PricingSnapshot["pay_amount"] = expected
+			update.SetPricingSnapshot(o.PricingSnapshot)
+		}
+	}
+	c, err := update.Save(ctx)
 	if err != nil {
 		return fmt.Errorf("update to PAID: %w", err)
 	}

@@ -7,7 +7,7 @@ x-build: &build
     COMMIT: ${RAY_GIT_COMMIT:-ray-local}
     DATE: ${RAY_BUILD_DATE:-}
     NODE_IMAGE: ${NODE_IMAGE:-node:24-alpine}
-    GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.27.3-alpine}
+    GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.27.4-alpine}
     ALPINE_IMAGE: ${ALPINE_IMAGE:-alpine:3.21}
     POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:18-alpine}
     GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}

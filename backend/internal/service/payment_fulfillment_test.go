@@ -1293,3 +1293,85 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 
 var _ AffiliateRepository = (*paymentFulfillmentAffiliateRepoStub)(nil)
 var _ SettingRepository = (*paymentFulfillmentSettingRepoStub)(nil)
+
+func TestEasyPayBalanceSettlementUsesQueryAndCreditsExcessOnce(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name                                                         string
+		expected, amount, bonus, multiplier, notified, queried, want float64
+		legacy                                                       bool
+	}{
+		{"bonus and sub-cent credit", 10, 1.8, .3, .15, 10.99, 10.01, 1.8015, false},
+		{"discount", 8, 1.5, .3, .15, 8, 8.99, 1.6485, false},
+		{"exact query", 10, 1.8, .3, .15, 10.99, 10, 1.8, false},
+		{"legacy fee and discount", 8.19, 1.5, .3, 0, 8.19, 8.49, 1.545, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newPaymentConfigServiceTestClient(t)
+			order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
+			update := client.PaymentOrder.UpdateOneID(order.ID).SetProviderKey(payment.TypeEasyPay).SetOrderType(payment.OrderTypeBalance).
+				SetAmount(tc.amount).SetPayAmount(tc.expected).SetBonusAmount(tc.bonus)
+			if tc.legacy {
+				update.SetFeeRate(2.3)
+			} else {
+				update.SetPricingSnapshot(map[string]any{"pay_amount": tc.expected, "balance_recharge_multiplier": tc.multiplier})
+			}
+			order, err := update.Save(ctx)
+			require.NoError(t, err)
+			credited := 0.0
+			userRepo := &mockUserRepo{getByIDUser: &User{ID: order.UserID}}
+			userRepo.updateBalanceFn = func(_ context.Context, id int64, value float64) error { credited += value; return nil }
+			redeemRepo := &paymentFulfillmentRedeemRepo{}
+			svc := &PaymentService{entClient: client, redeemService: NewRedeemService(redeemRepo, userRepo, nil, nil, nil, client, nil, nil)}
+			n := &payment.PaymentNotification{OrderID: order.OutTradeNo, TradeNo: "receipt", Status: payment.NotificationStatusSuccess, Amount: tc.notified, QueriedAmount: &tc.queried}
+			require.NoError(t, svc.HandlePaymentNotification(ctx, n, payment.TypeEasyPay))
+			require.NoError(t, svc.HandlePaymentNotification(ctx, n, payment.TypeEasyPay))
+			order, err = client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, OrderStatusCompleted, order.Status)
+			require.Equal(t, tc.queried, order.PayAmount)
+			require.Equal(t, tc.want, order.Amount)
+			require.Equal(t, tc.bonus, order.BonusAmount)
+			require.Equal(t, tc.want, credited)
+			require.Len(t, redeemRepo.useCalls, 1)
+		})
+	}
+}
+
+func TestEasyPayRejectsEitherAmountOutsideOriginalQuote(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).SetProviderKey(payment.TypeEasyPay).SetPayAmount(80.17).Save(ctx)
+	require.NoError(t, err)
+	svc := &PaymentService{entClient: client}
+	for _, amounts := range [][2]float64{{80.169, 80.17}, {80.17, 80.169}, {81.17, 80.99}, {80.18, 81.17}, {81.18, 81.18}} {
+		n := &payment.PaymentNotification{OrderID: order.OutTradeNo, Status: payment.NotificationStatusSuccess, Amount: amounts[0], QueriedAmount: &amounts[1]}
+		require.ErrorContains(t, svc.HandlePaymentNotification(ctx, n, payment.TypeEasyPay), "amount mismatch")
+	}
+	order, err = client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPending, order.Status)
+}
+
+func TestEasyPaySubscriptionQueryFulfillsQuotedPlan(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).SetProviderKey(payment.TypeEasyPay).Save(ctx)
+	require.NoError(t, err)
+	groups := &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}}
+	subs := newSubscriptionUserSubRepoStub()
+	svc := &PaymentService{entClient: client, groupRepo: groups, subscriptionSvc: NewSubscriptionService(groups, subs, nil, nil, nil)}
+	// A standalone query carries its actual receipt directly in Amount.
+	n := &payment.PaymentNotification{OrderID: order.OutTradeNo, Status: payment.NotificationStatusSuccess, Amount: 80.99}
+	require.NoError(t, svc.HandlePaymentNotification(ctx, n, payment.TypeEasyPay))
+	order, err = client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, order.Status)
+	require.Equal(t, 80.0, order.Amount)
+	require.Equal(t, 80.99, order.PayAmount)
+	sub, err := subs.GetByUserIDAndGroupID(ctx, order.UserID, *order.SubscriptionGroupID)
+	require.NoError(t, err)
+	require.WithinDuration(t, time.Now().AddDate(0, 0, 30), sub.ExpiresAt, time.Minute)
+}

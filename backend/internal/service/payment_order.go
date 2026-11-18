@@ -263,6 +263,8 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	if req.pricingSnapshot != nil {
 		b.SetPricingSnapshot(req.pricingSnapshot)
+	} else if selectedProviderKey == payment.TypeEasyPay {
+		b.SetPricingSnapshot(map[string]any{"pay_amount": payAmount, "balance_recharge_multiplier": cfg.BalanceRechargeMultiplier})
 	}
 	if plan != nil {
 		b.SetPlanID(plan.ID).SetSubscriptionGroupID(plan.GroupID).SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
