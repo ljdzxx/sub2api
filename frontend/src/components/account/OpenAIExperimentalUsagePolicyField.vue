@@ -17,8 +17,9 @@
     </div>
 
     <div v-if="enabled" class="space-y-3">
-      <div class="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-3 px-1 text-xs font-medium text-gray-500 dark:text-gray-400 sm:grid">
-        <span>{{ t('admin.accounts.openai.experimentalUsagePolicy.transferPercent') }}</span>
+      <div class="hidden grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] gap-3 px-1 text-xs font-medium text-gray-500 dark:text-gray-400 sm:grid">
+        <span>{{ t('admin.accounts.openai.experimentalUsagePolicy.transferMode') }}</span>
+        <span>{{ t('admin.accounts.openai.experimentalUsagePolicy.transferValue') }}</span>
         <span>{{ t('admin.accounts.openai.experimentalUsagePolicy.probabilityPercent') }}</span>
         <span class="sr-only">{{ t('admin.accounts.openai.experimentalUsagePolicy.removeRule') }}</span>
       </div>
@@ -26,13 +27,45 @@
       <div
         v-for="(rule, index) in rules"
         :key="index"
-        class="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-3 rounded-md border border-gray-200 p-3 dark:border-dark-600 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem]"
+        class="grid grid-cols-1 gap-3 rounded-md border border-gray-200 p-3 dark:border-dark-600 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] sm:items-end"
       >
         <label class="min-w-0">
           <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400 sm:hidden">
-            {{ t('admin.accounts.openai.experimentalUsagePolicy.transferPercent') }}
+            {{ t('admin.accounts.openai.experimentalUsagePolicy.transferMode') }}
           </span>
-          <div class="relative">
+          <select
+            :value="transferModeOf(rule)"
+            class="input"
+            :data-testid="`openai-cache-transfer-mode-${index}`"
+            @change="updateRule(index, 'transfer_mode', $event)"
+          >
+            <option value="percent">{{ t('admin.accounts.openai.experimentalUsagePolicy.modePercent') }}</option>
+            <option value="exact">{{ t('admin.accounts.openai.experimentalUsagePolicy.modeExact') }}</option>
+          </select>
+        </label>
+
+        <label class="min-w-0">
+          <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400 sm:hidden">
+            {{ transferModeOf(rule) === 'exact'
+              ? t('admin.accounts.openai.experimentalUsagePolicy.keepTokens')
+              : t('admin.accounts.openai.experimentalUsagePolicy.transferPercent') }}
+          </span>
+          <div v-if="transferModeOf(rule) === 'exact'" class="relative">
+            <input
+              :value="rule.keep_tokens"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              class="input pr-16"
+              :data-testid="`openai-cache-keep-tokens-${index}`"
+              @input="updateRule(index, 'keep_tokens', $event)"
+            />
+            <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">
+              {{ t('admin.accounts.openai.experimentalUsagePolicy.tokenUnit') }}
+            </span>
+          </div>
+          <div v-else class="relative">
             <input
               :value="rule.transfer_percent"
               type="number"
@@ -70,7 +103,7 @@
 
         <button
           type="button"
-          class="mt-5 flex h-10 w-10 items-center justify-center text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 sm:mt-0"
+          class="flex h-10 w-10 items-center justify-center text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           :title="t('admin.accounts.openai.experimentalUsagePolicy.removeRule')"
           :aria-label="t('admin.accounts.openai.experimentalUsagePolicy.removeRule')"
           :disabled="rules.length <= 1"
@@ -85,13 +118,22 @@
           <Icon name="plus" size="sm" />
           {{ t('admin.accounts.openai.experimentalUsagePolicy.addRule') }}
         </button>
-        <p
-          class="text-sm tabular-nums"
-          :class="probabilityTotal === 100 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
-          data-testid="openai-cache-probability-total"
-        >
-          {{ t('admin.accounts.openai.experimentalUsagePolicy.probabilityTotal', { total: probabilityTotal }) }}
-        </p>
+        <div class="text-right">
+          <p
+            class="text-sm tabular-nums"
+            :class="probabilityTotal <= 100 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+            data-testid="openai-cache-probability-total"
+          >
+            {{ t('admin.accounts.openai.experimentalUsagePolicy.probabilityTotal', { total: probabilityTotal }) }}
+          </p>
+          <p
+            v-if="probabilityTotal < 100"
+            class="text-xs text-gray-500 dark:text-gray-400"
+            data-testid="openai-cache-probability-unmatched"
+          >
+            {{ t('admin.accounts.openai.experimentalUsagePolicy.probabilityUnmatched', { remaining: 100 - probabilityTotal }) }}
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -100,10 +142,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { OpenAINormalInputCacheRule } from '@/types'
+import type { OpenAINormalInputCacheRule, OpenAINormalInputCacheTransferMode } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
 import Toggle from '@/components/common/Toggle.vue'
-import { DEFAULT_OPENAI_NORMAL_INPUT_CACHE_RULES, cloneOpenAINormalInputCacheRules } from './openaiExperimentalUsagePolicy'
+import {
+  DEFAULT_OPENAI_NORMAL_INPUT_CACHE_RULES,
+  cloneOpenAINormalInputCacheRules,
+  normalizeOpenAINormalInputCacheTransferMode
+} from './openaiExperimentalUsagePolicy'
 
 const props = defineProps<{
   enabled: boolean
@@ -132,16 +178,27 @@ const probabilityTotal = computed(() => props.rules.reduce((sum, rule) => {
   return sum + (Number.isFinite(value) ? value : 0)
 }, 0))
 
+function transferModeOf(rule: OpenAINormalInputCacheRule): OpenAINormalInputCacheTransferMode {
+  return normalizeOpenAINormalInputCacheTransferMode(rule.transfer_mode)
+}
+
 function updateRule(index: number, field: keyof OpenAINormalInputCacheRule, event: Event) {
-  const raw = (event.target as HTMLInputElement).value
-  const value = raw === '' ? Number.NaN : Number(raw)
+  const raw = (event.target as HTMLInputElement | HTMLSelectElement).value
   const next = cloneOpenAINormalInputCacheRules(props.rules)
-  next[index] = { ...next[index], [field]: value }
+  if (field === 'transfer_mode') {
+    next[index] = { ...next[index], transfer_mode: normalizeOpenAINormalInputCacheTransferMode(raw as OpenAINormalInputCacheTransferMode) }
+  } else {
+    const value = raw === '' ? Number.NaN : Number(raw)
+    next[index] = { ...next[index], [field]: value }
+  }
   emit('update:rules', next)
 }
 
 function addRule() {
-  emit('update:rules', [...cloneOpenAINormalInputCacheRules(props.rules), { transfer_percent: 0, probability_percent: 1 }])
+  emit('update:rules', [
+    ...cloneOpenAINormalInputCacheRules(props.rules),
+    { transfer_mode: 'percent', transfer_percent: 0, keep_tokens: 0, probability_percent: 1 }
+  ])
 }
 
 function removeRule(index: number) {

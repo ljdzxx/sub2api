@@ -4,17 +4,29 @@
 
 ## 账号级普通输入转写缓存
 
-OpenAI API Key 上游账号有独立的 `openai_experimental_features_enabled` 开关和 `openai_normal_input_cache_rules` 规则，不依赖分组总开关。每条规则包含两个不同的百分比：
+OpenAI API Key 上游账号有独立的 `openai_experimental_features_enabled` 开关和 `openai_normal_input_cache_rules` 规则，不依赖分组总开关。每条规则包含一个转写模式和一个触发概率：
 
-- `transfer_percent`：抽中后，将多少比例的普通输入 Tokens 转入写缓存，整数 0–100。
-- `probability_percent`：本条规则被抽中的概率，整数 1–100；所有规则的概率之和必须等于 100。每次只选一条规则，不是依次独立触发。
+- `transfer_mode`：转写模式，`percent`（默认，缺省时也按 `percent` 处理）或 `exact`。
+- `transfer_percent`：`percent` 模式下，抽中后将多少比例的普通输入 Tokens 转入写缓存，整数 0–100。
+- `keep_tokens`：`exact` 模式下，保留多少普通输入 Tokens 不动，其余全部转入写缓存；非负整数，默认 0（即全部转写）。
+- `probability_percent`：本条规则被抽中的概率，整数 1–100；所有规则的概率之和不得大于 100。每次只选一条规则，不是依次独立触发。
+
+概率之和小于 100 时，未覆盖的概率区间不做任何转写，保持上游原始 usage。
 
 例如“90% 的请求转移一半普通输入，10% 不转移”应配置：
 
 ```json
 [
-  {"transfer_percent": 50, "probability_percent": 90},
-  {"transfer_percent": 0, "probability_percent": 10}
+  {"transfer_mode": "percent", "transfer_percent": 50, "probability_percent": 90},
+  {"transfer_mode": "percent", "transfer_percent": 0, "probability_percent": 10}
+]
+```
+
+“90% 的请求把除 3 个 Token 外的普通输入全部转写，剩余 10% 保持原状”应配置：
+
+```json
+[
+  {"transfer_mode": "exact", "keep_tokens": 3, "probability_percent": 90}
 ]
 ```
 
@@ -22,10 +34,11 @@ OpenAI API Key 上游账号有独立的 `openai_experimental_features_enabled` �
 
 ```text
 可转移普通输入 = max(0, 原始总输入 - 原始读缓存 - 原始写缓存)
-新增写缓存 = floor(可转移普通输入 × transfer_percent / 100)
+percent: 新增写缓存 = floor(可转移普通输入 × transfer_percent / 100)
+exact:   新增写缓存 = max(0, 可转移普通输入 - keep_tokens)
 ```
 
-总输入与读缓存不变。抽中 0% 转移规则、没有可转移普通输入、或新增写缓存不足 1 Token，都会使写缓存保持原值。
+总输入与读缓存不变。抽中 0% 转移规则、未命中任何规则、没有可转移普通输入、`keep_tokens` 已覆盖全部可转移输入、或新增写缓存不足 1 Token，都会使写缓存保持原值。
 
 ## 处理顺序
 
@@ -86,11 +99,12 @@ HTTP JSON、SSE、Responses WebSocket 和 Messages 协议转换都在最终客�
 | 审计字段 | 判断方式 |
 | --- | --- |
 | `account_policy` | 缺失表示该记录没有捕获到有效的账号规则选择；检查实际路由账号、开关、账号类型、部署版本及旧连接配置，不能将其计作随机未命中。 |
-| `account_policy.transfer_percent` | 0 表示抽中了不转移档位；大于 0 表示抽中了转移档位。对应的 `probability_percent` 是该档配置概率。 |
+| `account_policy.transfer_mode` | `percent` 或缺失表示按比例档位；`exact` 表示精确档位，此时看 `keep_tokens`。 |
+| `account_policy.transfer_percent` / `keep_tokens` | `percent` 模式下 `transfer_percent` 为 0 表示抽中了不转移档位，大于 0 表示抽中了转移档位；`exact` 模式下 `keep_tokens` 不小于可转移普通输入时等价于不转写。对应的 `probability_percent` 是该档配置概率。 |
 | `raw` 与 `account_effective` | 比较两者的 `cache_creation_input_tokens`，得到账号阶段实际新增写缓存；抽中但增量为 0 时，检查可转移普通输入及向下取整。JSON 省略的 Token 字段按 0 读取。 |
 | `transfer_cache_write_to_input` 与 `effective` | 为 true 时，分组会把账号阶段的写缓存转回普通输入；通过 `account_effective` 与 `effective` 对比确认。 |
 
-统计“转移档位命中率”时，分母应为带有效 `account_policy` 的记录数，分子为其中 `transfer_percent > 0` 的记录数；期望值是所有非零转移档位的 `probability_percent` 之和。账号策略缺失的记录应另外统计。账号规则发生变化后，已建立的 WS 会话仍持有建连时的账号配置，需重连后再观察新配置。
+统计“转移档位命中率”时，分母应为带有效 `account_policy` 的记录数，分子为实际发生转写的记录数（`percent` 模式下 `transfer_percent > 0`；`exact` 模式下可转移普通输入大于 `keep_tokens`）；期望值不超过所有非零转移档位的 `probability_percent` 之和，差额来自未覆盖的概率区间。账号策略缺失的记录应另外统计。账号规则发生变化后，已建立的 WS 会话仍持有建连时的账号配置，需重连后再观察新配置。
 
 ### 新旧实例共用 Redis 时的缓存兼容性
 
@@ -101,3 +115,15 @@ HTTP JSON、SSE、Responses WebSocket 和 Messages 协议转换都在最终客�
 修复后，OpenAI API Key 的完整账号或精简快照缺少上述任一字段时，按缓存未命中走已有数据库回退；明确保存的 `false` 与 `null`/空规则仍是有效的关闭配置。其他平台和 OAuth 账号不受此兼容检查影响。回退仍遵守调度器原有的数据库回退开关、限流与超时。
 
 部署时应将所有共用调度 Redis 的旧实例升级到兼容版本或停用，包括不承接当前域名请求的后台实例。停用后仍需由新实例刷新已被覆盖的缓存。仅重新保存账号、清理一次缓存或重启同一个旧镜像，都不能阻止仍在运行的旧实例随后再次覆盖；修复不追溯调整历史记录或账单。
+
+### 转写模式与概率总和的新旧版本兼容性
+
+新增的 `transfer_mode`、`keep_tokens` 和“概率之和小于 100”都属于同一条 JSON 规则内的可选字段与放宽后的校验：
+
+- 新版本读取旧数据完全兼容：缺少 `transfer_mode` 按 `percent` 处理，缺少 `keep_tokens` 按 0 处理，概率之和等于 100 仍然合法。
+- SQL 迁移 `256` 只更新列注释，不改表结构，旧版本可继续使用该库。
+- 旧版本读取新数据时，Go JSON 会忽略未知字段，`exact` 规则会退化为 `transfer_percent` 对应的比例规则；新建的 `exact` 规则通常 `transfer_percent` 为 0，因此在旧实例上表现为“不转写”。
+- 更危险的是写回：旧版本保存账号时会整体覆盖 `openai_normal_input_cache_rules`，`transfer_mode` 与 `keep_tokens` 会永久丢失；旧版本仍要求概率之和严格等于 100，概率之和小于 100 的账号在旧实例上新增、编辑或导入会被拒绝。
+- 旧实例重建调度缓存时同样只序列化自己认识的字段，新实例会把被覆盖的 `exact` 规则当作 `percent` 规则，直到缓存刷新或数据库回退。
+
+因此，在仍可能有旧版本写账号或写调度缓存的窗口期内，不要配置 `exact` 规则或小于 100 的概率总和；确认所有实例（含后台实例）都已升级或停用后再启用这些设置。

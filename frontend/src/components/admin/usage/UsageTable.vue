@@ -155,10 +155,16 @@
             <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationTitle') }}: {{ row.cache_read_adjustment.amplification_percent }}</div>
             <div v-if="(row.cache_read_adjustment.amplification_percent ?? 0) > 0">{{ t('admin.groups.cacheReadDeduction.amplificationThreshold') }}: {{ row.cache_read_adjustment.amplification_min_input_tokens ?? 0 }}</div>
             <div v-if="row.cache_read_adjustment.account_policy">
-              {{ t('admin.accounts.openai.experimentalUsagePolicy.auditSelection', {
-                transfer: row.cache_read_adjustment.account_policy.transfer_percent,
-                probability: row.cache_read_adjustment.account_policy.probability_percent
-              }) }}
+              {{ t(
+                row.cache_read_adjustment.account_policy.transfer_mode === 'exact'
+                  ? 'admin.accounts.openai.experimentalUsagePolicy.auditSelectionExact'
+                  : 'admin.accounts.openai.experimentalUsagePolicy.auditSelection',
+                {
+                  transfer: row.cache_read_adjustment.account_policy.transfer_percent,
+                  keep: row.cache_read_adjustment.account_policy.keep_tokens ?? 0,
+                  probability: row.cache_read_adjustment.account_policy.probability_percent
+                }
+              ) }}
             </div>
             <div v-if="row.cache_read_adjustment.account_effective">
               {{ t('admin.accounts.openai.experimentalUsagePolicy.auditCacheWrite') }}:

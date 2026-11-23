@@ -19,7 +19,17 @@ func TestValidateOpenAIAccountUsagePolicy(t *testing.T) {
 	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, true, valid))
 	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, false, nil))
 	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, false, valid))
-	require.Error(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, false, []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 99}}))
+	// Partial probability is valid; the uncovered range keeps the raw usage.
+	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, false, []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 99}}))
+
+	exact := []domain.OpenAINormalInputCacheRule{
+		{TransferMode: domain.OpenAINormalInputCacheTransferModeExact, KeepTokens: 3, ProbabilityPercent: 90},
+	}
+	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, true, exact))
+	require.NoError(t, validateOpenAIAccountUsagePolicy(PlatformOpenAI, AccountTypeAPIKey, true, []domain.OpenAINormalInputCacheRule{
+		{TransferPercent: 50, ProbabilityPercent: 90},
+		{TransferMode: domain.OpenAINormalInputCacheTransferModeExact, KeepTokens: 0, ProbabilityPercent: 10},
+	}))
 
 	tests := []struct {
 		name     string
@@ -33,8 +43,9 @@ func TestValidateOpenAIAccountUsagePolicy(t *testing.T) {
 		{name: "transfer below range", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferPercent: -1, ProbabilityPercent: 100}}},
 		{name: "transfer above range", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferPercent: 101, ProbabilityPercent: 100}}},
 		{name: "zero probability", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 0}}},
-		{name: "probability total below 100", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 99}}},
 		{name: "probability total above 100", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferPercent: 50, ProbabilityPercent: 100}, {TransferPercent: 20, ProbabilityPercent: 1}}},
+		{name: "negative keep tokens", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferMode: domain.OpenAINormalInputCacheTransferModeExact, KeepTokens: -1, ProbabilityPercent: 90}}},
+		{name: "unknown transfer mode", platform: PlatformOpenAI, typ: AccountTypeAPIKey, rules: []domain.OpenAINormalInputCacheRule{{TransferMode: "bogus", ProbabilityPercent: 90}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,6 +78,22 @@ func TestSelectOpenAINormalInputCacheRuleUsesContiguousProbabilityRanges(t *test
 	}
 	_, ok := selectOpenAINormalInputCacheRule(rules, 100)
 	require.False(t, ok)
+}
+
+func TestSelectOpenAINormalInputCacheRuleLeavesUncoveredProbabilityUnselected(t *testing.T) {
+	rules := []domain.OpenAINormalInputCacheRule{
+		{TransferMode: domain.OpenAINormalInputCacheTransferModeExact, KeepTokens: 3, ProbabilityPercent: 90},
+	}
+
+	for roll := 0; roll < 90; roll++ {
+		rule, ok := selectOpenAINormalInputCacheRule(rules, roll)
+		require.True(t, ok, "roll=%d", roll)
+		require.Equal(t, domain.OpenAINormalInputCacheTransferModeExact, rule.NormalizedTransferMode())
+	}
+	for roll := 90; roll < 100; roll++ {
+		_, ok := selectOpenAINormalInputCacheRule(rules, roll)
+		require.False(t, ok, "roll=%d must keep the raw usage", roll)
+	}
 }
 
 func TestSelectOpenAINormalInputCacheRuleNinetyPercent(t *testing.T) {
@@ -159,6 +186,40 @@ func TestTransferOpenAINormalInputToCacheWritePreservesTotalAndReadCache(t *test
 	require.Equal(t, OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100}, raw)
 }
 
+func TestTransferOpenAINormalInputToCacheWriteExactKeepsRequestedTokens(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100}
+
+	effective := TransferOpenAINormalInputToCacheWriteExact(raw, 3)
+
+	require.Equal(t, 897, effective.CacheCreationInputTokens)
+	require.Equal(t, 3, effective.InputTokens-effective.CacheReadInputTokens-effective.CacheCreationInputTokens)
+	require.Equal(t, 100, effective.CacheReadInputTokens)
+	require.Equal(t, 1000, effective.InputTokens)
+	require.Equal(t, OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100}, raw)
+}
+
+func TestTransferOpenAINormalInputToCacheWriteExactDefaultsToKeepNothing(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100}
+
+	effective := TransferOpenAINormalInputToCacheWriteExact(raw, 0)
+
+	require.Equal(t, 900, effective.CacheCreationInputTokens)
+	require.Zero(t, effective.InputTokens-effective.CacheReadInputTokens-effective.CacheCreationInputTokens)
+}
+
+func TestTransferOpenAINormalInputToCacheWriteExactNoOpWithoutExcessInput(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 100, CacheReadInputTokens: 60, CacheCreationInputTokens: 40}
+
+	require.Equal(t, raw, TransferOpenAINormalInputToCacheWriteExact(raw, 0))
+	require.Equal(t, raw, TransferOpenAINormalInputToCacheWriteExact(raw, 5))
+}
+
+func TestTransferOpenAINormalInputToCacheWriteExactTreatsNegativeKeepAsZero(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 10}
+
+	require.Equal(t, TransferOpenAINormalInputToCacheWriteExact(raw, 0), TransferOpenAINormalInputToCacheWriteExact(raw, -5))
+}
+
 func TestTransferOpenAINormalInputToCacheWriteTruncatesFractionalTokens(t *testing.T) {
 	raw := OpenAIUsage{InputTokens: 7, CacheReadInputTokens: 1, CacheCreationInputTokens: 1}
 
@@ -181,6 +242,21 @@ func TestOpenAIUsagePolicySnapshotAppliesAccountBeforeGroup(t *testing.T) {
 	require.Zero(t, finalEffective.CacheCreationInputTokens)
 	require.Equal(t, 1000, finalEffective.InputTokens)
 	require.Equal(t, 100, finalEffective.CacheReadInputTokens)
+}
+
+func TestOpenAIUsagePolicySnapshotAppliesExactAccountRule(t *testing.T) {
+	raw := OpenAIUsage{InputTokens: 1000, CacheReadInputTokens: 100, CacheCreationInputTokens: 100}
+	policy := OpenAIUsagePolicySnapshot{
+		Account: OpenAINormalInputCacheSelection{
+			Enabled: true, TransferMode: domain.OpenAINormalInputCacheTransferModeExact,
+			KeepTokens: 3, ProbabilityPercent: 90,
+		},
+	}
+
+	accountEffective, finalEffective := policy.Apply(raw)
+
+	require.Equal(t, 897, accountEffective.CacheCreationInputTokens)
+	require.Equal(t, accountEffective, finalEffective)
 }
 
 func TestOpenAIUsagePolicyExecutionBindsOneAccountSelection(t *testing.T) {

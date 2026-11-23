@@ -1668,8 +1668,12 @@ export interface UpdateAccountRequest {
   confirm_mixed_channel_risk?: boolean
 }
 
+export type OpenAINormalInputCacheTransferMode = 'percent' | 'exact'
+
 export interface OpenAINormalInputCacheRule {
+  transfer_mode?: OpenAINormalInputCacheTransferMode
   transfer_percent: number
+  keep_tokens?: number
   probability_percent: number
 }
 
@@ -1936,7 +1940,9 @@ export interface CacheReadAdjustment {
   account_policy?: {
     enabled: boolean
     account_id: number
+    transfer_mode?: OpenAINormalInputCacheTransferMode
     transfer_percent: number
+    keep_tokens?: number
     probability_percent: number
   }
   raw: { input_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; image_cache_read_tokens?: number }

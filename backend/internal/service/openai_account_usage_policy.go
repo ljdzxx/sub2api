@@ -16,10 +16,24 @@ const openAIUsagePolicyExecutionGinKey = "openai_usage_policy_execution"
 type openAIUsagePolicyExecutionContextKey struct{}
 
 type OpenAINormalInputCacheSelection struct {
-	Enabled            bool  `json:"enabled"`
-	AccountID          int64 `json:"account_id"`
-	TransferPercent    int   `json:"transfer_percent"`
-	ProbabilityPercent int   `json:"probability_percent"`
+	Enabled            bool   `json:"enabled"`
+	AccountID          int64  `json:"account_id"`
+	TransferMode       string `json:"transfer_mode,omitempty"`
+	TransferPercent    int    `json:"transfer_percent"`
+	KeepTokens         int    `json:"keep_tokens,omitempty"`
+	ProbabilityPercent int    `json:"probability_percent"`
+}
+
+// Apply moves ordinary input tokens into the cache-write bucket according to
+// the selected rule. A disabled selection returns the raw usage unchanged.
+func (s OpenAINormalInputCacheSelection) Apply(raw OpenAIUsage) OpenAIUsage {
+	if !s.Enabled {
+		return raw
+	}
+	if s.TransferMode == domain.OpenAINormalInputCacheTransferModeExact {
+		return TransferOpenAINormalInputToCacheWriteExact(raw, s.KeepTokens)
+	}
+	return TransferOpenAINormalInputToCacheWrite(raw, s.TransferPercent)
 }
 
 type OpenAIUsagePolicySnapshot struct {
@@ -34,10 +48,7 @@ func (s OpenAIUsagePolicySnapshot) HasAdjustments() bool {
 }
 
 func (s OpenAIUsagePolicySnapshot) Apply(raw OpenAIUsage) (OpenAIUsage, OpenAIUsage) {
-	accountEffective := raw
-	if s.Account.Enabled {
-		accountEffective = TransferOpenAINormalInputToCacheWrite(raw, s.Account.TransferPercent)
-	}
+	accountEffective := s.Account.Apply(raw)
 	return accountEffective, ApplyOpenAICacheReadPolicy(accountEffective, s.Group)
 }
 
@@ -88,7 +99,8 @@ func (e *OpenAIUsagePolicyExecution) bindAccount(account *Account, newTurn bool)
 	}
 	e.account = OpenAINormalInputCacheSelection{
 		Enabled: true, AccountID: account.ID,
-		TransferPercent: rule.TransferPercent, ProbabilityPercent: rule.ProbabilityPercent,
+		TransferMode: rule.TransferMode, TransferPercent: rule.TransferPercent,
+		KeepTokens: rule.KeepTokens, ProbabilityPercent: rule.ProbabilityPercent,
 	}
 }
 
@@ -183,16 +195,27 @@ func validateOpenAIAccountUsagePolicy(platform, accountType string, enabled bool
 	}
 	probabilityTotal := 0
 	for _, rule := range rules {
-		if rule.TransferPercent < 0 || rule.TransferPercent > 100 {
-			return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_TRANSFER_PERCENT", "transfer_percent must be an integer between 0 and 100")
+		if rule.KeepTokens < 0 {
+			return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_KEEP_TOKENS", "keep_tokens must be a non-negative integer")
+		}
+		switch rule.NormalizedTransferMode() {
+		case domain.OpenAINormalInputCacheTransferModePercent:
+			if rule.TransferPercent < 0 || rule.TransferPercent > 100 {
+				return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_TRANSFER_PERCENT", "transfer_percent must be an integer between 0 and 100")
+			}
+		case domain.OpenAINormalInputCacheTransferModeExact:
+		default:
+			return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_TRANSFER_MODE", `transfer_mode must be "percent" or "exact"`)
 		}
 		if rule.ProbabilityPercent <= 0 || rule.ProbabilityPercent > 100 {
 			return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_PROBABILITY_PERCENT", "probability_percent must be an integer between 1 and 100")
 		}
 		probabilityTotal += rule.ProbabilityPercent
 	}
-	if probabilityTotal != 100 {
-		return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_PROBABILITY_TOTAL", "probability_percent values must add up to exactly 100")
+	// The remaining probability intentionally falls through to no transfer, so
+	// the total only has to avoid overlapping probability ranges.
+	if probabilityTotal > 100 {
+		return infraerrors.BadRequest("INVALID_OPENAI_ACCOUNT_USAGE_PROBABILITY_TOTAL", "probability_percent values must not add up to more than 100")
 	}
 	return nil
 }
@@ -203,6 +226,19 @@ func TransferOpenAINormalInputToCacheWrite(raw OpenAIUsage, percent int) OpenAIU
 	}
 	ordinary := max(raw.InputTokens-raw.CacheReadInputTokens-raw.CacheCreationInputTokens, 0)
 	transferred := (ordinary/100)*percent + ((ordinary%100)*percent)/100
+	return transferOpenAINormalInputTokensToCacheWrite(raw, transferred)
+}
+
+// TransferOpenAINormalInputToCacheWriteExact moves every ordinary input token
+// above keepTokens into the cache-write bucket. A negative keepTokens keeps
+// nothing ordinary and transfers all mobile input, matching the default of 0.
+func TransferOpenAINormalInputToCacheWriteExact(raw OpenAIUsage, keepTokens int) OpenAIUsage {
+	keepTokens = max(keepTokens, 0)
+	ordinary := max(raw.InputTokens-raw.CacheReadInputTokens-raw.CacheCreationInputTokens, 0)
+	return transferOpenAINormalInputTokensToCacheWrite(raw, ordinary-keepTokens)
+}
+
+func transferOpenAINormalInputTokensToCacheWrite(raw OpenAIUsage, transferred int) OpenAIUsage {
 	if transferred <= 0 {
 		return raw
 	}
