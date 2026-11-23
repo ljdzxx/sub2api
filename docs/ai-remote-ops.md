@@ -6,6 +6,8 @@
 
 2026-11-16 17:56（Asia/Shanghai）支付排查复核：现有 SSH、SFTP 和只读 SQL 入口仍可用；master 已退出，slave 健康运行，`sub2.jucodex.com` 的 Nginx upstream 为 `127.0.0.1:8081`（slave）。slave 镜像 ID 为 `sha256:ff6cfbc80070c470223462324eaaf28712ac2012cb3dcacc40217cfe3ac5a57d`，镜像创建于当日 17:03:39，容器启动于 17:04:24；生产工作目录 `ray` 分支指向 `c66f41021e4870de42483c6304b07e45ba9a0d68`，该目录版本不能单独作为镜像构建提交的证明。站点访问日志可通过只读 SFTP 读取，但已超过 2 GB，应按时间窗口定位并筛选必要字段，不整份下载或落盘完整回调参数。本次未修改生产状态；支付订单排查的脱敏证据见本机 `.codex/production-cache-audit/payment-match-findings-2026-11-16.md`。
 
+2026-11-18 只读复核：`diag status` 现在同时列出 new-api 和 sub2api，按 `project` 筛选。`diag help` 列出按项目指定容器的语法，例如 `diag inspect sub2api slave`、`diag logs sub2api slave 2`。本次已通过后者读取日志，并通过 `diag sql` 确认连接的是 sub2api 只读数据库。
+
 这是现有环境的操作记录。容器状态、镜像、域名路由和业务策略会变化，每次排查须重新读取；不要将历史快照当作实时事实。
 
 ## 1. 快速开始：在本地 Windows PowerShell 执行
