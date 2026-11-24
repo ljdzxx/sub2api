@@ -9,6 +9,7 @@ x-app: &app
       soft: 100000
       hard: 100000
   environment:
+    GATEWAY_OPENAI_COMPACT_MODEL: ${GATEWAY_OPENAI_COMPACT_MODEL:-}
     AUTO_SETUP: "true"
     SERVER_HOST: 0.0.0.0
     SERVER_PORT: "8080"
@@ -69,6 +70,9 @@ services:
       - "${BIND_HOST:-0.0.0.0}:${MASTER_PORT:-8080}:8080"
     volumes:
       - master_data:/app/data
+      # File logs land on the host so they survive volume resets and are easy
+      # to collect without root access to Docker's volumes.
+      - ./data/master/logs:/app/data/logs
 
   slave:
     <<: *app
@@ -80,6 +84,7 @@ services:
       - "${BIND_HOST:-0.0.0.0}:${SLAVE_PORT:-8081}:8080"
     volumes:
       - slave_data:/app/data
+      - ./data/slave/logs:/app/data/logs
 
 networks:
   shared:

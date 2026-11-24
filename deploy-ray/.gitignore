@@ -1,6 +1,7 @@
 .env
 .env.tmp.*
 backups/
+data/
 *.log
 *.local.json
 __pycache__/

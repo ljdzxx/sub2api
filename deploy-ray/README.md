@@ -14,8 +14,8 @@
 
 | Compose 项目 | 服务 | 宿主机端口 | 数据 |
 | --- | --- | --- | --- |
-| `sub2api-ray-master` | `master` | `8080` | 独立 `master_data` 卷 |
-| `sub2api-ray-slave` | `slave` | `8081` | 独立 `slave_data` 卷 |
+| `sub2api-ray-master` | `master` | `8080` | 独立 `master_data` 卷；日志在 `data/master/logs/` |
+| `sub2api-ray-slave` | `slave` | `8081` | 独立 `slave_data` 卷；日志在 `data/slave/logs/` |
 | `sub2api-ray-infra` | `ray-postgres` | 不向宿主机发布 | 共享数据库卷 |
 | `sub2api-ray-infra` | `ray-redis` | `6379` | 共享 Redis 卷 |
 
@@ -219,6 +219,7 @@ bash deploy.sh up master
 - PostgreSQL 显式设置 `PGDATA=/var/lib/postgresql/data`，避免 PostgreSQL 18 数据落入未挂载的位置；Redis 开启 AOF 持久化。
 - Redis 将容器 `6379` 映射到宿主机所有接口的 `6379` 端口，连接仍需 `REDIS_PASSWORD`；应用继续通过共享网络连接 `ray-redis:6379`。
 - `/app/data` 分别存放在两个应用自己的卷中，不共享配置文件写入。需要跨实例访问的上传文件/本地资源应另外配置共享对象存储或专用共享目录。
+- 应用文件日志挂载到宿主机 `deploy-ray/data/<master|slave>/logs/sub2api.log`，两个实例分开存放，`up` 会自动创建目录。宿主机日志由容器 entrypoint 交给 `sub2api`（uid 1000）写入；`deploy.sh logs` 看的是容器 stdout，与此文件是两份独立记录。`data/` 已被 Git 忽略，日志轮转沿用程序默认（100 MB × 10 份 / 7 天 / gzip）。升级到该挂载方式后，旧版本写在 `master_data`/`slave_data` 卷内 `logs/` 的历史文件会被新挂载遮住；需要保留时先在卷内备份。
 - 共享密钥、数据库/Redis 密码变更需要协调两实例和基础服务。不要仅修改 `.env` 就认为已有数据库用户密码也会自动修改。
 - 默认固定项目名和网络名适用于同一 Docker 主机的一套双实例部署。迁移目录不改变卷名；不要在同一主机再用相同名称部署另一套环境。
 

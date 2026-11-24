@@ -167,6 +167,17 @@ class DeploymentTests(unittest.TestCase):
             self.assertTrue(all(call[1:4] == ["--follow", "--tail", "100"] for call in calls))
             self.assertEqual(self.mutations(), [])
 
+    def test_app_logs_are_bind_mounted_per_role(self):
+        compose = (SOURCE / "compose.app.yml").read_text(encoding="utf-8")
+        for role in ("master", "slave"):
+            with self.subTest(role=role):
+                self.assertIn(f"- ./data/{role}/logs:/app/data/logs", compose)
+
+    def test_up_creates_only_the_selected_role_log_directory(self):
+        self.run_script("up", "master")
+        self.assertTrue((self.deploy / "data" / "master" / "logs").is_dir())
+        self.assertFalse((self.deploy / "data" / "slave").exists())
+
     def test_deployment_commands_still_validate_env(self):
         self.env_file.unlink()
         self.run_script("up", "slave", success=False)

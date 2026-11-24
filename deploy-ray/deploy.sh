@@ -144,12 +144,19 @@ require_infra() {
 
 image_for() { app "$1" config --images "$1"; }
 
+# Bind mount target for /app/data/logs; Compose would otherwise create it as
+# root, and the image entrypoint only fixes /app/data ownership after that.
+ensure_log_dir() {
+  mkdir -p -- "$DEPLOY_DIR/data/$1/logs"
+}
+
 up_app() {
   local role=$1 image
   valid_role "$role"
   require_infra
   image=$(image_for "$role")
   docker image inspect "$image" >/dev/null 2>&1 || die "Missing image $image. Run: bash deploy.sh build $role"
+  ensure_log_dir "$role"
   app "$role" up -d --no-deps --no-build --pull never --wait --wait-timeout "$WAIT_TIMEOUT" "$role"
 }
 
