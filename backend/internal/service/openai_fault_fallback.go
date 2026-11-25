@@ -281,6 +281,19 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponseWithFaultFall
 	return s.openAIFaultFallbackHasMatchingAccount(ctx, statusCode, upstreamMsg, upstreamBody)
 }
 
+// shouldFailoverOpenAIPassthroughResponseWithFaultFallback 给透传路径补同样的 400 兜底升级。
+// 开启「自动透传」的账号在 forward() 里提前分流到 forwardOpenAIPassthrough，不会经过
+// shouldFailoverOpenAIUpstreamResponseWithFaultFallback；缺少这一步时，兜底账号对这些账号
+// 的 400 永远不会生效，两种转发路径的行为也不一致。
+func (s *OpenAIGatewayService) shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+	ctx context.Context, account *Account, statusCode int, upstreamMsg string, responseBody []byte,
+) bool {
+	if shouldFailoverOpenAIPassthroughResponse(account, statusCode, responseBody) {
+		return true
+	}
+	return s.openAIFaultFallbackHasMatchingAccount(ctx, statusCode, upstreamMsg, responseBody)
+}
+
 func openAIFaultFallbackPreferredOnly(ctx context.Context) bool {
 	if ctx == nil {
 		return false

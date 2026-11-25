@@ -258,6 +258,89 @@ func TestShouldFailoverOpenAIFaultFallback400(t *testing.T) {
 	})
 }
 
+// TestShouldFailoverOpenAIPassthroughFallback400 验证透传路径与主转发路径行为一致：
+// 透传账号不经过 forward() 的 400 兜底升级，必须在自己的错误分支里补同样的判定，
+// 否则兜底账号对开启了「自动透传」的账号永远不生效。
+func TestShouldFailoverOpenAIPassthroughFallback400(t *testing.T) {
+	// 生产形态：账号 #66 开启 openai_passthrough，上游要求流式请求。
+	source := &Account{
+		ID:       66,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra:    map[string]any{"openai_passthrough": true},
+	}
+	body := []byte(`{"error":{"code":"stream_required","message":"This group only supports streaming generation requests. Set stream to true.","param":"stream","type":"invalid_request_error"}}`)
+	msg := "This group only supports streaming generation requests. Set stream to true."
+
+	matching := Account{
+		ID:       88,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			OpenAIFaultFallbackOnlyExtraKey:        true,
+			OpenAIFaultFallbackStatusCodesExtraKey: []any{400},
+			OpenAIFaultFallbackKeywordsExtraKey:    []any{"This group only supports streaming"},
+			OpenAIFaultFallbackMatchModeExtraKey:   "all",
+		},
+	}
+	nonMatching := matching
+	nonMatching.ID = 89
+	nonMatching.Extra = map[string]any{
+		OpenAIFaultFallbackOnlyExtraKey:        true,
+		OpenAIFaultFallbackStatusCodesExtraKey: []any{400},
+		OpenAIFaultFallbackKeywordsExtraKey:    []any{"insufficient balance"},
+		OpenAIFaultFallbackMatchModeExtraKey:   "all",
+	}
+
+	t.Run("存在匹配兜底账号时透传 400 也会换号", func(t *testing.T) {
+		repo := &faultFallbackRepoStub{accounts: []Account{matching}}
+		svc := &OpenAIGatewayService{accountRepo: repo}
+		require.True(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, msg, body))
+		require.Equal(t, 1, repo.callCount())
+	})
+
+	t.Run("没有兜底账号时保持原样透传 400", func(t *testing.T) {
+		repo := &faultFallbackRepoStub{}
+		svc := &OpenAIGatewayService{accountRepo: repo}
+		require.False(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, msg, body))
+	})
+
+	t.Run("兜底账号条件不匹配时不换号", func(t *testing.T) {
+		svc := &OpenAIGatewayService{accountRepo: &faultFallbackRepoStub{accounts: []Account{nonMatching}}}
+		require.False(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, msg, body))
+	})
+
+	t.Run("候选查询失败时 fail closed", func(t *testing.T) {
+		svc := &OpenAIGatewayService{accountRepo: &faultFallbackRepoStub{err: errors.New("db down")}}
+		require.False(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, msg, body))
+	})
+
+	t.Run("cyber_policy 400 不因兜底账号而换号", func(t *testing.T) {
+		cyber := []byte(`{"error":{"code":"cyber_policy","message":"This group only supports streaming"}}`)
+		svc := &OpenAIGatewayService{accountRepo: &faultFallbackRepoStub{accounts: []Account{matching}}}
+		require.False(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, "This group only supports streaming", cyber))
+	})
+
+	t.Run("5xx 沿用透传原有判定且不查兜底账号", func(t *testing.T) {
+		repo := &faultFallbackRepoStub{}
+		svc := &OpenAIGatewayService{accountRepo: repo}
+		require.True(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadGateway, "boom", []byte(`{}`)))
+		require.Zero(t, repo.callCount())
+	})
+
+	t.Run("没有仓储时透传 400 不换号", func(t *testing.T) {
+		svc := &OpenAIGatewayService{}
+		require.False(t, svc.shouldFailoverOpenAIPassthroughResponseWithFaultFallback(
+			context.Background(), source, http.StatusBadRequest, msg, body))
+	})
+}
+
 // TestOpenAIFaultFallbackCandidateCache 验证进程内候选缓存的命中、过期与并发行为。
 func TestOpenAIFaultFallbackCandidateCache(t *testing.T) {
 	candidate := Account{

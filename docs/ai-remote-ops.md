@@ -72,6 +72,35 @@ ssh @SshArgs $Remote 'diag logs slave 1'
 
 “查一下”按只读范围执行。生产写操作、ACL 修改、清缓存、启停或部署服务需要用户明确授权；已有授权不重复确认。不要因为 master 在历史记录中被停止就自动启动它。
 
+### 2.1 命令必须能被 PreToolUse 钩子放行
+
+仓库里已有自动放行钩子 `.claude/hooks/allow-remote-ssh.js`（`PreToolUse`，匹配 `Bash|PowerShell`）。它只放行**单段、无重定向、无本地代码执行**的命令，命中时才返回 `permissionDecision: allow`；不命中就交回权限提示/auto mode 分类器，而分类器经常直接拒绝只读 SQL，表现出来就像"钩子失灵了"。
+
+钩子会因为这些字符直接拒绝（不区分是否在引号内）：
+
+| 触发拒绝 | 后果 | 正确写法 |
+| --- | --- | --- |
+| `;` | 整条命令不放行，SQL 自带分号也会中招 | `diag sql` 的 SQL **不要写结尾分号**（psql `-c` 不需要） |
+| `&&`、`\|\|` | 视为串联本地命令 | 不要写 `cd /c/vs_project/sub2api && printf ... \| ssh ...`；工作目录已经是仓库根，直接用相对路径或绝对路径 |
+| `>`（任意） | 视为重定向 | SQL 里不要用 `> `、`->>`；时间区间写成 `now() - interval '3 hours' < created_at`，JSON 字段用 `jsonb_extract_path_text(extra, 'key')` |
+| `$(`、反引号、`iex` | 视为本地命令替换 | 不要在命令里嵌子命令；用变量或直接写字面量 |
+
+其它要求：
+
+- `ssh` 的远端首参数必须以 `diag` 开头，主机必须是 `167.160.90.42`（或 `$Remote` 形式）。
+- `sftp` 必须是 `-b` 批处理，并显式写 `-s /usr/lib/openssh/sftp-server`。
+- 管道 `|` 与 `2>&1` 是允许的，可以 `... 'diag logs master 1' | grep ...` 做本地筛选。
+
+推荐的只读查询形态（不带 `cd`、不带分号、不带 `>`）：
+
+```bash
+printf 'SELECT id, status_code FROM ops_error_logs WHERE now() - interval %s < created_at ORDER BY id DESC LIMIT 20\n' "'2 hours'" \
+  | ssh -T -i "$HOME/.ssh/ray_readonly_key" -o BatchMode=yes -o IdentitiesOnly=yes \
+      -o ConnectTimeout=15 -o StrictHostKeyChecking=yes ray@167.160.90.42 'diag sql'
+```
+
+如果某条只读命令仍被拒绝，不要反复改写绕过：确认是不是撞上了上表字符，或直接向用户说明需要放行。
+
 ## 3. 读取服务器文件：SFTP
 
 安装诊断入口后，默认 SFTP 调用曾直接断开；已验证可用的形式是明确指定 `/usr/lib/openssh/sftp-server`。`-s internal-sftp` 不能替代这里的可执行路径。服务器以 `-R` 只读模式运行，仍受文件权限限制。
