@@ -2159,6 +2159,23 @@
         </div>
       </div>
 
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.syncRequestMode') }}</label>
+          <div class="w-full sm:w-64">
+            <Select
+              v-model="openAISyncRequestMode"
+              :options="openAISyncRequestModeOptions"
+              :aria-label="t('admin.accounts.openai.syncRequestMode')"
+              data-testid="edit-openai-sync-request-mode"
+            />
+          </div>
+        </div>
+      </div>
+
       <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
@@ -3537,6 +3554,7 @@ import {
   type OpenAIWSMode,
   resolveOpenAIWSModeFromExtra
 } from '@/utils/openaiWsMode'
+import { OPENAI_SYNC_REQUEST_MODES, resolveOpenAISyncRequestMode, type OpenAISyncRequestMode } from '@/utils/openaiSyncRequestMode'
 import {
   getPresetMappingsByPlatform,
   commonErrorCodes,
@@ -4197,6 +4215,11 @@ const customBaseUrl = ref('')
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)
+const openAISyncRequestMode = ref<OpenAISyncRequestMode>('allow')
+const openAISyncRequestModeOptions = computed(() => OPENAI_SYNC_REQUEST_MODES.map(value => ({
+  value,
+  label: t(`admin.accounts.openai.syncRequestModeOptions.${value}`)
+})))
 const openaiPassthroughModelFilterEnabled = ref(false)
 // OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
 const openaiFlattenNamespacesEnabled = ref(false)
@@ -4709,6 +4732,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
   openaiPassthroughEnabled.value = false
+  openAISyncRequestMode.value = resolveOpenAISyncRequestMode(extra?.openai_sync_request_mode)
   openaiPassthroughModelFilterEnabled.value = false
   openaiFlattenNamespacesEnabled.value = false
   openAILongContextBillingEnabled.value = false
@@ -6298,6 +6322,7 @@ const handleSubmit = async () => {
         newExtra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
         newExtra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
       } else if (props.account.type === 'apikey') {
+        newExtra.openai_sync_request_mode = openAISyncRequestMode.value
         newExtra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
         newExtra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
       }

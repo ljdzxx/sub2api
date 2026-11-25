@@ -816,6 +816,12 @@ export default {
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
         passthroughModelFilter: '透传时按账号模型筛选',
+        syncRequestMode: '同步请求策略',
+        syncRequestModeOptions: {
+          allow: '允许同步请求',
+          deny: '禁止同步请求',
+          only: '仅允许同步请求',
+        },
         passthroughModelFilterDesc:
           '使用账号模型白名单与映射的来源模型名筛选候选账号，映射目标不会改写透传请求的模型名。列表为空时允许所有模型。默认关闭。',
         flattenNamespaces: '摊平 Codex namespace 工具（兼容）',

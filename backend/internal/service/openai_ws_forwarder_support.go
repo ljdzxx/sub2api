@@ -494,6 +494,9 @@ func (s *OpenAIGatewayService) selectAccountByPreviousResponseIDForCapability(
 	if !openAIFaultFallbackAccountAllowed(ctx, account) {
 		return nil, nil
 	}
+	if openAISyncRequestAccountFailureReason(ctx, account) != "" {
+		return nil, nil
+	}
 
 	result, acquireErr := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 	if acquireErr == nil && result.Acquired {

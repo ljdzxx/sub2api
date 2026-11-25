@@ -688,6 +688,12 @@ export default {
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
         passthroughModelFilter: 'Filter passthrough accounts by model',
+        syncRequestMode: 'Synchronous request policy',
+        syncRequestModeOptions: {
+          allow: 'Allow synchronous requests',
+          deny: 'Deny synchronous requests',
+          only: 'Only synchronous requests',
+        },
         passthroughModelFilterDesc:
           'Use the account model whitelist and mapping source names to select this account. Mapping targets do not rename passthrough requests. An empty list allows all models. Disabled by default.',
         flattenNamespaces: 'Flatten Codex namespace tools (compatibility)',

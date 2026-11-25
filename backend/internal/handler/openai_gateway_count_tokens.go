@@ -97,7 +97,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	requestStart := time.Now()
 	account, err := h.gatewayService.SelectAccountForTokenCount(
-		c.Request.Context(),
+		service.WithOpenAIClientStream(c.Request.Context(), false),
 		apiKey.GroupID,
 		sessionHash,
 		routingModel,
@@ -270,7 +270,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		currentRoutingModel = preferredMappedModel
 	}
 	account, err := h.gatewayService.SelectAccountForTokenCount(
-		c.Request.Context(),
+		service.WithOpenAIClientStream(c.Request.Context(), false),
 		apiKey.GroupID,
 		sessionHash,
 		currentRoutingModel,

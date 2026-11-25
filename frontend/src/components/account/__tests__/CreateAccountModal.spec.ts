@@ -219,6 +219,23 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it.each(['allow', 'deny', 'only'])('creates an OpenAI API key with sync request mode %s', async (mode) => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    expect(wrapper.find('[data-testid="create-openai-sync-request-mode"]').exists()).toBe(false)
+    await selectButtonByText(wrapper, 'API Key')
+    const select = wrapper.getComponent('[data-testid="create-openai-sync-request-mode"]')
+    expect(select.props('modelValue')).toBe('allow')
+    expect(select.props('options').map((option: { value: string }) => option.value)).toEqual(['allow', 'deny', 'only'])
+    select.vm.$emit('update:modelValue', mode)
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('sync policy account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('synthetic-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra.openai_sync_request_mode).toBe(mode)
+    wrapper.unmount()
+  })
+
   it('can create a passthrough account with model filtering enabled', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'OpenAI')

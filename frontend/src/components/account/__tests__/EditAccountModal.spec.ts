@@ -336,6 +336,29 @@ describe('EditAccountModal', () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it.each([
+    [undefined, 'allow', 'only'],
+    ['allow', 'allow', 'deny'],
+    ['deny', 'deny', 'only'],
+    ['only', 'only', 'allow'],
+    ['invalid', 'allow', 'deny'],
+  ])('loads sync request mode %s and saves %s -> %s', async (saved, expected, next) => {
+    const account = buildAccount()
+    account.extra = { openai_sync_request_mode: saved, unrelated: 'preserved' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+    const select = wrapper.get<HTMLSelectElement>('[data-testid="edit-openai-sync-request-mode"]')
+    expect(select.element.value).toBe(expected)
+    await select.setValue(next)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
+      openai_sync_request_mode: next,
+      unrelated: 'preserved'
+    })
+    wrapper.unmount()
+  })
+
   it.each(['apikey', 'oauth'])('can opt a passthrough %s account into model filtering without changing groups', async (type) => {
     const account = buildAccount()
     account.type = type

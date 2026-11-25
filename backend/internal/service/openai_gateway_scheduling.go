@@ -394,6 +394,9 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 	if !openAIFaultFallbackAccountAllowed(ctx, account) {
 		return "fault_fallback_only"
 	}
+	if reason := openAISyncRequestAccountFailureReason(ctx, account); reason != "" {
+		return reason
+	}
 	// account_model composite routes publish an alias that only accounts with an
 	// explicit model mapping own. Both scheduler modes (advanced and legacy) must
 	// enforce ownership before any priority/sticky/transport consideration; a
