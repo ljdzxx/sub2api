@@ -511,6 +511,7 @@ type OpenAIGatewayService struct {
 	responseHeaderFilter                *responseheaders.CompiledHeaderFilter
 	codexSnapshotThrottle               *accountWriteThrottle
 	openAIModelsCache                   openAIModelsCache
+	faultFallbackCandidates             openAIFaultFallbackCandidateCache
 	openaiCompatSessionResponses        sessionMemoryCache
 	openaiCompatAnthropicDigestSessions sessionMemoryCache
 	// openaiCodexTurnStateOrigins: 下游会话 seed → openAICodexTurnStateOrigin，
